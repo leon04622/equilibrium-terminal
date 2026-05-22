@@ -1,0 +1,9 @@
+export { ProprietaryIntelligenceOrchestrator } from "@/lib/proprietary/ProprietaryIntelligenceOrchestrator";
+export { ProprietaryMetricsEngine } from "@/lib/proprietary/ProprietaryMetricsEngine";
+export { MarketStructureAnalyticsEngine } from "@/lib/proprietary/MarketStructureAnalyticsEngine";
+export { InstitutionalBenchmarkEngine } from "@/lib/proprietary/InstitutionalBenchmarkEngine";
+export { NetworkIntelligenceEngine } from "@/lib/proprietary/NetworkIntelligenceEngine";
+export { WorkflowEmbeddingEngine } from "@/lib/proprietary/WorkflowEmbeddingEngine";
+export { SignatureFeaturesEngine } from "@/lib/proprietary/SignatureFeaturesEngine";
+export { OperationalMemoryEngine } from "@/lib/proprietary/OperationalMemoryEngine";
+export { IntelligenceDistributionEngine } from "@/lib/proprietary/IntelligenceDistributionEngine";

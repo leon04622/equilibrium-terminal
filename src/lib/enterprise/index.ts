@@ -1,0 +1,11 @@
+export { EnterpriseOrchestrator } from "@/lib/enterprise/EnterpriseOrchestrator";
+export { EnterprisePermissionEngine } from "@/lib/enterprise/EnterprisePermissionEngine";
+export { OrganizationWorkspaceEngine } from "@/lib/enterprise/OrganizationWorkspaceEngine";
+export { MultiDeskOperationsEngine } from "@/lib/enterprise/MultiDeskOperationsEngine";
+export { PortfolioTreasuryEngine } from "@/lib/enterprise/PortfolioTreasuryEngine";
+export { EnterpriseAlertGovernanceEngine } from "@/lib/enterprise/EnterpriseAlertGovernanceEngine";
+export { ComplianceAuditEngine } from "@/lib/enterprise/ComplianceAuditEngine";
+export { EnterpriseCommunicationEngine } from "@/lib/enterprise/EnterpriseCommunicationEngine";
+export { OrganizationalKnowledgeEngine } from "@/lib/enterprise/OrganizationalKnowledgeEngine";
+export { MultiTenantEngine } from "@/lib/enterprise/MultiTenantEngine";
+export { EnterpriseReliabilityEngine } from "@/lib/enterprise/EnterpriseReliabilityEngine";

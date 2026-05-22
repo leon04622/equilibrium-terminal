@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --terminal-bg: 222 47% 4%;
+    --terminal-panel: 222 47% 4%;
+    --terminal-border: 215 28% 17%;
+    --terminal-bid: 152 100% 50%;
+    --terminal-ask: 345 100% 60%;
+    --terminal-mid: 210 20% 92%;
+    --terminal-muted: 215 16% 47%;
+    --neon-green: 152 100% 50%;
+    --neon-ruby: 345 100% 60%;
+    --neon-amber: 40 100% 50%;
+    --neon-cyan: 187 100% 50%;
+  }
+
+  *,
+  *::before,
+  *::after {
+    @apply rounded-none border-slate-800;
+  }
+
+  html,
+  body {
+    @apply h-full overflow-hidden bg-slate-950 font-mono tracking-tighter text-slate-200 antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgb(0 255 136 / 0.08) !important;
+  border: 0.5px solid #1e293b !important;
+  border-radius: 0 !important;
+  opacity: 1 !important;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  border-color: #475569 !important;
+  border-radius: 0 !important;
+}
+
+.react-grid-layout {
+  @apply rounded-none;
+}
+
+/* Phase 26 — institutional experience layer */
+html[data-eq-calm="1"] .eq-flash {
+  animation-duration: 0.12s !important;
+}
+
+html[data-eq-reduced-motion="1"] .eq-flash,
+html[data-eq-reduced-motion="1"] .animate-pulse {
+  animation: none !important;
+}
+
+html[data-eq-density="compact"] .layout {
+  --eq-density-pad: 2px;
+}
+
+html[data-eq-density="comfortable"] .layout {
+  --eq-density-pad: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-flash,
+  .animate-pulse {
+    animation: none !important;
+  }
+}

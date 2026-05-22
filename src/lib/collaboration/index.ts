@@ -1,0 +1,10 @@
+export { CollaborationOrchestrator } from "@/lib/collaboration/CollaborationOrchestrator";
+export { CollaborationPermissionEngine } from "@/lib/collaboration/CollaborationPermissionEngine";
+export { TeamPresenceEngine } from "@/lib/collaboration/TeamPresenceEngine";
+export { DeskAnnotationEngine } from "@/lib/collaboration/DeskAnnotationEngine";
+export { TeamCommunicationEngine } from "@/lib/collaboration/TeamCommunicationEngine";
+export { ResearchDistributionEngine } from "@/lib/collaboration/ResearchDistributionEngine";
+export { TeamAlertEngine } from "@/lib/collaboration/TeamAlertEngine";
+export { SharedWorkspaceEngine } from "@/lib/collaboration/SharedWorkspaceEngine";
+export { ActivityTimelineEngine } from "@/lib/collaboration/ActivityTimelineEngine";
+export { OrganizationalMemoryEngine } from "@/lib/collaboration/OrganizationalMemoryEngine";
