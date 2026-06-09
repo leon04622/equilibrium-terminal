@@ -1,5 +1,5 @@
 export { tacticalOverlayRenderer, TacticalOverlayRenderer } from "./TacticalOverlayRenderer";
-export type { OverlayViewport } from "./TacticalOverlayRenderer";
+export type { OverlayDrawContext, OverlayViewport } from "./TacticalOverlayRenderer";
 export {
   buildOverlayFrame,
   computeStressGauge,

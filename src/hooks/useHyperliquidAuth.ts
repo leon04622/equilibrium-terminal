@@ -22,6 +22,9 @@ import {
   switchWalletToHyperliquidSigningChain,
 } from "@/lib/wallet/hyperliquid-wallet";
 import type { ExecuteOrderParams } from "@/types/exchange";
+import { AuditLogEngine } from "@/lib/security/AuditLogEngine";
+import { executionAuthorizationEngine } from "@/lib/security/ExecutionAuthorizationEngine";
+import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
 
 function formatAuthError(err: unknown): string {
@@ -199,6 +202,27 @@ export function useHyperliquidAuth() {
   const executeOrderSigned = useCallback(
     async (params: ExecuteOrderParams) => {
       const pk = agentPrivateKeyRef.current;
+      const terminal = useHyperliquidStore.getState();
+      const auth = executionAuthorizationEngine.authorize({
+        walletAddress: address ?? null,
+        claims: useProductionConfigStore.getState().claims,
+        oneClickEnabled,
+        connectionStatus: terminal.connectionStatus,
+        lastMessageAt: terminal.lastMessageAt,
+        markPx: terminal.book?.mid ?? null,
+        operation: "place_order",
+      });
+      if (!auth.allowed) {
+        AuditLogEngine.logExecution(
+          auth.auditAction,
+          "denied",
+          auth.reason,
+          address ?? null,
+          params.coin,
+        );
+        throw new Error(auth.reason);
+      }
+
       if (!pk || !oneClickEnabled) {
         throw new Error("Enable 1-Click Trading (approve agent) first");
       }
@@ -213,6 +237,13 @@ export function useHyperliquidAuth() {
             : await resolveAssetIndex(params.coin);
         const res = await executeOrder({ ...params, asset }, pk);
         if (res.status !== "ok") throw new Error("Order rejected by exchange");
+        AuditLogEngine.logExecution(
+          "place_order",
+          "ok",
+          `${params.isBuy ? "buy" : "sell"} ${params.size} ${params.coin}`,
+          address ?? null,
+          params.coin,
+        );
         if (address) await refreshAccount(address);
         return res;
       } catch (err) {

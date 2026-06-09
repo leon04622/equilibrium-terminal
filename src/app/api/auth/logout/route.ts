@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { AuthEngine } from "@/lib/infrastructure/AuthEngine";
-import { getJwtSecret } from "@/lib/infrastructure/jwt";
+import { authEngine } from "@/lib/security/ApiSecurityGuard";
+import { appendAudit } from "@/lib/security/server/auditStore";
+import { revokeDevicesForSession } from "@/lib/security/server/deviceSessionStore";
 import { revokeSession } from "@/lib/infrastructure/server/sessionStore";
 
 export const runtime = "nodejs";
-
-const authEngine = new AuthEngine({ jwtSecret: getJwtSecret() });
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -15,6 +14,17 @@ export async function POST() {
     const claims = await authEngine.verifyAccessToken(token);
     if (claims?.sid) {
       revokeSession(claims.sid);
+      revokeDevicesForSession(claims.sid);
+      appendAudit({
+        category: "auth",
+        action: "logout",
+        actorWallet: claims.wallet,
+        sessionId: claims.sid,
+        resource: "session",
+        outcome: "ok",
+        detail: "session revoked",
+        traceId: `tr_logout_${Date.now()}`,
+      });
     }
   }
 

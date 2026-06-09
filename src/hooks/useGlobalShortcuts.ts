@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { AssetWorkspaceOrchestrator } from "@/lib/workflow/AssetWorkspaceOrchestrator";
 import { terminalBus } from "@/store/eventBus";
 import { useTerminalStore } from "@/store/terminalStore";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 import { useTraderWorkflowStore } from "@/store/useTraderWorkflowStore";
 
 function isInputTarget(target: EventTarget | null): boolean {
@@ -34,6 +35,15 @@ export function useGlobalShortcuts(enabled = true): void {
           useTerminalStore.getState().selectedAsset?.coin ??
           "BTC";
         AssetWorkspaceOrchestrator.open(coin, { source: "shortcut" });
+        return;
+      }
+
+      if (e.key === "?" && !mod) {
+        e.preventDefault();
+        useOperatorGuideStore.getState().toggleExplainMode();
+        terminalBus.emit("guide:explain-toggle", {
+          active: useOperatorGuideStore.getState().explainModeActive,
+        });
         return;
       }
 
@@ -80,6 +90,7 @@ export function useGlobalShortcuts(enabled = true): void {
           break;
         case "g":
           if (e.shiftKey) focus("integrations");
+          else focus("globalstrategy");
           break;
         case "p":
           if (e.shiftKey) focus("propintel");

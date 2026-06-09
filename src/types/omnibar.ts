@@ -26,4 +26,27 @@ export type OmniIntent =
       raw: string;
       path: "fast";
     }
-  | { type: "LAUNCH_ROUTINE"; routineId: string; raw: string; path: "fast" };
+  | { type: "LAUNCH_ROUTINE"; routineId: string; raw: string; path: "fast" }
+  | { type: "WEDGE_LAYOUT"; deskFocus: boolean; raw: string; path: "fast" }
+  | {
+      type: "SET_TERMINAL_MODE";
+      mode: string;
+      raw: string;
+      path: "fast";
+    }
+  | { type: "COMMAND_HELP"; raw: string; path: "fast" }
+  | {
+      type: "EXEC_SHORTCUT";
+      side: "buy" | "sell";
+      coin: string;
+      size?: number;
+      raw: string;
+      path: "fast";
+    }
+  | {
+      type: "EXPLAIN_MODE";
+      toggle?: boolean;
+      active?: boolean;
+      raw: string;
+      path: "fast";
+    };

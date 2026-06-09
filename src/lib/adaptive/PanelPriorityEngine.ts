@@ -1,4 +1,5 @@
 import { MODE_PANEL_WEIGHTS } from "@/lib/adaptive/PanelDefinitions";
+import { WEDGE_CORE_PANEL_IDS } from "@/lib/wedge/WedgeManifest";
 import type {
   PanelPriorityScore,
   TerminalMode,
@@ -8,14 +9,20 @@ import type {
 import { ALL_WORKSPACE_PANEL_IDS } from "@/types/adaptive-workspace";
 import type { LayoutFocusTrend } from "@/types/trader-telemetry";
 
-/** Core trading panels must never disappear from the workspace. */
+/** Core panels must never disappear from the workspace. */
 export const NEVER_HIDE_PANEL_IDS = new Set<string>([
-  "macro",
-  "chart",
   "hyperbook",
+  "chart",
   "intelligence",
   "ticket",
   "positions",
+  "domladder",
+  "slippageradar",
+  "alerts",
+  "surveillance",
+  "macro",
+  "copilot",
+  "proactive",
 ]);
 
 const REGIME_BOOST: Record<string, Partial<Record<WorkspacePanelId, number>>> = {

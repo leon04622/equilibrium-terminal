@@ -12,9 +12,9 @@ import { useTerminalStore } from "@/store/terminalStore";
 import type { DeskRole } from "@/types/network";
 import type { TeamRole } from "@/types/production-platform";
 
-const TICK_MS = 2_000;
-const SYNC_MS = 15_000;
-const LAYOUT_SYNC_MS = 8_000;
+const TICK_MS = 8_000;
+const SYNC_MS = 45_000;
+const LAYOUT_SYNC_MS = 20_000;
 
 function mapPlatformToDeskRole(role: TeamRole): DeskRole {
   if (role === "admin") return "admin";
@@ -46,7 +46,8 @@ export function useCollaboration(
       bridgeAuth,
     );
 
-    const refresh = () => {
+    const refresh = (force = false) => {
+      if (!force && document.hidden) return;
       const snapshot = CollaborationOrchestrator.snapshot();
       useCollaborationStore.getState().setSnapshot(snapshot);
 
@@ -70,10 +71,11 @@ export function useCollaboration(
       }
     };
 
-    refresh();
-    const tickId = window.setInterval(refresh, TICK_MS);
+    refresh(true);
+    const tickId = window.setInterval(() => refresh(), TICK_MS);
 
     const syncId = window.setInterval(() => {
+      if (document.hidden) return;
       const snap = useCollaborationStore.getState().snapshot;
       if (!snap) return;
       void fetch("/api/collaboration/sync", {
@@ -88,6 +90,7 @@ export function useCollaboration(
     }, SYNC_MS);
 
     const layoutSyncId = window.setInterval(() => {
+      if (document.hidden) return;
       const currentLayout = layoutRef.current;
       if (!currentLayout?.length) return;
       const entitled = useProductionConfigStore.getState().isEntitled("teamNetEnabled");
@@ -130,10 +133,10 @@ export function useCollaboration(
       });
     });
 
-    const offCrdt = terminalBus.on("network:crdt", refresh);
-    const offSignal = terminalBus.on("network:signal-trace", refresh);
-    const unsubSignals = useNetworkGraphStore.subscribe((s) => s.signalsVersion, refresh);
-    const unsubNet = useNetworkGraphStore.subscribe((s) => s.activeDeskId, refresh);
+    const offCrdt = terminalBus.on("network:crdt", () => refresh());
+    const offSignal = terminalBus.on("network:signal-trace", () => refresh());
+    const unsubSignals = useNetworkGraphStore.subscribe((s) => s.signalsVersion, () => refresh());
+    const unsubNet = useNetworkGraphStore.subscribe((s) => s.activeDeskId, () => refresh());
 
     return () => {
       window.clearInterval(tickId);

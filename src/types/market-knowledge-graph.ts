@@ -14,7 +14,13 @@ export type GraphEntityKind =
   | "funding_regime"
   | "volatility_regime"
   | "alert"
-  | "summary";
+  | "summary"
+  | "stablecoin"
+  | "protocol"
+  | "treasury"
+  | "derivatives_venue"
+  | "market_maker"
+  | "liquidity_pool";
 
 export type GraphRelation =
   | "affects"

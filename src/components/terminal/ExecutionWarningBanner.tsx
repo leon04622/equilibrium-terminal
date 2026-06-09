@@ -1,5 +1,6 @@
 "use client";
 
+import { evaluateExecutionGuards } from "@/lib/wedge/executionGuards";
 import { useExecutionIntelligenceStore } from "@/store/useExecutionIntelligenceStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import { TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
@@ -8,12 +9,21 @@ import { cn } from "@/lib/utils";
 /** Pre-trade execution warnings — visibility only, not trade advice. */
 export function ExecutionWarningBanner() {
   const book = useTerminalStore((s) => s.book);
+  const connectionStatus = useTerminalStore((s) => s.connectionStatus);
+  const lastMessageAt = useTerminalStore((s) => s.lastMessageAt);
   const slippage = useExecutionIntelligenceStore((s) => s.slippage);
   const spreadBps = book?.spreadBps ?? slippage.spreadBps;
   const slipWarn = slippage.riskTier === "high" || slippage.riskTier === "critical";
   const spreadWarn = spreadBps > 14;
 
-  if (!spreadWarn && !slipWarn) return null;
+  const guard = evaluateExecutionGuards({
+    connectionStatus,
+    lastMessageAt,
+    markPx: book?.mid,
+    bookUpdatedAt: book?.time ?? null,
+  });
+
+  if (!spreadWarn && !slipWarn && !guard.blocked) return null;
 
   return (
     <div
@@ -24,6 +34,7 @@ export function ExecutionWarningBanner() {
         terminalSkin.textWarn,
       )}
     >
+      {guard.blocked ? `${guard.reason} · ` : ""}
       {spreadWarn ? `Spread ${spreadBps.toFixed(1)} bps · ` : ""}
       {slipWarn ? `Slippage ${slippage.riskTier.toUpperCase()} · ` : ""}
       verify liquidity before submit

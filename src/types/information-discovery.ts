@@ -10,7 +10,10 @@ export type IndexCategory =
   | "volatility"
   | "command"
   | "wire"
-  | "agent";
+  | "agent"
+  | "watchlist"
+  | "workspace"
+  | "alert";
 
 export interface IntelligenceIndexEntry {
   id: string;

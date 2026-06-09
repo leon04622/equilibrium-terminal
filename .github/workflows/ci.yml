@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          EQUILIBRIUM_JWT_SECRET: ci-jwt-secret-minimum-32-characters-long
+          NEXT_PUBLIC_EQ_ENV: qa
+
+      - name: Health check script
+        run: node scripts/ops/health-check.mjs
+        env:
+          EQ_HEALTH_URL: http://localhost:3000/api/ops/health

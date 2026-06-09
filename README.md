@@ -19,6 +19,14 @@ Dev (clean cache on OneDrive):
 npm run dev:clean
 ```
 
+## V1 wedge — Hyperliquid execution desk
+
+Default layout: **V1 Hyperliquid execution desk** (HL execution + real-time intel).
+
+- Toggle **EXPAND** for the full multi-phase dev workspace
+- Wedge: [docs/WEDGE_STRATEGY.md](docs/WEDGE_STRATEGY.md)
+- **90-day ship plan:** [docs/90_DAY_ROADMAP.md](docs/90_DAY_ROADMAP.md) (currently **Phase 1 — Stabilization**)
+
 ## Phase 31 — Crypto Financial OS
 
 - Panel: `ecosystem` — `/ecosystem`, `Ctrl+Shift+E`

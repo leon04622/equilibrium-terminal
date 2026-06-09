@@ -59,3 +59,20 @@ export const TRUST_SIGNAL = {
   degraded: "DEGRADED",
   critical: "ATTENTION",
 } as const;
+
+/** Phase 59 — alert & loading presentation (calm institutional tone). */
+export const ALERT_PRESENTATION = {
+  info: "border-slate-800 text-slate-500",
+  watch: "border-amber-950/60 text-amber-400/90",
+  critical: "border-rose-950/60 text-rose-400/90",
+} as const;
+
+export const LOADING_CHROME = {
+  skeleton: "animate-pulse bg-slate-900/80",
+  label: "text-slate-600",
+} as const;
+
+export const TRANSITION_CALM = {
+  panel: "transition-colors duration-150 ease-out",
+  tab: "transition-colors duration-100",
+} as const;

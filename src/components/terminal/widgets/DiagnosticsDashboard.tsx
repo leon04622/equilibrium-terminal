@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { budgetStatus } from "@/lib/performance/PerformanceBudgets";
+import { usePerformanceStore } from "@/store/usePerformanceStore";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 
 function frictionTone(score: number): "up" | "warn" | "down" {
@@ -47,6 +49,8 @@ function MetricCell({
 }
 
 export function DiagnosticsDashboard() {
+  const runtime = usePerformanceStore((s) => s.vitals);
+  const runtimeStatus = budgetStatus(runtime);
   const metrics = useTraderTelemetryStore((s) => s.metrics);
   const vitals = useTraderTelemetryStore((s) => s.vitals);
   const segment = useTraderTelemetryStore((s) => s.segment);
@@ -127,6 +131,38 @@ export function DiagnosticsDashboard() {
           label="STREAM"
           value={vitals.lastStreamStatus.toUpperCase()}
           tone={vitals.lastStreamStatus === "connected" ? "up" : "warn"}
+        />
+      </div>
+
+      <div className="grid shrink-0 grid-cols-4 gap-px border-t border-slate-800 bg-slate-800 p-px">
+        <MetricCell
+          label="FPS"
+          value={String(runtime.fps)}
+          tone={runtimeStatus === "ok" ? "up" : runtimeStatus === "warn" ? "warn" : "down"}
+        />
+        <MetricCell label="P95 FR" value={runtime.frameTimeP95Ms.toFixed(1)} unit="ms" />
+        <MetricCell label="STR/s" value={runtime.streamEps.toFixed(1)} tone="ai" />
+        <MetricCell
+          label="FLUSH"
+          value={runtime.lastFlushMs.toFixed(2)}
+          unit="ms"
+          tone={runtime.lastFlushMs > 12 ? "warn" : undefined}
+        />
+        <MetricCell
+          label="COAL"
+          value={String(runtime.streamCoalesced)}
+          tone={runtime.streamCoalesced > 20 ? "warn" : undefined}
+        />
+        <MetricCell
+          label="DROP ST"
+          value={String(runtime.streamDropped)}
+          tone={runtime.streamDropped > 0 ? "down" : undefined}
+        />
+        <MetricCell label="RT HEAP" value={String(runtime.heapMb)} unit="MB" />
+        <MetricCell
+          label="STRESS"
+          value={runtime.stressActive ? runtime.stressReason.toUpperCase() : "OFF"}
+          tone={runtime.stressActive ? "warn" : "up"}
         />
       </div>
 

@@ -8,8 +8,13 @@ import type { AssetWorkspaceMode } from "@/types/trader-workflow";
 import type { RoutineId } from "@/types/daily-operations";
 import { knowledgeGraphIndexer } from "@/lib/network/KnowledgeGraphIndexer";
 import { useMarketKnowledgeGraphStore } from "@/store/useMarketKnowledgeGraphStore";
-import { IntentParser } from "@/lib/omnibar/IntentParser";
+import { OmniCommandRouter } from "@/lib/omnibar/OmniCommandRouter";
+import { wedgeResolveWidget } from "@/lib/wedge/wedgeAccess";
+import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
+import { useWedgeStore } from "@/store/useWedgeStore";
+import type { TerminalMode } from "@/types/adaptive-workspace";
 import { terminalBus } from "@/store/eventBus";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 import { useInformationDiscoveryStore } from "@/store/useInformationDiscoveryStore";
 import { useNetworkGraphStore } from "@/store/useNetworkGraphStore";
 import { useTerminalStore } from "@/store/terminalStore";
@@ -47,6 +52,43 @@ export function useOmniCommand() {
           });
           terminalBus.emit("widget:focus", { widgetId: "ticket" });
           return true;
+        case "EXEC_SHORTCUT":
+          selectAssetByCoin(intent.coin, "omnibar");
+          applyTradeTicketDraft({
+            side: intent.side,
+            size: intent.size !== undefined ? String(intent.size) : "",
+            coin: intent.coin,
+          });
+          terminalBus.emit("widget:focus", { widgetId: "ticket" });
+          return true;
+        case "WEDGE_LAYOUT":
+          useWedgeStore.getState().setDeskFocusMode(intent.deskFocus);
+          terminalBus.emit("widget:focus", { widgetId: "chart" });
+          return true;
+        case "SET_TERMINAL_MODE":
+          useAdaptiveWorkspaceStore
+            .getState()
+            .setMode(intent.mode as TerminalMode);
+          terminalBus.emit("widget:focus", { widgetId: "chart" });
+          return true;
+        case "COMMAND_HELP":
+          return true;
+        case "EXPLAIN_MODE": {
+          const store = useOperatorGuideStore.getState();
+          if (intent.toggle) {
+            store.toggleExplainMode();
+          } else if (intent.active === true) {
+            store.setExplainMode(true);
+          } else if (intent.active === false) {
+            store.setExplainMode(false);
+          }
+          store.setSidePanelOpen(true);
+          terminalBus.emit("guide:explain-toggle", {
+            active: useOperatorGuideStore.getState().explainModeActive,
+          });
+          terminalBus.emit("widget:focus", { widgetId: "explaindesk" });
+          return true;
+        }
         case "WATCHLIST_ADD":
           useInformationDiscoveryStore.getState().addToWatchlist(intent.coin);
           selectAssetByCoin(intent.coin, "omnibar");
@@ -66,7 +108,9 @@ export function useOmniCommand() {
           if (!entry) return false;
           if (entry.routeCoin) selectAssetByCoin(entry.routeCoin, "omnibar");
           if (entry.routeWidget) {
-            terminalBus.emit("widget:focus", { widgetId: entry.routeWidget });
+            terminalBus.emit("widget:focus", {
+              widgetId: wedgeResolveWidget(entry.routeWidget),
+            });
           }
           return true;
         }
@@ -133,7 +177,7 @@ export function useOmniCommand() {
 
   const execute = useCallback(
     (raw: string): OmniCommandResult => {
-      const { intent, elapsedMs, path } = IntentParser.parse(raw);
+      const { intent, elapsedMs, path } = OmniCommandRouter.parse(raw);
 
       if (path === "fast") {
         const handled = executeIntent(intent);
@@ -167,7 +211,9 @@ export function useOmniCommand() {
   const submit = useCallback(
     (raw: string): OmniCommandResult => {
       const result = execute(raw);
-      if (result.handled) setOmniOpen(false);
+      if (result.handled && result.intent.type !== "COMMAND_HELP") {
+        setOmniOpen(false);
+      }
       return result;
     },
     [execute, setOmniOpen],

@@ -1,3 +1,4 @@
+import { wedgeAllowsCommand } from "@/lib/wedge/wedgeAccess";
 import { useAgentOperationsStore } from "@/store/useAgentOperationsStore";
 import { useMarketAtmosphereStore } from "@/store/useMarketAtmosphereStore";
 import { useTerminalStore } from "@/store/terminalStore";
@@ -137,11 +138,17 @@ export class IntelligenceIndex {
       { cmd: "/integrations", desc: "Industry integrations & embeddable infrastructure", widget: "integrations" },
       { cmd: "/propintel", desc: "Proprietary market intelligence & EQ metrics", widget: "propintel" },
       { cmd: "/ecosystem", desc: "Crypto financial operating ecosystem", widget: "ecosystem" },
+      {
+        cmd: "/globalstrategy",
+        desc: "Global infrastructure execution strategy",
+        widget: "globalstrategy",
+      },
       { cmd: "/incidents", desc: "Market incident monitor", widget: "newswire" },
       { cmd: "/routine", desc: "Launch operational routine", widget: "dailyops" },
       { cmd: "/trade", desc: "Prefill execution ticket", widget: "ticket" },
     ];
     for (const c of cmds) {
+      if (!wedgeAllowsCommand(c.cmd)) continue;
       items.push(
         entry({
           id: `cmd-${c.cmd}`,

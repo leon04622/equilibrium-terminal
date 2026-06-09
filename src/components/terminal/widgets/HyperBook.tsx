@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useSyncExternalStore } from "react";
+import { memo, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { cn, formatPrice, formatSize, formatSpreadBps } from "@/lib/utils";
 import { terminalSkin, TERMINAL_LAYOUT, TERMINAL_TYPO } from "@/lib/theme";
 import type { OrderBookLevel } from "@/types/hyperliquid";
@@ -8,6 +8,9 @@ import { terminalBus } from "@/store/eventBus";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
 
 const DEPTH_LEVELS = 24;
+const WALL_RATIO = 2.4;
+
+export type DepthDisplayMode = "raw" | "cumulative";
 
 function subscribeBook(callback: () => void) {
   return useHyperliquidStore.subscribe((s) => s.bookVersion, () => callback());
@@ -25,50 +28,85 @@ function getMidFlash() {
   return useHyperliquidStore.getState().midFlash;
 }
 
+/** Detect liquidity walls — size much larger than peers at nearby levels. */
+function wallThreshold(levels: OrderBookLevel[]): number {
+  if (levels.length === 0) return Infinity;
+  const sizes = levels.map((l) => l.size).filter((s) => s > 0);
+  if (sizes.length === 0) return Infinity;
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  return Math.max(median * WALL_RATIO, sorted[sorted.length - 1]! * 0.55);
+}
+
+function cumulativeSizes(levels: OrderBookLevel[]): number[] {
+  let sum = 0;
+  return levels.map((l) => {
+    sum += l.size;
+    return sum;
+  });
+}
+
 const DepthRow = memo(function DepthRow({
   level,
   side,
-  maxSize,
+  barSize,
+  maxBar,
+  isWall,
   columns,
 }: {
   level: OrderBookLevel;
   side: "bid" | "ask";
-  maxSize: number;
+  barSize: number;
+  maxBar: number;
+  isWall: boolean;
   columns: "bid" | "ask";
 }) {
-  const widthPct = maxSize > 0 ? Math.min(100, (level.size / maxSize) * 100) : 0;
+  const widthPct = maxBar > 0 ? Math.min(100, (barSize / maxBar) * 100) : 0;
   const isBid = side === "bid";
 
   return (
     <div
       className={cn(
-        "relative grid grid-cols-[1fr_auto] items-center px-1",
+        "relative grid grid-cols-[1fr_auto] items-center px-0.5",
         TERMINAL_LAYOUT.bookRowClass,
         TERMINAL_TYPO.dataSm,
+        isWall && "bg-slate-800/30",
       )}
+      data-book-level={level.price}
     >
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-y-0 rounded-none",
-          isBid ? "right-0 " + terminalSkin.depthBid : "left-0 " + terminalSkin.depthAsk,
-        )}
-        style={{ width: `${widthPct}%` }}
-      />
+      {/* Center-out depth bar: bids grow left from spine, asks grow right from spine. */}
+      <div className="relative h-full min-h-[16px]">
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-y-0 rounded-none transition-[width,opacity] duration-300 ease-out",
+            isBid
+              ? cn("right-0", terminalSkin.depthBid, isWall && "bg-[#00ff88]/35 ring-1 ring-emerald-500/25")
+              : cn("left-0", terminalSkin.depthAsk, isWall && "bg-[#ff3366]/35 ring-1 ring-rose-500/25"),
+          )}
+          style={{ width: `${widthPct}%` }}
+        />
+        <span
+          className={cn(
+            "relative z-10 tabular-nums",
+            isBid ? "float-right pr-1" : "float-left pl-1",
+            columns === "bid"
+              ? isBid
+                ? terminalSkin.textUp
+                : "text-slate-600"
+              : !isBid
+                ? terminalSkin.textDown
+                : "text-slate-600",
+          )}
+        >
+          {formatPrice(level.price)}
+        </span>
+      </div>
       <span
         className={cn(
-          "relative z-10 tabular-nums",
-          columns === "bid"
-            ? isBid
-              ? terminalSkin.textUp
-              : "text-slate-600"
-            : !isBid
-              ? terminalSkin.textDown
-              : "text-slate-600",
+          "relative z-10 w-12 shrink-0 text-right tabular-nums",
+          isWall ? "font-semibold text-slate-200" : "text-slate-400",
         )}
       >
-        {formatPrice(level.price)}
-      </span>
-      <span className="relative z-10 pl-2 text-right tabular-nums text-slate-400">
         {formatSize(level.size)}
       </span>
     </div>
@@ -94,6 +132,7 @@ const MidStrip = memo(function MidStrip({
 }) {
   return (
     <div
+      data-book-region="spread"
       className={cn(
         "flex shrink-0 items-center justify-between border-y-[0.5px] border-slate-800 bg-slate-900 px-1",
         TERMINAL_LAYOUT.bookRowClass,
@@ -115,19 +154,30 @@ const MidStrip = memo(function MidStrip({
   );
 });
 
+interface DepthRowData {
+  level: OrderBookLevel;
+  barSize: number;
+  isWall: boolean;
+}
+
 function BookPane({
   side,
-  maxSize,
-  padded,
+  rows,
+  maxBar,
+  depthMode,
   className,
 }: {
   side: "bid" | "ask";
-  maxSize: number;
-  padded: (OrderBookLevel | null)[];
+  rows: (DepthRowData | null)[];
+  maxBar: number;
+  depthMode: DepthDisplayMode;
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
+    <div
+      className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}
+      data-book-region={side === "ask" ? "asks" : "bids"}
+    >
       <div
         className={cn(
           terminalSkin.borderB,
@@ -137,7 +187,9 @@ function BookPane({
         )}
       >
         <span>{side === "ask" ? "ASK" : "BID"}</span>
-        <span className="text-slate-500">PX · SZ</span>
+        <span className="text-slate-500">
+          {depthMode === "cumulative" ? "CUM · PX · SZ" : "PX · SZ"}
+        </span>
       </div>
       <div
         className={cn(
@@ -145,17 +197,19 @@ function BookPane({
           side === "bid" ? "flex flex-col justify-end" : "flex flex-col",
         )}
       >
-        {padded.map((level, i) =>
-          level ? (
+        {rows.map((row, i) =>
+          row ? (
             <DepthRow
-              key={`${side}-${level.price}-${i}`}
-              level={level}
+              key={`${side}-${i}`}
+              level={row.level}
               side={side}
-              maxSize={maxSize}
+              barSize={row.barSize}
+              maxBar={maxBar}
+              isWall={row.isWall}
               columns={side}
             />
           ) : (
-            <EmptyRow key={`${side}-empty-${i}`} />
+            <EmptyRow key={`${side}-${i}`} />
           ),
         )}
       </div>
@@ -171,6 +225,8 @@ export function HyperBook() {
   const connectionStatus = useHyperliquidStore((s) => s.connectionStatus);
   const clearMidFlash = useHyperliquidStore((s) => s.clearMidFlash);
 
+  const [depthMode, setDepthMode] = useState<DepthDisplayMode>("raw");
+
   useEffect(() => {
     return terminalBus.on("asset:select", () => {});
   }, []);
@@ -183,26 +239,81 @@ export function HyperBook() {
 
   const bids = book?.bids.slice(0, DEPTH_LEVELS) ?? [];
   const asks = book?.asks.slice(0, DEPTH_LEVELS) ?? [];
-  const maxBid = book?.maxBidSize ?? 1;
-  const maxAsk = book?.maxAskSize ?? 1;
 
-  const paddedBids: (OrderBookLevel | null)[] = [
-    ...Array(Math.max(0, DEPTH_LEVELS - bids.length)).fill(null),
-    ...bids,
-  ];
-  const paddedAsks: (OrderBookLevel | null)[] = [
-    ...asks,
+  const bidBarSizes = useMemo(() => {
+    if (depthMode === "cumulative") return cumulativeSizes(bids);
+    return bids.map((l) => l.size);
+  }, [bids, depthMode]);
+
+  const askBarSizes = useMemo(() => {
+    if (depthMode === "cumulative") return cumulativeSizes(asks);
+    return asks.map((l) => l.size);
+  }, [asks, depthMode]);
+
+  const bidWallAt = wallThreshold(bids);
+  const askWallAt = wallThreshold(asks);
+
+  const askRows: (DepthRowData | null)[] = [
+    ...asks.map((level, i) => ({
+      level,
+      barSize: askBarSizes[i] ?? level.size,
+      isWall: level.size >= askWallAt,
+    })),
     ...Array(Math.max(0, DEPTH_LEVELS - asks.length)).fill(null),
   ];
 
+  const bidRows: (DepthRowData | null)[] = [
+    ...Array(Math.max(0, DEPTH_LEVELS - bids.length)).fill(null),
+    ...bids.map((level, i) => ({
+      level,
+      barSize: bidBarSizes[i] ?? level.size,
+      isWall: level.size >= bidWallAt,
+    })),
+  ];
+
+  const maxBidBar = Math.max(...bidRows.filter(Boolean).map((r) => r!.barSize), 1);
+  const maxAskBar = Math.max(...askRows.filter(Boolean).map((r) => r!.barSize), 1);
+
   return (
-    <div className={cn("flex h-full flex-col", terminalSkin.canvas)}>
-      <div className="grid min-h-0 flex-1 grid-cols-2">
-        <BookPane side="ask" maxSize={maxAsk} padded={paddedAsks} />
+    <div data-book-panel="hyperbook" className={cn("flex h-full flex-col", terminalSkin.canvas)}>
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-between border-b-[0.5px] border-slate-800 px-1 py-0.5",
+          TERMINAL_TYPO.micro,
+        )}
+      >
+        <span className="text-slate-500">DEPTH</span>
+        <div className="flex gap-0.5">
+          {(["raw", "cumulative"] as DepthDisplayMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setDepthMode(m)}
+              className={cn(
+                "px-1.5 py-0.5 uppercase",
+                depthMode === m
+                  ? "bg-slate-800 text-cyan-300"
+                  : "text-slate-600 hover:text-slate-400",
+              )}
+            >
+              {m === "raw" ? "RAW" : "CUM"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative grid min-h-0 flex-1 grid-cols-2">
+        {/* Center spine — price stays centered between bid/ask depth. */}
+        <div
+          className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px -translate-x-1/2 bg-cyan-500/20"
+          aria-hidden="true"
+        />
+        <BookPane side="ask" rows={askRows} maxBar={maxAskBar} depthMode={depthMode} />
         <BookPane
           side="bid"
-          maxSize={maxBid}
-          padded={paddedBids}
+          rows={bidRows}
+          maxBar={maxBidBar}
+          depthMode={depthMode}
           className="border-l-[0.5px] border-slate-800"
         />
       </div>
@@ -235,5 +346,3 @@ export function HyperBook() {
     </div>
   );
 }
-
-

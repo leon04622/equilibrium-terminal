@@ -6,14 +6,15 @@ import { terminalBus } from "@/store/eventBus";
 import { useCryptoEcosystemStore } from "@/store/useCryptoEcosystemStore";
 import { useTerminalStore } from "@/store/terminalStore";
 
-const TICK_MS = 3_000;
-const SYNC_MS = 20_000;
+const TICK_MS = 8_000;
+const SYNC_MS = 60_000;
 
 export function useCryptoEcosystem(enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
 
-    const refresh = () => {
+    const refresh = (force = false) => {
+      if (!force && document.hidden) return;
       const snapshot = CryptoEcosystemOrchestrator.snapshot();
       useCryptoEcosystemStore.getState().setSnapshot(snapshot);
 
@@ -26,9 +27,10 @@ export function useCryptoEcosystem(enabled = true): void {
       }
     };
 
-    refresh();
-    const tickId = window.setInterval(refresh, TICK_MS);
+    refresh(true);
+    const tickId = window.setInterval(() => refresh(), TICK_MS);
     const syncId = window.setInterval(() => {
+      if (document.hidden) return;
       const snap = useCryptoEcosystemStore.getState().snapshot;
       if (!snap) return;
       void fetch("/api/ecosystem/sync", {
@@ -42,10 +44,10 @@ export function useCryptoEcosystem(enabled = true): void {
       }).catch(() => undefined);
     }, SYNC_MS);
 
-    const unsubPos = useTerminalStore.subscribe((s) => s.positionsVersion, refresh);
-    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, refresh);
-    const offAlert = terminalBus.on("alert:triggered", refresh);
-    const offProp = terminalBus.on("proprietary:metric", refresh);
+    const unsubPos = useTerminalStore.subscribe((s) => s.positionsVersion, () => refresh());
+    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, () => refresh());
+    const offAlert = terminalBus.on("alert:triggered", () => refresh());
+    const offProp = terminalBus.on("proprietary:metric", () => refresh());
 
     return () => {
       window.clearInterval(tickId);

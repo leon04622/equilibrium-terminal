@@ -1,6 +1,8 @@
 import { IngestDeduplicator } from "@/lib/ingest/IngestDeduplicator";
 import { IngestStreamBuffer } from "@/lib/ingest/IngestStreamBuffer";
 import { NormalizationLayer } from "@/lib/ingest/NormalizationLayer";
+import { EventStreamingBackbone } from "@/lib/ingest/EventStreamingBackbone";
+import { ExchangeIngestionOrchestrator } from "@/lib/ingest/workers/ExchangeIngestionOrchestrator";
 import { ingestBus } from "@/lib/ingest/UnifiedIngestBus";
 import { useTerminalStore } from "@/store/terminalStore";
 
@@ -42,6 +44,7 @@ export class HyperliquidIngestBridge {
             true,
           );
           IngestStreamBuffer.push(env);
+          EventStreamingBackbone.publish("liquidity", env);
           ingestBus.emit("ingest:book", {
             exchange: unified.exchange,
             asset: unified.asset,
@@ -81,6 +84,7 @@ export class HyperliquidIngestBridge {
             true,
           );
           IngestStreamBuffer.push(env);
+          EventStreamingBackbone.publish("market", env);
           ingestBus.emit("ingest:trade", {
             exchange: unified.exchange,
             asset: unified.asset,
@@ -113,6 +117,7 @@ export class HyperliquidIngestBridge {
           true,
         );
         IngestStreamBuffer.push(env);
+        EventStreamingBackbone.publish("intelligence", env);
         ingestBus.emit("ingest:normalized", {
           id: env.id,
           stream: "intelligence",
@@ -122,15 +127,18 @@ export class HyperliquidIngestBridge {
         });
       }
 
+      const hlHealth =
+        state.connectionStatus === "connected"
+          ? "live"
+          : state.connectionStatus === "reconnecting"
+            ? "degraded"
+            : "offline";
+      const hlLatency = state.lastMessageAt ? receivedAt - state.lastMessageAt : null;
+      ExchangeIngestionOrchestrator.noteHlHealth(hlHealth, hlLatency);
       ingestBus.emit("venue:status", {
         sourceId: "hl-perp",
-        health:
-          state.connectionStatus === "connected"
-            ? "live"
-            : state.connectionStatus === "reconnecting"
-              ? "degraded"
-              : "offline",
-        latencyMs: state.lastMessageAt ? receivedAt - state.lastMessageAt : null,
+        health: hlHealth,
+        latencyMs: hlLatency,
       });
 
       if (state.lastMessageAt && receivedAt - state.lastMessageAt > 8000) {

@@ -9,3 +9,7 @@ export { StorageLayerRouter } from "@/lib/ingest/StorageLayerRouter";
 export { StreamProcessingEngine } from "@/lib/ingest/StreamProcessingEngine";
 export { TimestampNormalizer } from "@/lib/ingest/TimestampNormalizer";
 export { ingestBus } from "@/lib/ingest/UnifiedIngestBus";
+export { EventStreamingBackbone } from "@/lib/ingest/EventStreamingBackbone";
+export { MarketDataBackboneOrchestrator } from "@/lib/ingest/MarketDataBackboneOrchestrator";
+export { MarketDataInternalApi } from "@/lib/ingest/MarketDataInternalApi";
+export { ExchangeIngestionOrchestrator } from "@/lib/ingest/workers/ExchangeIngestionOrchestrator";

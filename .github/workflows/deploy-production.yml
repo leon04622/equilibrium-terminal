@@ -1,0 +1,42 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - canary
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          EQUILIBRIUM_JWT_SECRET: ${{ secrets.EQUILIBRIUM_JWT_SECRET }}
+          NEXT_PUBLIC_EQ_ENV: production
+
+      - name: Deploy to Vercel
+        run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Post-deploy smoke
+        run: |
+          curl -sf "https://equilibrium-terminal-three.vercel.app/api/ops/health" | head -c 500
+        continue-on-error: true

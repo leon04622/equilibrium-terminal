@@ -10,9 +10,12 @@ import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 import { MODE_CHROME, TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
+import { useWedgeStore } from "@/store/useWedgeStore";
 import type { FocusMode, TerminalMode } from "@/types/adaptive-workspace";
 
-const MODES: TerminalMode[] = [
+/** V1 wedge: execution-first modes; full palette when Advanced is on. */
+const WEDGE_MODES: TerminalMode[] = ["execution", "scalping", "balanced"];
+const FULL_MODES: TerminalMode[] = [
   "balanced",
   "execution",
   "research",
@@ -53,6 +56,8 @@ export function AdaptiveOrchestratorBar({
   const setAutoAdapt = useAdaptiveWorkspaceStore((s) => s.setAutoAdapt);
   const clearFocus = useAdaptiveWorkspaceStore((s) => s.clearFocus);
   const ingest = useAdaptiveWorkspaceStore((s) => s.ingestOrchestration);
+  const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
+  const modes = deskFocusMode ? WEDGE_MODES : FULL_MODES;
 
   const commitOrchestration = (nextMode: TerminalMode, nextFocus: FocusMode) => {
     const result = LayoutOrchestrator.orchestrate(baseLayout, nextMode, nextFocus);
@@ -86,7 +91,7 @@ export function AdaptiveOrchestratorBar({
         )}
         title="Terminal mode"
       >
-        {MODES.map((m) => (
+        {modes.map((m) => (
           <option key={m} value={m}>
             {MODE_LABELS[m]}
           </option>

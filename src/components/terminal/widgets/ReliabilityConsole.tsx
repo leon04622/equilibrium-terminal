@@ -4,21 +4,36 @@ import { useState } from "react";
 import { Activity, ShieldCheck, Siren, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { AuditLogEngine } from "@/lib/security/AuditLogEngine";
+import { useHardeningStore } from "@/store/useHardeningStore";
 import { useReliabilityStore } from "@/store/useReliabilityStore";
+import { useSecurityStore } from "@/store/useSecurityStore";
+import type { HardeningStatus } from "@/types/launch-hardening";
 
-type ReliabilityTab = "runtime" | "data" | "execution" | "audit";
+type ReliabilityTab = "runtime" | "data" | "execution" | "trust" | "launch" | "audit";
 
 const TABS: Array<{ id: ReliabilityTab; label: string }> = [
   { id: "runtime", label: "RUNTIME" },
   { id: "data", label: "DATA" },
   { id: "execution", label: "EXECUTION" },
+  { id: "trust", label: "TRUST" },
+  { id: "launch", label: "LAUNCH" },
   { id: "audit", label: "AUDIT" },
 ];
+
+function hardeningColor(s: HardeningStatus): string {
+  if (s === "pass") return terminalSkin.textUp;
+  if (s === "watch") return terminalSkin.textWarn;
+  return terminalSkin.textDown;
+}
 
 export function ReliabilityConsole() {
   const snapshot = useReliabilityStore((s) => s.snapshot);
   const auditLog = useReliabilityStore((s) => s.auditLog);
   const clearAudit = useReliabilityStore((s) => s.clearAudit);
+  const trust = useSecurityStore((s) => s.snapshot);
+  const hardening = useHardeningStore((s) => s.snapshot);
+  const securityAudit = AuditLogEngine.load();
   const [tab, setTab] = useState<ReliabilityTab>("runtime");
 
   if (!snapshot) {
@@ -34,7 +49,18 @@ export function ReliabilityConsole() {
       <header className={cn(terminalSkin.borderB, "flex items-center gap-2 px-1 py-0.5")}>
         <ShieldCheck className="h-3 w-3 text-cyan-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>RELIABILITY</span>
-        <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>TRUST {snapshot.trustScore}%</span>
+        <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+          TRUST {snapshot.trustScore}%
+          {hardening ? (
+            <>
+              {" "}
+              · LAUNCH {hardening.launchReadinessScore}
+              {hardening.launchApproved ? (
+                <span className={terminalSkin.textUp}> ✓</span>
+              ) : null}
+            </>
+          ) : null}
+        </span>
         {snapshot.volatility.highVolMode ? (
           <span className={cn(TERMINAL_TYPO.micro, "ml-auto text-amber-400")}>HIGH VOL MODE</span>
         ) : (
@@ -95,6 +121,79 @@ export function ReliabilityConsole() {
                 deterministic execution + traceability under stress
               </span>
             </div>
+          </section>
+        ) : null}
+
+        {tab === "trust" ? (
+          <section className="space-y-1">
+            <Row label="Trust score" value={trust ? `${trust.trustScore}%` : "—"} />
+            <Row label="Session" value={trust?.sessionHealth.toUpperCase() ?? "NONE"} />
+            <Row label="WS bound" value={trust?.wsSessionBound ? "YES" : "NO"} />
+            <Row label="Devices" value={String(trust?.activeDevices ?? 0)} />
+            <Row label="Suspicious" value={String(trust?.suspiciousDevices ?? 0)} />
+            <Row label="Exec denials" value={String(trust?.executionDenials1h ?? 0)} />
+            <Row label="JWT rotation" value={trust?.secretsRotationDue ? "DUE" : "OK"} />
+            <div className={cn(terminalSkin.borderB, "mt-1 py-0.5")}>
+              <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+                RBAC · SIWE · audit · rate limits · execution isolation
+              </span>
+            </div>
+            {securityAudit.slice(0, 6).map((e) => (
+              <div key={e.id} className={cn(terminalSkin.borderB, "py-0.5")}>
+                <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+                  {e.category}/{e.action}
+                </span>
+                <p className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>{e.detail}</p>
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {tab === "launch" && hardening ? (
+          <section className="space-y-1">
+            <Row
+              label="Launch readiness"
+              value={`${hardening.launchReadinessScore}% ${hardening.launchApproved ? "APPROVED" : "HOLD"}`}
+            />
+            <Row label="Integration" value={`${hardening.integrationScore}%`} />
+            <Row label="Workflow" value={`${hardening.workflowScore}%`} />
+            <Row label="Data quality" value={`${hardening.dataQualityScore}%`} />
+            <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-600")}>INTEGRATION AUDIT</p>
+            {hardening.integration.map((r) => (
+              <div key={r.domain} className={cn(terminalSkin.borderB, "py-0.5")}>
+                <div className="flex items-center justify-between gap-1">
+                  <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>{r.label}</span>
+                  <span className={cn(TERMINAL_TYPO.micro, hardeningColor(r.status))}>
+                    {r.score} · {r.status}
+                  </span>
+                </div>
+                <p className={cn(TERMINAL_TYPO.micro, "truncate text-slate-600")}>{r.detail}</p>
+              </div>
+            ))}
+            <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-600")}>WORKFLOW CONTINUITY</p>
+            {hardening.workflows.map((w) => (
+              <div key={w.stage} className="flex items-center justify-between py-0.5">
+                <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>{w.label}</span>
+                <span className={cn(TERMINAL_TYPO.micro, hardeningColor(w.status))}>{w.continuityPct}%</span>
+              </div>
+            ))}
+            {hardening.blockers.length > 0 ? (
+              <>
+                <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-amber-500")}>BLOCKERS</p>
+                {hardening.blockers.map((b) => (
+                  <p key={b} className={cn(TERMINAL_TYPO.micro, "text-amber-400")}>
+                    {b}
+                  </p>
+                ))}
+              </>
+            ) : null}
+            <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-600")}>PRE-LAUNCH ENVIRONMENTS</p>
+            {hardening.environments.map((e) => (
+              <p key={e.id} className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+                {e.label} · {e.hlNetwork}
+                {e.stressReplay ? " · STRESS" : ""}
+              </p>
+            ))}
           </section>
         ) : null}
 

@@ -33,14 +33,21 @@ export function TacticalChartOverlay({ className }: TacticalChartOverlayProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    tacticalOverlayRenderer.draw(ctx, overlay, {
-      width: w,
-      height: h,
-      paddingTop: 28,
-      paddingBottom: 24,
-      paddingLeft: 8,
-      paddingRight: 56,
-    });
+    const regime = useMarketAtmosphereStore.getState().regime.regime;
+    const stressScore = useMarketAtmosphereStore.getState().stress.score;
+    tacticalOverlayRenderer.draw(
+      ctx,
+      overlay,
+      {
+        width: w,
+        height: h,
+        paddingTop: 28,
+        paddingBottom: 28,
+        paddingLeft: 12,
+        paddingRight: 56,
+      },
+      { regime, stressScore },
+    );
   }, [overlay]);
 
   useEffect(() => {

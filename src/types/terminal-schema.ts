@@ -159,7 +159,30 @@ export type WidgetType =
   | "enterpriseops"
   | "integrations"
   | "propintel"
-  | "ecosystem";
+  | "ecosystem"
+  | "globalstrategy"
+  | "commercial"
+  | "execintel"
+  | "portfoliodesk"
+  | "derivdesk"
+  | "systemicintel"
+  | "memorydesk"
+  | "researchdesk"
+  | "platformdesk"
+  | "mobiledesk"
+  | "opscommand"
+  | "billingdesk"
+  | "deskops"
+  | "globaldesk"
+  | "operatordesk"
+  | "unifiedops"
+  | "liveexec"
+  | "marketcmd"
+  | "maturitydesk"
+  | "livedeploy"
+  | "explaindesk"
+  | "operatorjournal"
+  | "livementor";
 
 export interface TradeTicketDraft {
   side?: "buy" | "sell";

@@ -1,16 +1,24 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import type { DataIngestionSnapshot } from "@/types/data-ingestion";
+import type { MarketDataPlatformSnapshot } from "@/types/market-data-backbone";
 
-export type IngestionTab = "sources" | "pipeline" | "events" | "processing" | "quality" | "storage";
+export type IngestionTab =
+  | "sources"
+  | "workers"
+  | "streams"
+  | "pipeline"
+  | "events"
+  | "processing"
+  | "quality"
+  | "storage";
 
 export interface DataIngestionState {
-  snapshot: DataIngestionSnapshot | null;
+  snapshot: MarketDataPlatformSnapshot | null;
   activeTab: IngestionTab;
   pipelineActive: boolean;
   ingestVersion: number;
 
-  setSnapshot: (snapshot: DataIngestionSnapshot) => void;
+  setSnapshot: (snapshot: MarketDataPlatformSnapshot) => void;
   setActiveTab: (tab: IngestionTab) => void;
 }
 

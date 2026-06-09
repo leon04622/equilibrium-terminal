@@ -9,6 +9,7 @@ import type { TradeOrderMode } from "@/types/exchange";
 import { Button } from "@/components/ui/button";
 import { ExecutionContextStrip } from "@/components/terminal/ExecutionContextStrip";
 import { ExecutionWarningBanner } from "@/components/terminal/ExecutionWarningBanner";
+import { evaluateExecutionGuards } from "@/lib/wedge/executionGuards";
 import { INSTITUTIONAL_INTERACTION, TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 
 const SIZE_PRESETS = [0.25, 0.5, 1] as const;
@@ -37,6 +38,8 @@ export function TradeTicket() {
   const orderPending = useHyperliquidStore((s) => s.orderPending);
   const orderError = useHyperliquidStore((s) => s.orderError);
   const tradeTicketDraft = useHyperliquidStore((s) => s.tradeTicketDraft);
+  const connectionStatus = useHyperliquidStore((s) => s.connectionStatus);
+  const lastMessageAt = useHyperliquidStore((s) => s.lastMessageAt);
 
   const [mode, setMode] = useState<TradeOrderMode>("market");
   const [size, setSize] = useState("");
@@ -46,6 +49,17 @@ export function TradeTicket() {
   const [flashSide, setFlashSide] = useState<"buy" | "sell" | null>(null);
 
   const markPx = book?.mid ?? null;
+
+  const executionGuard = useMemo(
+    () =>
+      evaluateExecutionGuards({
+        connectionStatus,
+        lastMessageAt,
+        markPx,
+        bookUpdatedAt: book?.time ?? null,
+      }),
+    [book?.time, connectionStatus, lastMessageAt, markPx],
+  );
 
   useEffect(() => {
     if (markPx && mode === "limit" && !limitPx) {
@@ -77,6 +91,7 @@ export function TradeTicket() {
 
   const submit = useCallback(
     async (isBuy: boolean) => {
+      if (executionGuard.blocked) return;
       if (selectedAsset?.assetIndex === undefined) return;
       const sz = parseFloat(size);
       if (!sz || sz <= 0) return;
@@ -107,6 +122,7 @@ export function TradeTicket() {
     },
     [
       executeOrder,
+      executionGuard.blocked,
       leverage,
       limitPx,
       markPx,
@@ -117,6 +133,9 @@ export function TradeTicket() {
       stopPx,
     ],
   );
+
+  const submitBlocked =
+    executionGuard.blocked || orderPending || !isAuthorized || !oneClickEnabled;
 
   if (!isConnected) {
     return (
@@ -287,6 +306,12 @@ export function TradeTicket() {
         {maxNotional > 0 ? formatSize(maxNotional) : "—"} {selectedAsset?.symbol}
       </p>
 
+      {executionGuard.reason ? (
+        <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textWarn, "text-center")}>
+          {executionGuard.reason}
+        </p>
+      ) : null}
+
       {orderPending ? (
         <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textWarn, "text-center")}>
           ORDER SUBMITTING — awaiting confirmation
@@ -296,28 +321,28 @@ export function TradeTicket() {
       <div className="mt-auto grid grid-cols-2 gap-1">
         <button
           type="button"
-          disabled={orderPending || !isAuthorized}
+          disabled={submitBlocked}
           onClick={() => void submit(true)}
           className={cn(
             TERMINAL_TYPO.label,
             "py-2 uppercase",
             terminalSkin.execBuy,
             flashSide === "buy" && terminalSkin.flashUp,
-            (orderPending || !isAuthorized) && "opacity-50",
+            submitBlocked && "opacity-50",
           )}
         >
           {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Buy"}
         </button>
         <button
           type="button"
-          disabled={orderPending || !isAuthorized}
+          disabled={submitBlocked}
           onClick={() => void submit(false)}
           className={cn(
             TERMINAL_TYPO.label,
             "py-2 uppercase",
             terminalSkin.execSell,
             flashSide === "sell" && terminalSkin.flashDown,
-            (orderPending || !isAuthorized) && "opacity-50",
+            submitBlocked && "opacity-50",
           )}
         >
           {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sell"}

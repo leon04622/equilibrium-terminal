@@ -1,4 +1,5 @@
 export { SessionClockEngine } from "@/lib/daily/SessionClockEngine";
+export { LiveDeskClockEngine } from "@/lib/daily/LiveDeskClockEngine";
 export { DailyBriefingEngine } from "@/lib/daily/DailyBriefingEngine";
 export { MarketStateLayer } from "@/lib/daily/MarketStateLayer";
 export { MarketMemoryArchive } from "@/lib/daily/MarketMemoryArchive";

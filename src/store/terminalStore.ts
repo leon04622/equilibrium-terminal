@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { terminalBus } from "@/store/eventBus";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
+import { OperatorAiResponseEngine } from "@/lib/operator-ai-desk/OperatorAiResponseEngine";
 import {
   normalizeClearinghouseToWebData,
   normalizeL2Book,
@@ -26,15 +27,11 @@ import type {
 } from "@/types/terminal-schema";
 import { FALLBACK_ASSETS } from "@/lib/assets";
 
+/** V1 wedge: stream widgets only; ticket/positions/etc. come from workspace grid extras. */
 const DEFAULT_WIDGETS: WorkspaceWidget[] = [
   { id: "hyperbook", type: "hyperbook", title: "HyperBook" },
   { id: "chart", type: "chart", title: "Chart" },
   { id: "intelligence", type: "intelligence", title: "Intelligence" },
-  { id: "copilot", type: "copilot", title: "Omni + AI" },
-  { id: "alerts", type: "alerts", title: "Alerts" },
-  { id: "proactive", type: "proactive", title: "Agentic Ops" },
-  { id: "teamdesk", type: "teamdesk", title: "Team Net" },
-  { id: "macro", type: "macro", title: "Macro Matrix" },
 ];
 
 export interface TerminalState {
@@ -90,13 +87,13 @@ export interface TerminalState {
   setConnectionStatus: (status: ConnectionStatus) => void;
   touchMessage: () => void;
   applyBook: (raw: WsBook) => void;
-  pushTrades: (raw: WsTrade[]) => void;
+  pushTrades: (raw: WsTrade[], options?: { skipIntel?: boolean }) => void;
   applyCandles: (candles: NormalizedCandle[]) => void;
   applyMids: (snapshot: NormalizedMidSnapshot) => void;
   applyClearinghouse: (state: HlClearinghouseState, user: string | null) => Promise<void>;
   pushIntelligence: (item: IntelligenceItem) => void;
   setOmniOpen: (open: boolean) => void;
-  submitAiPrompt: (prompt: string, source: "omnibar" | "copilot") => void;
+  submitAiPrompt: (prompt: string, source: "omnibar" | "copilot" | "operatordesk") => void;
   clearMidFlash: () => void;
   removeWidget: (id: string) => void;
 }
@@ -116,14 +113,7 @@ function findAsset(assets: TerminalAsset[], coin: string): TerminalAsset | null 
 }
 
 function runAiStub(prompt: string): string {
-  const lower = prompt.toLowerCase();
-  if (lower.includes("open interest") || lower.includes("funding")) {
-    return "Scanning Hyperliquid perp OI + funding surfaces… Elevated funding flip detected on HYPE (+12 bps 8h) with OI +4.2% 24h. PURR spot/perp basis widening. Consider hedged basis or reduced leverage until funding mean-reverts.";
-  }
-  if (lower.includes("whale") || lower.includes("liquidation")) {
-    return "Whale flow is concentrated in BTC/ETH perps last 15m. Intelligence panel streams large prints from the public tape; cross-reference with your margin usage before adding delta.";
-  }
-  return `Acknowledged: "${prompt.slice(0, 120)}". Equilibrium AI is wired to your active asset and L1 book — refine with /ai plus a metric (funding, OI, liquidations).`;
+  return OperatorAiResponseEngine.answer(prompt);
 }
 
 export const useTerminalStore = create<TerminalState>()(
@@ -249,11 +239,13 @@ export const useTerminalStore = create<TerminalState>()(
       }));
     },
 
-    pushTrades: (raw) => {
+    pushTrades: (raw, options) => {
       const normalized = normalizeTradesBatch(raw);
-      for (const t of normalized) {
-        const intel = tradeToIntelligence(t);
-        if (intel) get().pushIntelligence(intel);
+      if (!options?.skipIntel) {
+        for (const t of normalized) {
+          const intel = tradeToIntelligence(t);
+          if (intel) get().pushIntelligence(intel);
+        }
       }
       set((s) => {
         const trades = [...normalized, ...s.trades].slice(0, 200);
@@ -327,7 +319,7 @@ export const useTerminalStore = create<TerminalState>()(
           ...s.ai,
           isThinking: true,
           pendingPrompt: prompt,
-          messages: [...s.ai.messages, userMsg],
+          messages: [...s.ai.messages, userMsg].slice(-100),
         },
       }));
       terminalBus.emit("ai:prompt", { prompt, source });
@@ -342,7 +334,7 @@ export const useTerminalStore = create<TerminalState>()(
         };
         set((s) => ({
           ai: {
-            messages: [...s.ai.messages, reply],
+            messages: [...s.ai.messages, reply].slice(-100),
             pendingPrompt: null,
             isThinking: false,
           },
@@ -360,7 +352,8 @@ export const useTerminalStore = create<TerminalState>()(
 /** Imperative stream ingress (bypasses React). */
 export const terminalIngress = {
   applyBook: (raw: WsBook) => useTerminalStore.getState().applyBook(raw),
-  pushTrades: (raw: WsTrade[]) => useTerminalStore.getState().pushTrades(raw),
+  pushTrades: (raw: WsTrade[], options?: { skipIntel?: boolean }) =>
+    useTerminalStore.getState().pushTrades(raw, options),
   setConnectionStatus: (status: ConnectionStatus) =>
     useTerminalStore.getState().setConnectionStatus(status),
   touchMessage: () => useTerminalStore.getState().touchMessage(),

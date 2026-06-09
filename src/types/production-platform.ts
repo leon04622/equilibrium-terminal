@@ -76,6 +76,7 @@ export interface EntitlementMatrix {
   industryIntegrationsEnabled: boolean;
   proprietaryIntelEnabled: boolean;
   ecosystemEnabled: boolean;
+  globalStrategyEnabled: boolean;
   maxConcurrentWidgets: number;
 }
 
@@ -193,6 +194,7 @@ export const ENTITLEMENTS_BY_TIER: Record<SubscriptionTier, EntitlementMatrix> =
     industryIntegrationsEnabled: false,
     proprietaryIntelEnabled: false,
     ecosystemEnabled: false,
+    globalStrategyEnabled: false,
     maxConcurrentWidgets: 12,
   },
   team: {
@@ -208,6 +210,7 @@ export const ENTITLEMENTS_BY_TIER: Record<SubscriptionTier, EntitlementMatrix> =
     industryIntegrationsEnabled: false,
     proprietaryIntelEnabled: true,
     ecosystemEnabled: true,
+    globalStrategyEnabled: false,
     maxConcurrentWidgets: 16,
   },
   enterprise: {
@@ -223,6 +226,7 @@ export const ENTITLEMENTS_BY_TIER: Record<SubscriptionTier, EntitlementMatrix> =
     industryIntegrationsEnabled: true,
     proprietaryIntelEnabled: true,
     ecosystemEnabled: true,
+    globalStrategyEnabled: true,
     maxConcurrentWidgets: 24,
   },
 };
@@ -257,4 +261,27 @@ export const WIDGET_ENTITLEMENT_MAP: Record<WidgetType, keyof EntitlementMatrix 
   integrations: "industryIntegrationsEnabled",
   propintel: "proprietaryIntelEnabled",
   ecosystem: "ecosystemEnabled",
+  globalstrategy: "globalStrategyEnabled",
+  commercial: "diagnosticsEnabled",
+  execintel: "diagnosticsEnabled",
+  portfoliodesk: "ecosystemEnabled",
+  derivdesk: "ecosystemEnabled",
+  systemicintel: null,
+  memorydesk: null,
+  researchdesk: null,
+  platformdesk: null,
+  mobiledesk: null,
+  opscommand: "infraDiagnosticsEnabled",
+  billingdesk: "diagnosticsEnabled",
+  deskops: "teamNetEnabled",
+  globaldesk: null,
+  operatordesk: null,
+  unifiedops: null,
+  liveexec: null,
+  marketcmd: null,
+  maturitydesk: null,
+  livedeploy: null,
+  explaindesk: null,
+  operatorjournal: null,
+  livementor: null,
 };

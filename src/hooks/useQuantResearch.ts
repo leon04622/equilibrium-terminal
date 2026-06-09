@@ -11,13 +11,14 @@ const EXTRACT_INTERVAL_MS = 800;
 /**
  * Boots Phase 12 quant research — feature pipeline off React, decay governance loop.
  */
-export function useQuantResearch(): void {
+export function useQuantResearch(enabled = true): void {
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
   const bookVersion = useTerminalStore((s) => s.bookVersion);
   const tradesLen = useTerminalStore((s) => s.trades.length);
   const fundingRef = useRef(0.0001);
 
   useEffect(() => {
+    if (!enabled) return;
     let decayTimer: number | null = null;
     const bootId = window.setTimeout(() => {
       useQuantResearchStore.getState().setPipelineActive(true);
@@ -36,9 +37,10 @@ export function useQuantResearch(): void {
       featurePipeline.stop();
       useQuantResearchStore.getState().setPipelineActive(false);
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const extract = () => {
       const state = useTerminalStore.getState();
       const coin = state.selectedCoin;
@@ -60,5 +62,5 @@ export function useQuantResearch(): void {
     extract();
     const id = window.setInterval(extract, EXTRACT_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [selectedCoin, bookVersion, tradesLen]);
+  }, [enabled, selectedCoin, bookVersion, tradesLen]);
 }

@@ -11,7 +11,10 @@ import {
   normalizeAllMids,
   normalizeCandlesBatch,
 } from "@/lib/hyperliquid/normalize";
+import { streamProcessingEngine } from "@/lib/performance/StreamProcessingEngine";
+import { webSocketSecurityGate } from "@/lib/security/WebSocketSecurityGate";
 import { terminalIngress, useTerminalStore } from "@/store/terminalStore";
+import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import type { HlClearinghouseState } from "@/types/account";
 import type {
   HlAllMids,
@@ -103,6 +106,20 @@ export function useTerminalStreams() {
     const user = userRef.current;
     const prevCoin = subsRef.current.coin;
     const prevUser = subsRef.current.user;
+    const claims = useProductionConfigStore.getState().claims;
+
+    if (coin) {
+      const gate = webSocketSecurityGate.validateReconnect(
+        coin,
+        claims?.sid ?? null,
+        claims?.wallet ?? user,
+      );
+      if (!gate.allowed) {
+        console.warn("[WS Security]", gate.reason);
+      } else {
+        webSocketSecurityGate.bindSubscription(coin, claims?.sid ?? null, claims?.wallet ?? user);
+      }
+    }
 
     if (prevCoin && prevCoin !== coin) {
       send(unsub({ type: "l2Book", coin: prevCoin }));
@@ -135,11 +152,11 @@ export function useTerminalStreams() {
       terminalIngress.touchMessage();
 
       if (msg.channel === "l2Book" && isWsBook(msg.data)) {
-        terminalIngress.applyBook(msg.data);
+        streamProcessingEngine.enqueueBook(msg.data);
         return;
       }
       if (msg.channel === "trades" && isWsTradeArray(msg.data)) {
-        terminalIngress.pushTrades(msg.data);
+        streamProcessingEngine.enqueueTrades(msg.data);
         return;
       }
       if (msg.channel === "candle" && isCandleArray(msg.data)) {

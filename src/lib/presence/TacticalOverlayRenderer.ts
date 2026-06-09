@@ -1,10 +1,17 @@
 import { TERMINAL_COLORS } from "@/lib/theme";
+import { EQ_CHART, REGIME_VISUAL } from "@/lib/theme/equilibrium-visual";
+import type { MarketRegime } from "@/types/market-atmosphere";
 import type {
   ExecutionMarker,
   LiquidationZone,
   LiquidityBand,
   TacticalOverlayFrame,
 } from "@/types/market-atmosphere";
+
+export interface OverlayDrawContext {
+  regime: MarketRegime;
+  stressScore: number;
+}
 
 export interface OverlayViewport {
   width: number;
@@ -36,6 +43,7 @@ export class TacticalOverlayRenderer {
     ctx: CanvasRenderingContext2D,
     frame: TacticalOverlayFrame,
     viewport: OverlayViewport,
+    context?: OverlayDrawContext,
   ): void {
     const { width, height, paddingTop, paddingBottom, paddingLeft, paddingRight } =
       viewport;
@@ -48,6 +56,19 @@ export class TacticalOverlayRenderer {
     ctx.clearRect(0, 0, width, height);
 
     if (frame.priceMax <= frame.priceMin) return;
+
+    this.drawInstitutionalGrid(ctx, plotLeft, plotRight, plotTop, plotBottom);
+    if (context) {
+      this.drawVolatilityVeil(
+        ctx,
+        plotLeft,
+        plotRight,
+        plotTop,
+        plotBottom,
+        context.regime,
+        context.stressScore,
+      );
+    }
 
     this.drawLiquidationZones(
       ctx,
@@ -90,14 +111,60 @@ export class TacticalOverlayRenderer {
         plotTop,
         plotBottom,
       );
-      ctx.strokeStyle = "rgba(0, 229, 255, 0.35)";
+      ctx.strokeStyle = EQ_CHART.crosshair;
       ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash([3, 5]);
       ctx.beginPath();
       ctx.moveTo(plotLeft, y);
       ctx.lineTo(plotRight, y);
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+  }
+
+  private drawInstitutionalGrid(
+    ctx: CanvasRenderingContext2D,
+    left: number,
+    right: number,
+    top: number,
+    bottom: number,
+  ): void {
+    const w = right - left;
+    const h = bottom - top;
+    const hStep = Math.max(28, h / 8);
+    const vStep = Math.max(48, w / 10);
+    ctx.strokeStyle = EQ_CHART.grid;
+    ctx.lineWidth = 0.5;
+    for (let y = top; y <= bottom; y += hStep) {
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+    }
+    for (let x = left; x <= right; x += vStep) {
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
+    }
+  }
+
+  private drawVolatilityVeil(
+    ctx: CanvasRenderingContext2D,
+    left: number,
+    right: number,
+    top: number,
+    bottom: number,
+    regime: MarketRegime,
+    stressScore: number,
+  ): void {
+    const base = REGIME_VISUAL[regime].veil;
+    ctx.fillStyle = base;
+    ctx.fillRect(left, top, right - left, bottom - top);
+    if (stressScore > 55) {
+      const t = Math.min(0.12, (stressScore - 55) / 400);
+      ctx.fillStyle = `rgba(196, 45, 82, ${t})`;
+      ctx.fillRect(left, top, right - left, (bottom - top) * 0.35);
     }
   }
 

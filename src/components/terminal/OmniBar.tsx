@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/command";
 import { filterAssets } from "@/lib/assets";
 import { InformationDiscoveryEngine } from "@/lib/discovery/InformationDiscoveryEngine";
+import { CommandRegistry } from "@/lib/omnibar/CommandRegistry";
+import { OmniContextEngine } from "@/lib/omnibar/OmniContextEngine";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useOmniCommand } from "@/hooks/useOmniCommand";
+import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
 import { useInformationDiscoveryStore } from "@/store/useInformationDiscoveryStore";
 import { useTerminalStore } from "@/store/terminalStore";
+import { useWedgeStore } from "@/store/useWedgeStore";
 import type { IndexCategory } from "@/types/information-discovery";
 import { Search, Zap } from "lucide-react";
 
@@ -30,6 +34,9 @@ const CAT_LABEL: Record<IndexCategory, string> = {
   command: "CMD",
   wire: "WIRE",
   agent: "AGENT",
+  watchlist: "WATCH",
+  workspace: "WS",
+  alert: "ALERT",
 };
 
 export function OmniBar() {
@@ -40,10 +47,14 @@ export function OmniBar() {
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
   const connectionStatus = useTerminalStore((s) => s.connectionStatus);
   const index = useInformationDiscoveryStore((s) => s.index);
+  const terminalMode = useAdaptiveWorkspaceStore((s) => s.mode);
+  const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
   const { submit, selectIndexEntry } = useOmniCommand();
 
   const [query, setQuery] = useState("");
   const [lastParseMs, setLastParseMs] = useState<number | null>(null);
+
+  const ctx = OmniContextEngine.snapshot();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,10 +77,22 @@ export function OmniBar() {
 
   const filtered = useMemo(() => filterAssets(assets, query), [assets, query]);
 
-  const discoveryResults = useMemo(
-    () => InformationDiscoveryEngine.search(index, query, 20),
-    [index, query],
+  const commandSuggestions = useMemo(
+    () => CommandRegistry.suggest(query, 14),
+    [query],
   );
+
+  const discoveryResults = useMemo(() => {
+    const base = InformationDiscoveryEngine.search(index, query, 24);
+    return base
+      .map((r) => ({
+        ...r,
+        score:
+          r.score *
+          OmniContextEngine.contextualBoost(r.entry.coin, OmniContextEngine.snapshot()),
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [index, query, selectedAsset, terminalMode, deskFocusMode, connectionStatus]);
 
   const groupedDiscovery = useMemo(() => {
     const map = new Map<IndexCategory, typeof discoveryResults>();
@@ -80,6 +103,16 @@ export function OmniBar() {
     }
     return map;
   }, [discoveryResults]);
+
+  const showHelp = query.trim().toLowerCase() === "/help" || query.trim() === "?";
+  const contextLabel = `${ctx.selectedCoin} · ${ctx.terminalMode.toUpperCase()} · ${
+    ctx.deskFocusMode ? "DESK" : "FULL"
+  }`;
+
+  const runCommand = (cmd: string) => {
+    const res = submit(cmd);
+    setLastParseMs(res.elapsedMs);
+  };
 
   return (
     <>
@@ -94,7 +127,7 @@ export function OmniBar() {
       >
         <Search className="h-3 w-3 shrink-0 text-[#00ff88]" />
         <span className="flex-1 truncate text-left uppercase">
-          {selectedAsset ? `${selectedAsset.symbol} · CMD` : "OMNI · SEARCH & CMD"}
+          {selectedAsset ? `${selectedAsset.symbol} · CMD` : "OMNI · CMD & SEARCH"}
         </span>
         <kbd className={cn(TERMINAL_TYPO.micro, "border-[0.5px] border-slate-700 px-0.5")}>
           ⌘K
@@ -111,25 +144,75 @@ export function OmniBar() {
       </button>
 
       <CommandDialog open={omniOpen} onOpenChange={setOmniOpen} shouldFilter={false}>
+        <div
+          className={cn(
+            "border-b border-slate-800 px-2 py-0.5",
+            TERMINAL_TYPO.micro,
+            "text-slate-500",
+          )}
+        >
+          CTX · {contextLabel} · / · ENTER
+        </div>
         <CommandInput
-          placeholder="/coverage · /reliability · /workspace BTC · /journal · Ctrl+L reliability"
+          placeholder="BTC · /chart ETH · /depth · /exec buy BTC · /monitor funding · /desk"
           value={query}
           onValueChange={setQuery}
           onKeyDown={(e) => {
             if (e.key === "Enter" && query.trim()) {
               e.preventDefault();
-              const res = submit(query);
-              setLastParseMs(res.elapsedMs);
+              runCommand(query);
             }
           }}
         />
         <CommandList>
           <CommandEmpty className={TERMINAL_TYPO.dataSm}>
-            ENTER to run · indexed discovery · human-in-the-loop
+            ENTER to execute · fuzzy CMD · indexed retrieval
           </CommandEmpty>
 
+          {showHelp ? (
+            <CommandGroup heading="OPS">
+              {CommandRegistry.list().map((cmd) => (
+                <CommandItem
+                  key={cmd.id}
+                  value={`help-${cmd.id}`}
+                  onSelect={() => runCommand(cmd.template.trim())}
+                >
+                  <span className="text-[#00ff88]">{cmd.primary}</span>
+                  <span className="text-slate-400">{cmd.label}</span>
+                  <span className="truncate text-slate-600">{cmd.description}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {commandSuggestions.length > 0 && (query.startsWith("/") || !query.trim()) ? (
+            <CommandGroup heading="CMD">
+              {commandSuggestions.map(({ command }) => (
+                <CommandItem
+                  key={command.id}
+                  value={`reg-${command.id}`}
+                  onSelect={() => runCommand(command.template.trim())}
+                >
+                  <span className="text-[#00ff88]">{command.primary}</span>
+                  <span className="text-slate-400">{command.label}</span>
+                  <span className="truncate text-slate-600">{command.template}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {ctx.recentCommands.length > 0 && !query.trim() ? (
+            <CommandGroup heading="RECENT">
+              {ctx.recentCommands.map((cmd) => (
+                <CommandItem key={cmd} value={`recent-${cmd}`} onSelect={() => runCommand(cmd)}>
+                  <span className="text-slate-300">{cmd}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
           {Array.from(groupedDiscovery.entries()).map(([cat, rows]) => (
-            <CommandGroup key={cat} heading={CAT_LABEL[cat]}>
+            <CommandGroup key={cat} heading={CAT_LABEL[cat] ?? cat.toUpperCase()}>
               {rows.map(({ entry }) => (
                 <CommandItem
                   key={entry.id}
@@ -142,57 +225,6 @@ export function OmniBar() {
               ))}
             </CommandGroup>
           ))}
-
-          <CommandGroup heading="CMD">
-            <CommandItem value="cmd-nav" onSelect={() => submit("/nav BTC")}>
-              /nav [asset]
-            </CommandItem>
-            <CommandItem value="cmd-watch" onSelect={() => submit("/watch ETH")}>
-              /watch [asset] — surveillance list
-            </CommandItem>
-            <CommandItem value="cmd-intel" onSelect={() => submit("/intel")}>
-              /intel — intelligence wire
-            </CommandItem>
-            <CommandItem value="cmd-liq" onSelect={() => submit("/liq")}>
-              /liq — liquidity & book
-            </CommandItem>
-            <CommandItem value="cmd-summarize" onSelect={() => submit("/summarize")}>
-              /summarize — AI context summary (no trade advice)
-            </CommandItem>
-            <CommandItem
-              value="cmd-graph"
-              onSelect={() => submit("/graph ETH correlated narratives")}
-            >
-              /graph — knowledge graph query
-            </CommandItem>
-            <CommandItem value="cmd-trade" onSelect={() => submit("/trade buy BTC 100")}>
-              /trade [buy|sell] [asset] [size]
-            </CommandItem>
-            <CommandItem value="cmd-journal" onSelect={() => submit("/journal")}>
-              /journal — trader notes
-            </CommandItem>
-            <CommandItem value="cmd-research" onSelect={() => submit("/research")}>
-              /research — thesis & saved views
-            </CommandItem>
-            <CommandItem value="cmd-workspace" onSelect={() => submit("/workspace BTC standard")}>
-              /workspace [asset] [mode]
-            </CommandItem>
-            <CommandItem value="cmd-briefing" onSelect={() => submit("/briefing")}>
-              /briefing — daily market prep
-            </CommandItem>
-            <CommandItem value="cmd-coverage" onSelect={() => submit("/coverage")}>
-              /coverage — venues, EQ metrics, on-chain
-            </CommandItem>
-            <CommandItem value="cmd-reliability" onSelect={() => submit("/reliability")}>
-              /reliability — runtime + data trust ops
-            </CommandItem>
-            <CommandItem
-              value="cmd-routine"
-              onSelect={() => submit("/routine morning_briefing")}
-            >
-              /routine [id] — operational routine
-            </CommandItem>
-          </CommandGroup>
 
           {filtered.length > 0 ? (
             <CommandGroup heading="SYM">

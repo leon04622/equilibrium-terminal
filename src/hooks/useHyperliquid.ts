@@ -15,8 +15,8 @@ import type {
 } from "@/types/hyperliquid";
 import { HL_INFO_WS_URL } from "@/types/hyperliquid";
 
-const HEARTBEAT_INTERVAL_MS = 30_000;
-const STALE_THRESHOLD_MS = 60_000;
+const HEARTBEAT_INTERVAL_MS = 15_000;
+const STALE_THRESHOLD_MS = 45_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const BASE_RECONNECT_DELAY_MS = 500;
 
@@ -286,6 +286,27 @@ export function useHyperliquid() {
       }
     };
   }, [connect, clearTimers]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const status = useHyperliquidStore.getState().connectionStatus;
+      if (status === "disconnected" || status === "reconnecting") {
+        reconnectAttemptRef.current = 0;
+        connect();
+      }
+    };
+    const onOnline = () => {
+      reconnectAttemptRef.current = 0;
+      connect();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [connect]);
 
   return { reconnect: connect };
 }

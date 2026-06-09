@@ -14,7 +14,7 @@ import { useTerminalStore } from "@/store/terminalStore";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 import type { PlatformInfrastructureVitals } from "@/types/production-platform";
 
-const VITALS_POLL_MS = 2000;
+const VITALS_POLL_MS = 10_000;
 const SESSION_POLL_MS = 60_000;
 const SNAPSHOT_AUTOSAVE_MS = 120_000;
 
@@ -259,6 +259,7 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
   useEffect(() => {
     if (!enabled) return;
     const pollVitals = async () => {
+      if (document.hidden) return;
       try {
         const lastMessageAt = useTerminalStore.getState().lastMessageAt;
         const gatewayLatencyMs =

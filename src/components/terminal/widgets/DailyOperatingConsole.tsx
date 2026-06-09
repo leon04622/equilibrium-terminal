@@ -1,9 +1,19 @@
 "use client";
 
+import { useMemo } from "react";
 import { CheckSquare, Clock, Sunrise } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
-import { OPERATIONAL_ROUTINES, RoutineCatalog, SessionWorkflowEngine } from "@/lib/daily";
+import {
+  AlertPrioritizer,
+  DailyBriefingEngine,
+  MarketStateLayer,
+  OPERATIONAL_ROUTINES,
+  PersonalOpsEngine,
+  RoutineCatalog,
+  SessionClockEngine,
+  SessionWorkflowEngine,
+} from "@/lib/daily";
 import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import type { RoutineId, SessionWorkflowPreset } from "@/types/daily-operations";
@@ -26,7 +36,7 @@ const SESSION_PRESETS: { id: SessionWorkflowPreset; label: string }[] = [
 ];
 
 export function DailyOperatingConsole() {
-  const snapshot = useDailyOperationsStore((s) => s.snapshot);
+  const storeSnapshot = useDailyOperationsStore((s) => s.snapshot);
   const memory = useDailyOperationsStore((s) => s.memory);
   const activeTab = useDailyOperationsStore((s) => s.activeTab);
   const setActiveTab = useDailyOperationsStore((s) => s.setActiveTab);
@@ -37,10 +47,30 @@ export function DailyOperatingConsole() {
   const prioritizedAlerts = useDailyOperationsStore((s) => s.prioritizedAlerts);
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
 
+  // Demo-safe fallback: build the operating context directly if the background
+  // hook hasn't populated the store yet (e.g. desk-focus mode or first paint).
+  const fallback = useMemo(() => {
+    if (storeSnapshot) return null;
+    try {
+      const store = useDailyOperationsStore.getState();
+      return {
+        clock: SessionClockEngine.snapshot(),
+        briefing: DailyBriefingEngine.build(),
+        marketState: MarketStateLayer.build(),
+        memory: store.memory,
+        personal: PersonalOpsEngine.build(store.personalPins, store.checklist, store.favoriteCoins),
+        prioritizedAlerts: AlertPrioritizer.rank(),
+      };
+    } catch {
+      return null;
+    }
+  }, [storeSnapshot]);
+  const snapshot = storeSnapshot ?? fallback;
+
   if (!snapshot) {
     return (
       <div className="flex h-full items-center justify-center p-2">
-        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Preparing daily operating context…</p>
+        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Daily operating context unavailable.</p>
       </div>
     );
   }

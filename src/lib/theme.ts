@@ -35,12 +35,12 @@ export const TERMINAL_LAYOUT = {
 } as const;
 
 export const TERMINAL_TYPO = {
-  root: "font-mono tracking-tighter tabular-nums antialiased",
-  label: "text-[10px] font-bold uppercase tracking-tighter text-slate-400",
-  micro: "text-[9px] font-bold uppercase tracking-tighter text-slate-500",
-  data: "text-[11px] font-mono tabular-nums tracking-tighter",
-  dataSm: "text-[10px] font-mono tabular-nums tracking-tighter",
-  dataLg: "text-[13px] font-mono font-semibold tabular-nums tracking-tighter",
+  root: "font-mono tracking-tight tabular-nums antialiased leading-tight",
+  label: "text-[10px] font-semibold uppercase tracking-wide text-slate-400 leading-none",
+  micro: "text-[9px] font-medium uppercase tracking-wide text-slate-500 leading-none",
+  data: "text-[11px] font-mono tabular-nums tracking-tight leading-snug",
+  dataSm: "text-[10px] font-mono tabular-nums tracking-tight leading-snug",
+  dataLg: "text-[13px] font-mono font-semibold tabular-nums tracking-tight leading-snug",
 } as const;
 
 /** Tailwind class bundles — compose with cn() in components. */
@@ -69,6 +69,12 @@ export const terminalSkin = {
     "border-[0.5px] border-[#ff3366]/40 bg-[#ff3366]/10 text-[#ff3366] hover:bg-[#ff3366]/15 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#ff3366]/40",
 } as const;
 
+export {
+  DEFAULT_PANEL_EMPHASIS,
+  EQ_CHART,
+  REGIME_VISUAL,
+  resolvePanelEmphasis,
+} from "@/lib/theme/equilibrium-visual";
 export {
   DENSITY_PRESETS,
   INSTITUTIONAL_INTERACTION,

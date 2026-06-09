@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
+import { CryptoEcosystemOrchestrator } from "@/lib/ecosystem";
 import { useCryptoEcosystemStore, type EcosystemTab } from "@/store/useCryptoEcosystemStore";
 import { terminalBus } from "@/store/eventBus";
 
@@ -32,14 +34,25 @@ function fmtUsd(n: number): string {
 }
 
 export function CryptoEcosystemConsole() {
-  const snapshot = useCryptoEcosystemStore((s) => s.snapshot);
+  const storeSnapshot = useCryptoEcosystemStore((s) => s.snapshot);
   const activeTab = useCryptoEcosystemStore((s) => s.activeTab);
   const setActiveTab = useCryptoEcosystemStore((s) => s.setActiveTab);
+
+  // Demo-safe fallback: compute directly if the background hook hasn't populated yet.
+  const fallback = useMemo(() => {
+    if (storeSnapshot) return null;
+    try {
+      return CryptoEcosystemOrchestrator.snapshot();
+    } catch {
+      return null;
+    }
+  }, [storeSnapshot]);
+  const snapshot = storeSnapshot ?? fallback;
 
   if (!snapshot) {
     return (
       <div className="flex h-full items-center justify-center p-2">
-        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Booting crypto operating ecosystem…</p>
+        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Crypto OS data unavailable in this context.</p>
       </div>
     );
   }

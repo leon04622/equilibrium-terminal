@@ -7,6 +7,8 @@ import { useDataIngestionStore, type IngestionTab } from "@/store/useDataIngesti
 
 const TABS: { id: IngestionTab; label: string }[] = [
   { id: "sources", label: "SOURCES" },
+  { id: "workers", label: "WORKERS" },
+  { id: "streams", label: "STREAMS" },
   { id: "pipeline", label: "PIPELINE" },
   { id: "events", label: "EVENTS" },
   { id: "processing", label: "PROCESS" },
@@ -43,7 +45,7 @@ export function DataIngestionConsole() {
         <Database className="h-3 w-3 text-cyan-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>DATA INGEST</span>
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-          EQ {ingestScore}/100 · trust {quality.overallTrust}%
+          EQ {ingestScore}/100 · backbone {snapshot.backbone.backboneScore} · {snapshot.backbone.liveWorkerCount} workers
         </span>
         <span className={cn(TERMINAL_TYPO.micro, "ml-auto text-slate-500")}>
           {liveSources}/{snapshot.sources.length} live · {processing.eventsPerSecond} evt/s
@@ -80,6 +82,44 @@ export function DataIngestionConsole() {
             ))}
             <p className={cn(TERMINAL_TYPO.micro, "mt-1 text-slate-600")}>
               Staged sources = adapter-ready; connect credentials in expansion phase.
+            </p>
+          </section>
+        ) : null}
+
+        {activeTab === "workers" ? (
+          <section>
+            {snapshot.backbone.workers.map((w) => (
+              <div key={w.exchange} className={cn(terminalSkin.borderB, "py-0.5")}>
+                <div className="flex justify-between gap-1">
+                  <span className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>{w.label}</span>
+                  <span className={cn(TERMINAL_TYPO.micro, healthColor(w.health))}>
+                    {w.health.toUpperCase()} · {w.transport}
+                  </span>
+                </div>
+                <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+                  {w.latencyMs != null ? `${w.latencyMs}ms` : "—"} · {w.eventsPerMinute} evt/min · r
+                  {w.reconnectCount}
+                </p>
+              </div>
+            ))}
+            <p className={cn(TERMINAL_TYPO.micro, "mt-1 text-slate-600")}>
+              {snapshot.backbone.crossVenueQuoteCount} cross-venue quotes · HL websocket + CEX REST fallbacks
+            </p>
+          </section>
+        ) : null}
+
+        {activeTab === "streams" ? (
+          <section>
+            {snapshot.backbone.streams.map((s) => (
+              <div key={s.topic} className={cn(terminalSkin.borderB, "flex justify-between py-0.5")}>
+                <span className={cn(TERMINAL_TYPO.micro, "uppercase text-slate-400")}>{s.topic}</span>
+                <span className={cn(TERMINAL_TYPO.micro, "tabular-nums text-slate-500")}>
+                  {s.eventsPerSecond} eps · backlog {s.backlog}
+                </span>
+              </div>
+            ))}
+            <p className={cn(TERMINAL_TYPO.micro, "mt-1 text-slate-600")}>
+              Unified internal event backbone — market · liquidity · intelligence · derivatives · macro · execution
             </p>
           </section>
         ) : null}

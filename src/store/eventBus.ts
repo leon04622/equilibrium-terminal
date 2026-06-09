@@ -11,7 +11,7 @@ export type TerminalEventMap = {
   };
   "ai:prompt": {
     prompt: string;
-    source: "omnibar" | "copilot";
+    source: "omnibar" | "copilot" | "operatordesk";
   };
   "intelligence:signal": {
     id: string;
@@ -119,6 +119,38 @@ export type TerminalEventMap = {
     id: string;
     headline: string;
     severity: "info" | "watch" | "critical";
+  };
+  "strategy:readiness": {
+    score: number;
+    trustScore: number;
+    severity: "watch" | "critical";
+  };
+  "chart:sync": {
+    linked: boolean;
+    timeframe: string;
+    cursorTime: number | null;
+    sourceChartId: string | null;
+  };
+  "chart:cursor": {
+    time: number;
+    sourceChartId: string;
+  };
+  "chart:replay": {
+    mode: string;
+    playheadTime: number | null;
+    progressPct: number;
+  };
+  "guide:select": {
+    targetId: string;
+  };
+  "guide:replay-start": {
+    scenarioId: string;
+    title: string;
+    asset: string;
+  };
+  "guide:replay-stop": Record<string, never>;
+  "guide:explain-toggle": {
+    active: boolean;
   };
 };
 

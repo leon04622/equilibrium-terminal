@@ -7,14 +7,15 @@ import { useIndustryIntegrationsStore } from "@/store/useIndustryIntegrationsSto
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useTerminalStore } from "@/store/terminalStore";
 
-const TICK_MS = 3_000;
-const SYNC_MS = 20_000;
+const TICK_MS = 8_000;
+const SYNC_MS = 60_000;
 
 export function useIndustryIntegrations(enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
 
-    const refresh = () => {
+    const refresh = (force = false) => {
+      if (!force && document.hidden) return;
       const snapshot = IntegrationsOrchestrator.snapshot();
       useIndustryIntegrationsStore.getState().setSnapshot(snapshot);
 
@@ -27,10 +28,11 @@ export function useIndustryIntegrations(enabled = true): void {
       }
     };
 
-    refresh();
-    const tickId = window.setInterval(refresh, TICK_MS);
+    refresh(true);
+    const tickId = window.setInterval(() => refresh(), TICK_MS);
 
     const syncId = window.setInterval(() => {
+      if (document.hidden) return;
       const snap = useIndustryIntegrationsStore.getState().snapshot;
       if (!snap) return;
       void fetch("/api/integrations/sync", {
@@ -44,9 +46,9 @@ export function useIndustryIntegrations(enabled = true): void {
       }).catch(() => undefined);
     }, SYNC_MS);
 
-    const unsubBook = useTerminalStore.subscribe((s) => s.bookVersion, refresh);
-    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, refresh);
-    const unsubProd = useProductionConfigStore.subscribe((s) => s.vitals.updatedAt, refresh);
+    const unsubBook = useTerminalStore.subscribe((s) => s.bookVersion, () => refresh());
+    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, () => refresh());
+    const unsubProd = useProductionConfigStore.subscribe((s) => s.vitals.updatedAt, () => refresh());
 
     return () => {
       window.clearInterval(tickId);

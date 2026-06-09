@@ -1,3 +1,4 @@
+import { performanceEngine } from "@/lib/performance/PerformanceEngine";
 import { terminalBus } from "@/store/eventBus";
 import { terminalIngress, useTerminalStore } from "@/store/terminalStore";
 import { useAlertStore } from "@/store/useAlertStore";
@@ -55,6 +56,7 @@ class TerminalRuntime {
 
     this.startedAt = Date.now();
     this.registerBridges();
+    performanceEngine.start();
     this.initialized = true;
   }
 
@@ -66,6 +68,7 @@ class TerminalRuntime {
 
     for (const off of this.unsubscribers) off();
     this.unsubscribers = [];
+    performanceEngine.stop();
     this.initialized = false;
     this.startedAt = null;
   }

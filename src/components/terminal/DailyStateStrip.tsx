@@ -1,14 +1,37 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { LiveDeskClockEngine, type LiveDeskPulse } from "@/lib/daily/LiveDeskClockEngine";
 import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
+
+const TONE_COLOR: Record<LiveDeskPulse["toneColor"], string> = {
+  calm: "text-slate-500",
+  active: "text-cyan-400",
+  elevated: "text-amber-400",
+  danger: "text-rose-400",
+};
 
 export function DailyStateStrip() {
   const snapshot = useDailyOperationsStore((s) => s.snapshot);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Local 1s heartbeat — keeps countdowns ticking without re-rendering the app.
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const id = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      setNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (!snapshot) return null;
 
   const { clock, marketState } = snapshot;
+  const pulse = LiveDeskClockEngine.pulse(clock, marketState, now);
+
   const volColor =
     marketState.volatilityState === "extreme"
       ? terminalSkin.textDown
@@ -41,7 +64,24 @@ export function DailyStateStrip() {
       >
         {marketState.riskOnOff.toUpperCase()}
       </span>
-      <span className="min-w-0 truncate text-slate-500">{marketState.compositeLabel}</span>
+
+      <span className="shrink-0 text-slate-600">|</span>
+      <span
+        className={cn("shrink-0 tabular-nums", pulse.funding.urgent ? "text-amber-400" : "text-slate-500")}
+        title="Time to next hourly funding window"
+      >
+        FND {pulse.funding.formatted}
+      </span>
+      <span className="shrink-0 text-slate-600">|</span>
+      <span
+        className={cn("shrink-0 tabular-nums truncate", pulse.nextSession.urgent ? "text-cyan-400" : "text-slate-500")}
+        title={`Next: ${pulse.nextSession.label}`}
+      >
+        {pulse.nextSession.label} {pulse.nextSession.formatted}
+      </span>
+
+      <span className="shrink-0 text-slate-600">|</span>
+      <span className={cn("min-w-0 truncate", TONE_COLOR[pulse.toneColor])}>{pulse.deskTone}</span>
     </div>
   );
 }

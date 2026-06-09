@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { IntelligenceIndex } from "@/lib/discovery/IntelligenceIndex";
+import { GlobalSearchIndex } from "@/lib/omnibar/GlobalSearchIndex";
 import { MarketSurveillanceEngine } from "@/lib/discovery/MarketSurveillanceEngine";
 import { useInformationDiscoveryStore } from "@/store/useInformationDiscoveryStore";
 import { useTerminalStore } from "@/store/terminalStore";
@@ -19,7 +19,7 @@ export function useInformationDiscovery(enabled = true): void {
         useTerminalStore.getState().selectedAsset?.coin ??
         "BTC";
 
-      useInformationDiscoveryStore.getState().setIndex(IntelligenceIndex.rebuild());
+      useInformationDiscoveryStore.getState().setIndex(GlobalSearchIndex.rebuild());
       useInformationDiscoveryStore
         .getState()
         .setSurveillance(MarketSurveillanceEngine.snapshot());

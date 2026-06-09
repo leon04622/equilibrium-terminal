@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
@@ -8,6 +8,8 @@ import { AlertWorkflowBridge } from "@/lib/workflow/AlertWorkflowBridge";
 import { useAlertStore, type TriggeredAlert } from "@/store/useAlertStore";
 import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
 import { useTerminalStore } from "@/store/terminalStore";
+import { LiveContextEngine } from "@/lib/education/LiveContextEngine";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 function subscribeTriggers(cb: () => void) {
   return useAlertStore.subscribe((s) => s.triggersVersion, () => cb());
@@ -17,9 +19,12 @@ function getTriggers(): TriggeredAlert[] {
   return useAlertStore.getState().triggers;
 }
 
-function AlertRow({ alert }: { alert: TriggeredAlert }) {
+function AlertRow({ alert, beginner }: { alert: TriggeredAlert; beginner: boolean }) {
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
   const clearFlash = useAlertStore((s) => s.clearTriggerFlash);
+
+  // PHASE 1 / PHASE 8 — every alert is expanded into plain English.
+  const edu = useMemo(() => LiveContextEngine.fromAlert(alert), [alert]);
 
   useEffect(() => {
     if (!alert.isNew) return;
@@ -67,11 +72,25 @@ function AlertRow({ alert }: { alert: TriggeredAlert }) {
           <span className={cn(TERMINAL_TYPO.micro, terminalSkin.textAi)}>AI</span>
         )}
       </div>
-      {alert.aiExplanation ? (
-        <p className={cn(TERMINAL_TYPO.micro, "mt-0 pl-[4.5rem] text-slate-500")}>
-          {alert.aiExplanation}
+      <div className="mt-0.5 space-y-0.5 pl-[4.5rem]">
+        {beginner ? (
+          <p className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>{edu.meaning}</p>
+        ) : null}
+        <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+          <span className="mr-1 text-amber-500">WHY</span>
+          {edu.whyMatters}
         </p>
-      ) : null}
+        <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+          <span className="mr-1 text-cyan-500">CHECK</span>
+          {edu.checkNext}
+        </p>
+        {beginner ? (
+          <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+            <span className="mr-1 text-rose-500">AVOID</span>
+            {edu.mistake}
+          </p>
+        ) : null}
+      </div>
     </button>
   );
 }
@@ -82,6 +101,7 @@ export function AlertPanel() {
   const prioritized = useDailyOperationsStore((s) => s.prioritizedAlerts);
   const rules = useAlertStore((s) => s.rules);
   const enabledCount = rules.filter((r) => r.enabled).length;
+  const beginner = useOperatorGuideStore((s) => s.selectedAudience) === "beginner";
 
   const ordered =
     prioritized.length > 0
@@ -114,7 +134,7 @@ export function AlertPanel() {
             EVAL · OI · FUNDING · WHALE · LIQ CLUSTER
           </p>
         ) : (
-          ordered.map((a) => <AlertRow key={a.id} alert={a} />)
+          ordered.map((a) => <AlertRow key={a.id} alert={a} beginner={beginner} />)
         )}
       </div>
     </div>

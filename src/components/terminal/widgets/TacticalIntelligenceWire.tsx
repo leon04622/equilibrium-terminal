@@ -225,7 +225,7 @@ export function TacticalIntelligenceWire() {
             AWAITING TACTICAL VECTORS
           </p>
         ) : (
-          wire.map((item) => <WireCluster key={item.id} item={item} />)
+          wire.slice(0, 64).map((item) => <WireCluster key={item.id} item={item} />)
         )}
       </div>
     </div>

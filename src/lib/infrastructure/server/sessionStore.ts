@@ -18,7 +18,7 @@ function tierForWallet(wallet: string): SubscriptionTier {
 function rolesForTier(tier: SubscriptionTier): TeamRole[] {
   if (tier === "enterprise") return ["admin", "trader"];
   if (tier === "team") return ["trader", "analyst"];
-  return ["analyst"];
+  return ["trader", "analyst"];
 }
 
 export function createUserSession(walletAddress: string): UserSessionState {
@@ -66,4 +66,13 @@ export function revokeSession(sessionId: string): void {
   if (!row) return;
   refreshIndex.delete(row.refreshToken);
   sessions.delete(sessionId);
+}
+
+export function rotateRefresh(sessionId: string, newRefreshToken: string): void {
+  const row = sessions.get(sessionId);
+  if (!row) return;
+  refreshIndex.delete(row.refreshToken);
+  row.refreshToken = newRefreshToken;
+  refreshIndex.set(newRefreshToken, sessionId);
+  sessions.set(sessionId, row);
 }

@@ -37,20 +37,69 @@ import { EnterpriseOperationsConsole } from "@/components/terminal/widgets/Enter
 import { IndustryIntegrationsConsole } from "@/components/terminal/widgets/IndustryIntegrationsConsole";
 import { ProprietaryIntelligenceConsole } from "@/components/terminal/widgets/ProprietaryIntelligenceConsole";
 import { CryptoEcosystemConsole } from "@/components/terminal/widgets/CryptoEcosystemConsole";
+import { GlobalStrategyConsole } from "@/components/terminal/widgets/GlobalStrategyConsole";
+import { CommercialProductConsole } from "@/components/terminal/widgets/CommercialProductConsole";
+import { ExecutionIntelligenceConsole } from "@/components/terminal/widgets/ExecutionIntelligenceConsole";
+import { PortfolioDeskConsole } from "@/components/terminal/widgets/PortfolioDeskConsole";
+import { DerivativesDeskConsole } from "@/components/terminal/widgets/DerivativesDeskConsole";
+import { SystemicIntelligenceConsole } from "@/components/terminal/widgets/SystemicIntelligenceConsole";
+import { MarketMemoryConsole } from "@/components/terminal/widgets/MarketMemoryConsole";
+import { ResearchDeskConsole } from "@/components/terminal/widgets/ResearchDeskConsole";
+import { PlatformDeskConsole } from "@/components/terminal/widgets/PlatformDeskConsole";
+import { MobileDeskConsole } from "@/components/terminal/widgets/MobileDeskConsole";
+import { OpsCommandConsole } from "@/components/terminal/widgets/OpsCommandConsole";
+import { BillingDeskConsole } from "@/components/terminal/widgets/BillingDeskConsole";
+import { DeskOpsConsole } from "@/components/terminal/widgets/DeskOpsConsole";
+import { GlobalIntelConsole } from "@/components/terminal/widgets/GlobalIntelConsole";
+import { OperatorAiConsole } from "@/components/terminal/widgets/OperatorAiConsole";
+import { UnifiedOpsConsole } from "@/components/terminal/widgets/UnifiedOpsConsole";
+import { LiveExecConsole } from "@/components/terminal/widgets/LiveExecConsole";
+import { MarketCommandConsole } from "@/components/terminal/widgets/MarketCommandConsole";
+import { ProductMaturityConsole } from "@/components/terminal/widgets/ProductMaturityConsole";
+import { LiveDeploymentConsole } from "@/components/terminal/widgets/LiveDeploymentConsole";
+import { ExplainDeskConsole } from "@/components/terminal/widgets/ExplainDeskConsole";
+import { OperatorJournalConsole } from "@/components/terminal/widgets/OperatorJournalConsole";
+import { LiveMentorConsole } from "@/components/terminal/widgets/LiveMentorConsole";
+import { DecisionReplayReview } from "@/components/terminal/widgets/DecisionReplayReview";
+import { ExplainSidePanel } from "@/components/terminal/explain/ExplainSidePanel";
+import { GuidedFocusIndicator } from "@/components/terminal/explain/GuidedFocusIndicator";
+import { CinematicOrderBookLesson } from "@/components/terminal/explain/CinematicOrderBookLesson";
+import { MarketMechanicsSimulator } from "@/components/terminal/explain/MarketMechanicsSimulator";
+import { LessonLiveBridge } from "@/components/terminal/explain/LessonLiveBridge";
+import { FundingCrowdingSimulator } from "@/components/terminal/explain/FundingCrowdingSimulator";
+import { FundingLiveBridge } from "@/components/terminal/explain/FundingLiveBridge";
+import { LearningHubLauncher } from "@/components/terminal/explain/LearningHubLauncher";
+import { AlphaInviteGate } from "@/components/terminal/AlphaInviteGate";
+import { OnboardingWalkthrough } from "@/components/terminal/OnboardingWalkthrough";
 import { DailyStateStrip } from "@/components/terminal/DailyStateStrip";
 import { AdaptiveOrchestratorBar } from "@/components/terminal/AdaptiveOrchestratorBar";
 import { TerminalExperienceBar } from "@/components/terminal/TerminalExperienceBar";
+import { WedgeMissionStrip } from "@/components/terminal/WedgeMissionStrip";
+import { DeskSwitcher } from "@/components/terminal/DeskSwitcher";
 import { WorkspaceSystems } from "@/components/terminal/WorkspaceSystems";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
 import { layoutFingerprint, layoutsEqual } from "@/lib/telemetry/layoutUtils";
 import { telemetryPipeline } from "@/lib/telemetry/TelemetryPipeline";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 import { TERMINAL_LAYOUT, terminalSkin, TERMINAL_TYPO, DENSITY_PRESETS, MODE_CHROME, TRUST_SIGNAL, type PanelStatus } from "@/lib/theme";
+import { resolvePanelEmphasis } from "@/lib/theme/equilibrium-visual";
 import { cn } from "@/lib/utils";
 import { useTerminalStore } from "@/store/terminalStore";
 import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
 import { terminalBus } from "@/store/eventBus";
 import { NEVER_HIDE_PANEL_IDS } from "@/lib/adaptive/PanelPriorityEngine";
+import {
+  FULL_WORKSPACE_LABEL,
+  FULL_WORKSPACE_LAYOUT,
+  WEDGE_ADVANCED_PANEL_IDS,
+  FULL_WORKSPACE_DEFAULT_MODE,
+  WEDGE_DEFAULT_MODE,
+  WEDGE_PRODUCT_LABEL,
+  resolveWorkspaceLayout,
+} from "@/lib/wedge/WedgeManifest";
+import { useWedgeStore } from "@/store/useWedgeStore";
+import { useDeskStore } from "@/store/useDeskStore";
+import { DESKS } from "@/lib/desks/DeskRegistry";
 import type { WidgetType, WorkspaceWidget } from "@/types/terminal-schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -76,39 +125,9 @@ const GridLayout = dynamic(
   },
 );
 
-const DEFAULT_LAYOUT: Layout[] = [
-  { i: "hyperbook", x: 0, y: 3, w: 4, h: 14, minW: 3, minH: 8 },
-  { i: "chart", x: 4, y: 3, w: 5, h: 14, minW: 3, minH: 8 },
-  { i: "macro", x: 0, y: 0, w: 12, h: 3, minW: 6, minH: 2 },
-  { i: "intelligence", x: 9, y: 3, w: 3, h: 8, minW: 2, minH: 6 },
-  { i: "copilot", x: 9, y: 11, w: 3, h: 3, minW: 2, minH: 4 },
-  { i: "proactive", x: 9, y: 14, w: 3, h: 3, minW: 2, minH: 4 },
-  { i: "ticket", x: 0, y: 14, w: 3, h: 10, minW: 2, minH: 8 },
-  { i: "positions", x: 3, y: 14, w: 6, h: 10, minW: 4, minH: 6 },
-  { i: "teamdesk", x: 0, y: 24, w: 6, h: 8, minW: 3, minH: 5 },
-  { i: "alerts", x: 6, y: 24, w: 6, h: 8, minW: 2, minH: 5 },
-  { i: "diagnostics", x: 0, y: 32, w: 6, h: 7, minW: 4, minH: 5 },
-  { i: "alphalab", x: 6, y: 32, w: 6, h: 7, minW: 4, minH: 5 },
-  { i: "infra", x: 0, y: 39, w: 12, h: 6, minW: 6, minH: 4 },
-  { i: "domladder", x: 0, y: 45, w: 6, h: 8, minW: 4, minH: 6 },
-  { i: "slippageradar", x: 6, y: 45, w: 6, h: 8, minW: 4, minH: 6 },
-  { i: "decision", x: 0, y: 53, w: 6, h: 10, minW: 4, minH: 8 },
-  { i: "surveillance", x: 6, y: 53, w: 6, h: 10, minW: 4, minH: 8 },
-  { i: "knowledgegraph", x: 0, y: 63, w: 12, h: 12, minW: 8, minH: 10 },
-  { i: "traderjournal", x: 0, y: 75, w: 6, h: 10, minW: 4, minH: 8 },
-  { i: "research", x: 6, y: 75, w: 6, h: 10, minW: 4, minH: 8 },
-  { i: "dailyops", x: 0, y: 85, w: 12, h: 11, minW: 8, minH: 9 },
-  { i: "marketcoverage", x: 0, y: 96, w: 12, h: 12, minW: 8, minH: 10 },
-  { i: "reliability", x: 0, y: 108, w: 12, h: 11, minW: 8, minH: 9 },
-  { i: "newswire", x: 0, y: 119, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "ingestion", x: 0, y: 129, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "intelengine", x: 0, y: 139, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "collab", x: 0, y: 149, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "enterpriseops", x: 0, y: 159, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "integrations", x: 0, y: 169, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "propintel", x: 0, y: 179, w: 12, h: 10, minW: 8, minH: 8 },
-  { i: "ecosystem", x: 0, y: 189, w: 12, h: 10, minW: 8, minH: 8 },
-];
+function initialWorkspaceLayout(): Layout[] {
+  return resolveWorkspaceLayout(useWedgeStore.getState().deskFocusMode);
+}
 
 const PANEL_TELEMETRY: Record<string, string> = {
   hyperbook: "L2 DEPTH",
@@ -141,6 +160,29 @@ const PANEL_TELEMETRY: Record<string, string> = {
   integrations: "INTEGRATE",
   propintel: "EQ INTEL",
   ecosystem: "ECOSYSTEM",
+  globalstrategy: "GLOBAL STRAT",
+  commercial: "PRODUCT",
+  execintel: "EXEC INTEL",
+  portfoliodesk: "PORTFOLIO DESK",
+  derivdesk: "DERIVATIVES DESK",
+  systemicintel: "SYSTEMIC INTEL",
+  memorydesk: "MARKET MEMORY",
+  researchdesk: "RESEARCH DESK",
+  platformdesk: "PLATFORM DESK",
+  mobiledesk: "MOBILE OPS",
+  opscommand: "OPS COMMAND",
+  billingdesk: "BILLING DESK",
+  deskops: "DESK OPS",
+  globaldesk: "GLOBAL INTEL",
+  operatordesk: "OPERATOR AI",
+  unifiedops: "UNIFIED OPS",
+  liveexec: "LIVE EXEC",
+  marketcmd: "MARKET CMD",
+  maturitydesk: "TERMINAL POLISH",
+  livedeploy: "LIVE DEPLOY",
+  explaindesk: "OPERATOR GUIDE",
+  operatorjournal: "OPERATOR JOURNAL",
+  livementor: "LIVE MENTOR",
 };
 
 function widgetContent(type: WidgetType) {
@@ -203,6 +245,52 @@ function widgetContent(type: WidgetType) {
       return <ProprietaryIntelligenceConsole />;
     case "ecosystem":
       return <CryptoEcosystemConsole />;
+    case "globalstrategy":
+      return <GlobalStrategyConsole />;
+    case "commercial":
+      return <CommercialProductConsole />;
+    case "execintel":
+      return <ExecutionIntelligenceConsole />;
+    case "portfoliodesk":
+      return <PortfolioDeskConsole />;
+    case "derivdesk":
+      return <DerivativesDeskConsole />;
+    case "systemicintel":
+      return <SystemicIntelligenceConsole />;
+    case "memorydesk":
+      return <MarketMemoryConsole />;
+    case "researchdesk":
+      return <ResearchDeskConsole />;
+    case "platformdesk":
+      return <PlatformDeskConsole />;
+    case "mobiledesk":
+      return <MobileDeskConsole />;
+    case "opscommand":
+      return <OpsCommandConsole />;
+    case "billingdesk":
+      return <BillingDeskConsole />;
+    case "deskops":
+      return <DeskOpsConsole />;
+    case "globaldesk":
+      return <GlobalIntelConsole />;
+    case "operatordesk":
+      return <OperatorAiConsole />;
+    case "unifiedops":
+      return <UnifiedOpsConsole />;
+    case "liveexec":
+      return <LiveExecConsole />;
+    case "marketcmd":
+      return <MarketCommandConsole />;
+    case "maturitydesk":
+      return <ProductMaturityConsole />;
+    case "livedeploy":
+      return <LiveDeploymentConsole />;
+    case "explaindesk":
+      return <ExplainDeskConsole />;
+    case "operatorjournal":
+      return <OperatorJournalConsole />;
+    case "livementor":
+      return <LiveMentorConsole />;
     default:
       return null;
   }
@@ -235,12 +323,15 @@ export function WorkspaceManager() {
   const selectedAsset = useTerminalStore((s) => s.selectedAsset);
   const connectionStatus = useTerminalStore((s) => s.connectionStatus);
   const lastMessageAt = useTerminalStore((s) => s.lastMessageAt);
-  const [layout, setLayout] = useState<Layout[]>(DEFAULT_LAYOUT);
+  const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
+  const activeDeskId = useDeskStore((s) => s.activeDeskId);
+  const deskTransitioning = useDeskStore((s) => s.transitioning);
+  const [layout, setLayout] = useState<Layout[]>(initialWorkspaceLayout);
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [width, setWidth] = useState(1400);
   const [clock, setClock] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
-  const layoutFpRef = useRef(layoutFingerprint(DEFAULT_LAYOUT));
+  const layoutFpRef = useRef(layoutFingerprint(initialWorkspaceLayout()));
   const suppressLayoutTelemetryRef = useRef(false);
   const widthRef = useRef(1400);
   const gridReadyRef = useRef(false);
@@ -272,6 +363,29 @@ export function WorkspaceManager() {
       { id: "integrations", type: "integrations", title: "INDUSTRY INTEGRATIONS" },
       { id: "propintel", type: "propintel", title: "PROPRIETARY INTEL" },
       { id: "ecosystem", type: "ecosystem", title: "CRYPTO FINANCIAL OS" },
+      { id: "globalstrategy", type: "globalstrategy", title: "GLOBAL INFRA STRATEGY" },
+      { id: "commercial", type: "commercial", title: "PRODUCT · COMMERCIAL" },
+      { id: "execintel", type: "execintel", title: "EXECUTION INTEL" },
+      { id: "portfoliodesk", type: "portfoliodesk", title: "PORTFOLIO DESK" },
+      { id: "derivdesk", type: "derivdesk", title: "DERIVATIVES DESK" },
+      { id: "systemicintel", type: "systemicintel", title: "SYSTEMIC INTEL" },
+      { id: "memorydesk", type: "memorydesk", title: "MARKET MEMORY" },
+      { id: "researchdesk", type: "researchdesk", title: "RESEARCH DESK" },
+      { id: "platformdesk", type: "platformdesk", title: "PLATFORM DESK" },
+      { id: "mobiledesk", type: "mobiledesk", title: "MOBILE OPS" },
+      { id: "opscommand", type: "opscommand", title: "OPS COMMAND" },
+      { id: "billingdesk", type: "billingdesk", title: "BILLING DESK" },
+      { id: "deskops", type: "deskops", title: "DESK OPS" },
+      { id: "globaldesk", type: "globaldesk", title: "GLOBAL INTEL" },
+      { id: "operatordesk", type: "operatordesk", title: "OPERATOR AI" },
+      { id: "unifiedops", type: "unifiedops", title: "UNIFIED OPS" },
+      { id: "liveexec", type: "liveexec", title: "LIVE EXEC" },
+      { id: "marketcmd", type: "marketcmd", title: "MARKET CMD" },
+      { id: "maturitydesk", type: "maturitydesk", title: "TERMINAL POLISH" },
+      { id: "livedeploy", type: "livedeploy", title: "LIVE DEPLOY" },
+      { id: "explaindesk", type: "explaindesk", title: "OPERATOR GUIDE" },
+      { id: "operatorjournal", type: "operatorjournal", title: "OPERATOR JOURNAL" },
+      { id: "livementor", type: "livementor", title: "LIVE MENTOR" },
     ],
     [],
   );
@@ -287,6 +401,37 @@ export function WorkspaceManager() {
       suppressLayoutTelemetryRef.current = false;
     });
   }, [layout]);
+
+  // Layout resolution priority:
+  //   1. Full platform (EXPAND) always wins when desk-focus is off.
+  //   2. An active specialized desk drives its own hand-tuned grid.
+  //   3. Otherwise fall back to the wedge HL core layout.
+  useEffect(() => {
+    const setMode = useAdaptiveWorkspaceStore.getState().setMode;
+    if (!deskFocusMode) {
+      applyAdaptiveLayout(FULL_WORKSPACE_LAYOUT);
+      setMode(FULL_WORKSPACE_DEFAULT_MODE);
+      return;
+    }
+    if (activeDeskId) {
+      applyAdaptiveLayout(useDeskStore.getState().layoutFor(activeDeskId));
+      setMode(DESKS[activeDeskId].mode);
+      return;
+    }
+    applyAdaptiveLayout(resolveWorkspaceLayout(true));
+    setMode(WEDGE_DEFAULT_MODE);
+  }, [deskFocusMode, activeDeskId, applyAdaptiveLayout]);
+
+  // PHASE 9 — clear the brief cross-fade once the new desk has mounted.
+  const reducedMotion = useTerminalExperienceStore((s) => s.reducedMotion);
+  useEffect(() => {
+    if (!deskTransitioning) return;
+    const t = window.setTimeout(
+      () => useDeskStore.getState().endTransition(),
+      reducedMotion ? 0 : 240,
+    );
+    return () => window.clearTimeout(t);
+  }, [deskTransitioning, reducedMotion]);
 
   const allPanels = useMemo(() => {
     const base = [...widgets];
@@ -312,8 +457,12 @@ export function WorkspaceManager() {
   }, []);
 
   useEffect(() => {
-    useAdaptiveWorkspaceStore.setState({ hiddenPanelIds: [], collapsedPanelIds: [] });
-  }, []);
+    const hidden =
+      deskFocusMode
+        ? Array.from(WEDGE_ADVANCED_PANEL_IDS).filter((id) => !layout.some((l) => l.i === id))
+        : [];
+    useAdaptiveWorkspaceStore.setState({ hiddenPanelIds: hidden, collapsedPanelIds: [] });
+  }, [deskFocusMode, layout]);
 
   useEffect(() => {
     const off = terminalBus.on("widget:focus", ({ widgetId }) => {
@@ -371,6 +520,14 @@ export function WorkspaceManager() {
       if (fp === layoutFpRef.current) return;
       layoutFpRef.current = fp;
       setLayout(next);
+      // PHASE 8 — workspace memory: persist the user's tuned grid for the
+      // active desk so it is restored on return / reload.
+      if (!suppressLayoutTelemetryRef.current) {
+        const desk = useDeskStore.getState();
+        if (desk.activeDeskId && useWedgeStore.getState().deskFocusMode) {
+          desk.saveDeskLayout(desk.activeDeskId, next);
+        }
+      }
       if (!suppressLayoutTelemetryRef.current) {
         useAdaptiveWorkspaceStore.getState().lockUserLayout();
       }
@@ -427,6 +584,16 @@ export function WorkspaceManager() {
 
   return (
     <div className={cn("flex h-screen flex-col overflow-hidden", terminalSkin.canvas)}>
+      <AlphaInviteGate />
+      <OnboardingWalkthrough />
+      <ExplainSidePanel />
+      <GuidedFocusIndicator />
+      <DecisionReplayReview />
+      <MarketMechanicsSimulator />
+      <CinematicOrderBookLesson />
+      <LessonLiveBridge />
+      <FundingCrowdingSimulator />
+      <FundingLiveBridge />
       <header
         className={cn(
           "flex shrink-0 items-center gap-2 border-b-[0.5px] bg-slate-950 px-1 py-0.5",
@@ -435,11 +602,14 @@ export function WorkspaceManager() {
       >
         <div className="flex shrink-0 items-center gap-2 border-r-[0.5px] border-slate-800 pr-2">
           <span className={cn(TERMINAL_TYPO.label, "text-slate-300")}>EQ</span>
-          <span className={cn(TERMINAL_TYPO.micro, modeChrome.accent)}>{modeChrome.label}</span>
+          <span className={cn(TERMINAL_TYPO.micro, modeChrome.accent)} title={modeChrome.label}>
+            {deskFocusMode ? WEDGE_PRODUCT_LABEL : FULL_WORKSPACE_LABEL}
+          </span>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
           <OmniBar />
+          <LearningHubLauncher />
           <DailyStateStrip />
         </div>
 
@@ -472,6 +642,10 @@ export function WorkspaceManager() {
         <WalletStatus />
       </header>
 
+      <DeskSwitcher />
+
+      <WedgeMissionStrip />
+
       <div ref={containerRef} className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-0">
         <WorkspaceSystems layout={layout} onAdaptiveLayout={applyAdaptiveLayout} />
         {visible.length === 0 ? (
@@ -480,17 +654,32 @@ export function WorkspaceManager() {
             <button
               type="button"
               className={cn(TERMINAL_TYPO.micro, "border border-slate-700 px-2 py-1 text-cyan-400")}
-              onClick={() =>
+              onClick={() => {
+                applyAdaptiveLayout(
+                  !deskFocusMode
+                    ? FULL_WORKSPACE_LAYOUT
+                    : activeDeskId
+                      ? useDeskStore.getState().layoutFor(activeDeskId)
+                      : resolveWorkspaceLayout(true),
+                );
                 useAdaptiveWorkspaceStore.setState({
                   hiddenPanelIds: [],
                   collapsedPanelIds: [],
-                })
-              }
+                });
+              }}
             >
-              RESTORE PANELS
+              {!deskFocusMode
+                ? "RESTORE FULL LAYOUT"
+                : activeDeskId
+                  ? `RESTORE ${DESKS[activeDeskId].label} DESK`
+                  : "RESTORE DESK LAYOUT"}
             </button>
           </div>
         ) : null}
+        <div
+          className="transition-opacity duration-200"
+          style={{ opacity: deskTransitioning && !reducedMotion ? 0.35 : 1 }}
+        >
         <GridLayout
           className="layout"
           layout={activeLayout}
@@ -515,9 +704,14 @@ export function WorkspaceManager() {
               <PanelShell
                 title={panel.title}
                 subtitle={selectedAsset?.symbol}
+                panelId={panel.id}
                 telemetry={PANEL_TELEMETRY[panel.id] ?? "SYS"}
-                emphasis={panelEmphasis[panel.id]}
+                emphasis={resolvePanelEmphasis(panel.id, panelEmphasis[panel.id])}
                 status={panelStatus(panel.id, connectionStatus)}
+                loading={
+                  connectionStatus !== "connected" &&
+                  ["hyperbook", "chart", "intelligence", "macro"].includes(panel.id)
+                }
                 dragHandleClassName="panel-drag-handle"
                 maximized={maximizedId === panel.id}
                 onToggleMaximize={() => toggleMaximize(panel.id)}
@@ -533,6 +727,7 @@ export function WorkspaceManager() {
             </div>
           ))}
         </GridLayout>
+        </div>
       </div>
     </div>
   );

@@ -6,8 +6,8 @@ import { terminalBus } from "@/store/eventBus";
 import { useProprietaryIntelligenceStore } from "@/store/useProprietaryIntelligenceStore";
 import { useTerminalStore } from "@/store/terminalStore";
 
-const TICK_MS = 2_500;
-const SYNC_MS = 18_000;
+const TICK_MS = 8_000;
+const SYNC_MS = 60_000;
 
 export function useProprietaryIntelligence(enabled = true): void {
   const wiredRef = useRef<Set<string>>(new Set());
@@ -15,7 +15,8 @@ export function useProprietaryIntelligence(enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
 
-    const refresh = () => {
+    const refresh = (force = false) => {
+      if (!force && document.hidden) return;
       const snapshot = ProprietaryIntelligenceOrchestrator.snapshot();
       useProprietaryIntelligenceStore.getState().setSnapshot(snapshot);
 
@@ -32,10 +33,11 @@ export function useProprietaryIntelligence(enabled = true): void {
       }
     };
 
-    refresh();
-    const tickId = window.setInterval(refresh, TICK_MS);
+    refresh(true);
+    const tickId = window.setInterval(() => refresh(), TICK_MS);
 
     const syncId = window.setInterval(() => {
+      if (document.hidden) return;
       const snap = useProprietaryIntelligenceStore.getState().snapshot;
       if (!snap) return;
       void fetch("/api/proprietary/sync", {
@@ -49,9 +51,9 @@ export function useProprietaryIntelligence(enabled = true): void {
       }).catch(() => undefined);
     }, SYNC_MS);
 
-    const offIntel = terminalBus.on("intelligence:engine", refresh);
-    const unsubBook = useTerminalStore.subscribe((s) => s.bookVersion, refresh);
-    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, refresh);
+    const offIntel = terminalBus.on("intelligence:engine", () => refresh());
+    const unsubBook = useTerminalStore.subscribe((s) => s.bookVersion, () => refresh());
+    const unsubConn = useTerminalStore.subscribe((s) => s.connectionStatus, () => refresh());
 
     return () => {
       window.clearInterval(tickId);

@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { useDevOpsStore } from "@/store/useDevOpsStore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
+
+type InfraTab = "platform" | "liveops";
 
 function toneForLag(ms: number): "up" | "warn" | "down" {
   if (ms <= 25) return "up";
@@ -56,6 +59,8 @@ function formatUptime(sec: number): string {
 }
 
 export function InfraDiagnostics() {
+  const [tab, setTab] = useState<InfraTab>("platform");
+  const ops = useDevOpsStore((s) => s.snapshot);
   const vitals = useProductionConfigStore((s) => s.vitals);
   const cloudSyncStatus = useProductionConfigStore((s) => s.cloudSyncStatus);
   const sessionHealth = useProductionConfigStore((s) => s.sessionHealth);
@@ -84,8 +89,16 @@ export function InfraDiagnostics() {
           "justify-between rounded-none px-1",
         )}
       >
-        <span>PLATFORM INFRASTRUCTURE</span>
+        <span>LIVE OPS · INFRA</span>
         <span className={TERMINAL_TYPO.micro}>
+          {ops ? (
+            <>
+              <span className={ops.operationalScore >= 85 ? terminalSkin.textUp : terminalSkin.textWarn}>
+                OPS {ops.operationalScore}
+              </span>
+              <span className="text-slate-600"> · </span>
+            </>
+          ) : null}
           <span className={gatewayMultiplexActive ? terminalSkin.textUp : terminalSkin.textDown}>
             {gatewayMultiplexActive ? "GW MUX" : "GW OFF"}
           </span>
@@ -104,6 +117,71 @@ export function InfraDiagnostics() {
         </span>
       </div>
 
+      <nav className={cn(terminalSkin.borderB, "flex gap-0.5 p-0.5")}>
+        {(
+          [
+            ["platform", "PLATFORM"],
+            ["liveops", "LIVE OPS"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={cn(
+              TERMINAL_TYPO.micro,
+              "border border-slate-800 px-1",
+              tab === id ? "text-cyan-300" : "text-slate-600",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "liveops" && ops ? (
+        <>
+          <div className="grid shrink-0 grid-cols-4 gap-px bg-slate-800 p-px">
+            <MetricCell label="ENV" value={ops.environment.toUpperCase()} tone="ai" />
+            <MetricCell label="SLO" value={ops.uptimePct.toFixed(1)} unit="%" tone="up" />
+            <MetricCell label="SCORE" value={String(ops.operationalScore)} tone="ai" />
+            <MetricCell label="CI/CD" value={ops.cicdStatus.toUpperCase()} />
+            <MetricCell label="REGION" value={ops.activeRegion.toUpperCase()} />
+            <MetricCell label="WS" value={ops.stream.wsConnected ? "LIVE" : "DOWN"} tone={ops.stream.wsConnected ? "up" : "down"} />
+            <MetricCell label="MSG AGE" value={String(ops.stream.lastMessageAgeMs)} unit="MS" />
+            <MetricCell label="STR" value={ops.stream.stressMode ? "ON" : "OFF"} tone={ops.stream.stressMode ? "warn" : "up"} />
+            <MetricCell label="BUILD" value={ops.release.buildId} />
+            <MetricCell label="CHANNEL" value={ops.release.channel.toUpperCase()} />
+            <MetricCell label="FPS" value={String(ops.observability.fps)} />
+            <MetricCell label="EPS" value={ops.observability.metricsEps.toFixed(1)} />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto px-1 py-0.5">
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>REGIONS</p>
+            {ops.regions.map((r) => (
+              <div key={r.id} className="border-b border-slate-800 py-0.5">
+                <span className={TERMINAL_TYPO.dataSm}>{r.label}</span>
+                <span className={cn(TERMINAL_TYPO.micro, "ml-1 text-slate-500")}>
+                  {r.health} · {r.latencyMs}ms · {r.trafficPct}%
+                </span>
+              </div>
+            ))}
+            {ops.incidents.length > 0 ? (
+              <>
+                <p className={cn(TERMINAL_TYPO.micro, "mt-1 text-amber-500")}>INCIDENTS</p>
+                {ops.incidents.map((i) => (
+                  <div key={i.id} className="border-b border-slate-800 py-0.5">
+                    <span className={TERMINAL_TYPO.dataSm}>{i.title}</span>
+                    <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}> · {i.severity}</span>
+                  </div>
+                ))}
+              </>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {tab === "platform" ? (
+      <>
       <div className="grid shrink-0 grid-cols-4 gap-px bg-slate-800 p-px">
         <MetricCell label="GW LAT" value={vitals.gatewayLatencyMs.toFixed(1)} unit="MS" tone={gwTone} />
         <MetricCell
@@ -194,6 +272,8 @@ export function InfraDiagnostics() {
           )}
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   );
 }

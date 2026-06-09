@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
+import { WEDGE_DEFAULT_MODE } from "@/lib/wedge/WedgeManifest";
 import type {
   CognitiveLoadModel,
   FocusMode,
@@ -37,7 +38,7 @@ export interface AdaptiveWorkspaceState {
 
 export const useAdaptiveWorkspaceStore = create<AdaptiveWorkspaceState>()(
   subscribeWithSelector((set) => ({
-    mode: "balanced",
+    mode: WEDGE_DEFAULT_MODE,
     focusMode: "none",
     autoAdapt: false,
     userLockedUntil: 0,

@@ -1,3 +1,4 @@
+import { wedgeAllowsCommand, wedgeResolveWidget } from "@/lib/wedge/wedgeAccess";
 import type { OmniIntent } from "@/types/omnibar";
 
 export interface ParseResult {
@@ -7,6 +8,18 @@ export interface ParseResult {
 }
 
 const RE_NAV = /^\/nav\s+([A-Za-z0-9/_-]+)\s*$/i;
+const RE_CHART = /^\/chart(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
+const RE_DEPTH = /^\/depth(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
+const RE_EXEC = /^\/exec\s+(buy|sell)\s+([A-Za-z0-9/_-]+)(?:\s+([\d.]+))?\s*$/i;
+const RE_MONITOR = /^\/monitor(?:\s+(\w+))?\s*$/i;
+const RE_ALERTS = /^\/alerts(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
+const RE_DESK = /^\/desk\s*$/i;
+const RE_EXPAND = /^\/expand\s*$/i;
+const RE_HELP = /^\/help\s*$/i;
+const RE_GUIDE = /^\/(?:guide|explain)(?:\s+(on|off|toggle))?\s*$/i;
+const RE_WORKSPACE_MODE =
+  /^\/workspace\s+(macro|execution|research|surveillance|standard|balanced|scalping)\s*$/i;
+const RE_PERP_TICKER = /^([A-Za-z0-9]+)-(PERP|SPOT)$/i;
 const RE_TRADE = /^\/trade\s+(buy|sell)\s+([A-Za-z0-9/_-]+)\s+([\d.]+)\s*$/i;
 const RE_WATCH = /^\/watch\s+([A-Za-z0-9/_-]+)\s*$/i;
 const RE_UNWATCH = /^\/unwatch\s+([A-Za-z0-9/_-]+)\s*$/i;
@@ -16,7 +29,7 @@ const RE_MACRO = /^\/macro\s*$/i;
 const RE_VOL = /^\/vol\s*$/i;
 const RE_SUMMARIZE = /^\/summarize(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
 const RE_FOCUS =
-  /^\/focus\s+(chart|book|intel|macro|ticket|surveillance|copilot|graph|knowledge|journal|research|briefing|dailyops|coverage|markets|reliability|trust|newswire|wire|incidents|ingest|ingestion|dataplane|pipeline|intelengine|mktintel|collab|team|teamdesk|desk|enterpriseops|enterprise|orgops|integrations|integrate|embed|propintel|proprietary|eqintel|moat|ecosystem|finos|cryptoos)\s*$/i;
+  /^\/focus\s+(chart|book|intel|macro|ticket|surveillance|copilot|graph|knowledge|journal|research|briefing|dailyops|coverage|markets|reliability|trust|newswire|wire|incidents|ingest|ingestion|dataplane|pipeline|intelengine|mktintel|collab|team|teamdesk|desk|enterpriseops|enterprise|orgops|integrations|integrate|embed|propintel|proprietary|eqintel|moat|ecosystem|finos|cryptoos|globalstrategy|globalinfra|infrastrategy|gtm)\s*$/i;
 const RE_TICKER = /^[A-Za-z0-9/_-]{2,16}$/;
 const RE_AI = /^(?:\/ai\s+|\/ai$)([\s\S]*)$/i;
 const RE_NET = /^(?:\/net\s+|\/net$)([\s\S]*)$/i;
@@ -33,11 +46,13 @@ const RE_INCIDENTS = /^\/incidents\s*$/i;
 const RE_INGEST = /^\/(?:ingest|ingestion|dataplane|pipeline)\s*$/i;
 const RE_INTEL_ENGINE = /^\/(?:intelengine|mktintel|intelligence-engine)\s*$/i;
 const RE_COLLAB = /^\/(?:collab|teamroom|deskops)\s*$/i;
-const RE_TEAM = /^\/(?:team|teamdesk|desk)\s*$/i;
+const RE_TEAM = /^\/(?:team|teamdesk)\s*$/i;
 const RE_ENTERPRISE = /^\/(?:enterpriseops|enterprise|orgops|institutional)\s*$/i;
 const RE_INTEGRATIONS = /^\/(?:integrations|integrate|industry|embed|connectivity)\s*$/i;
 const RE_PROPRIETARY = /^\/(?:propintel|proprietary|eqintel|moat|eqmetrics)\s*$/i;
 const RE_ECOSYSTEM = /^\/(?:ecosystem|finos|cryptoos|operatingsystem|portfolioos)\s*$/i;
+const RE_GLOBAL_STRATEGY =
+  /^\/(?:globalstrategy|globalinfra|infrastrategy|gtm|scaling|moat)\s*$/i;
 const RE_ROUTINE = /^\/routine\s+([a-z_]+)\s*$/i;
 
 export class IntentParser {
@@ -45,11 +60,38 @@ export class IntentParser {
     const t0 = performance.now();
     const input = raw.trim();
     if (!input) {
-      return {
-        intent: { type: "FOCUS_WIDGET", widgetId: "surveillance", raw, path: "fast" },
-        elapsedMs: performance.now() - t0,
-        path: "fast",
-      };
+      return focusWidget("chart", raw, t0);
+    }
+
+    if (RE_HELP.test(input)) {
+      return fast({ type: "COMMAND_HELP", raw: input }, t0);
+    }
+
+    const guide = RE_GUIDE.exec(input);
+    if (guide) {
+      const mode = guide[1]?.toLowerCase();
+      if (mode === "on") {
+        return fast({ type: "EXPLAIN_MODE", active: true, raw: input }, t0);
+      }
+      if (mode === "off") {
+        return fast({ type: "EXPLAIN_MODE", active: false, raw: input }, t0);
+      }
+      return fast({ type: "EXPLAIN_MODE", toggle: true, raw: input }, t0);
+    }
+
+    if (RE_DESK.test(input)) {
+      return fast({ type: "WEDGE_LAYOUT", deskFocus: true, raw: input }, t0);
+    }
+
+    if (RE_EXPAND.test(input)) {
+      return fast({ type: "WEDGE_LAYOUT", deskFocus: false, raw: input }, t0);
+    }
+
+    const workspaceMode = RE_WORKSPACE_MODE.exec(input);
+    if (workspaceMode) {
+      const mode = workspaceMode[1].toLowerCase();
+      const normalized = mode === "standard" ? "balanced" : mode;
+      return fast({ type: "SET_TERMINAL_MODE", mode: normalized, raw: input }, t0);
     }
 
     const nav = RE_NAV.exec(input);
@@ -58,6 +100,45 @@ export class IntentParser {
         { type: "NAV_ASSET", coin: nav[1].toUpperCase(), raw: input, path: "fast" },
         t0,
       );
+    }
+
+    const chart = RE_CHART.exec(input);
+    if (chart) {
+      const coin = chart[1]?.toUpperCase();
+      if (coin) {
+        return fast({ type: "NAV_ASSET", coin, raw: input }, t0);
+      }
+      return focusWidget("chart", input, t0);
+    }
+
+    const depth = RE_DEPTH.exec(input);
+    if (depth) {
+      const coin = depth[1]?.toUpperCase();
+      return focusWidget("domladder", input, t0, coin);
+    }
+
+    const exec = RE_EXEC.exec(input);
+    if (exec) {
+      const side = exec[1].toLowerCase() as "buy" | "sell";
+      const coin = exec[2].toUpperCase();
+      const size = exec[3] ? parseFloat(exec[3]) : undefined;
+      if (size !== undefined && Number.isFinite(size) && size > 0) {
+        return fast({ type: "TRADE_PREFILL", side, coin, size, raw: input }, t0);
+      }
+      return fast({ type: "EXEC_SHORTCUT", side, coin, raw: input }, t0);
+    }
+
+    const monitor = RE_MONITOR.exec(input);
+    if (monitor) {
+      const topic = monitor[1]?.toLowerCase();
+      const widgetId =
+        topic === "funding" || topic === "liq" ? "slippageradar" : "surveillance";
+      return focusWidget(widgetId, input, t0);
+    }
+
+    const alerts = RE_ALERTS.exec(input);
+    if (alerts) {
+      return focusWidget("alerts", input, t0, alerts[1]?.toUpperCase());
     }
 
     const trade = RE_TRADE.exec(input);
@@ -97,6 +178,12 @@ export class IntentParser {
     }
 
     if (RE_MACRO.test(input)) {
+      if (!wedgeAllowsCommand("/macro")) {
+        return fast(
+          { type: "FOCUS_WIDGET", widgetId: wedgeResolveWidget("chart"), raw: input },
+          t0,
+        );
+      }
       return fast({ type: "FOCUS_WIDGET", widgetId: "macro", raw: input }, t0);
     }
 
@@ -123,64 +210,67 @@ export class IntentParser {
       };
     }
 
-    if (RE_BRIEFING.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "dailyops", raw: input }, t0);
+    if (RE_BRIEFING.test(input) && wedgeAllowsCommand("/briefing")) {
+      return focusWidget("dailyops", input, t0);
     }
-    if (RE_COVERAGE.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "marketcoverage", raw: input }, t0);
+    if (RE_COVERAGE.test(input) && wedgeAllowsCommand("/coverage")) {
+      return focusWidget("marketcoverage", input, t0);
     }
-    if (RE_RELIABILITY.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "reliability", raw: input }, t0);
+    if (RE_RELIABILITY.test(input) && wedgeAllowsCommand("/reliability")) {
+      return focusWidget("reliability", input, t0);
     }
-    if (RE_NEWSWIRE.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "newswire", raw: input }, t0);
+    if (RE_NEWSWIRE.test(input) && wedgeAllowsCommand("/newswire")) {
+      return focusWidget("newswire", input, t0);
     }
-    if (RE_INCIDENTS.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "newswire", raw: input }, t0);
+    if (RE_INCIDENTS.test(input) && wedgeAllowsCommand("/incidents")) {
+      return focusWidget("newswire", input, t0);
     }
-    if (RE_INGEST.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "ingestion", raw: input }, t0);
+    if (RE_INGEST.test(input) && wedgeAllowsCommand("/ingest")) {
+      return focusWidget("ingestion", input, t0);
     }
-    if (RE_INTEL_ENGINE.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "intelengine", raw: input }, t0);
+    if (RE_INTEL_ENGINE.test(input) && wedgeAllowsCommand("/intelengine")) {
+      return focusWidget("intelengine", input, t0);
     }
-    if (RE_COLLAB.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "collab", raw: input }, t0);
+    if (RE_COLLAB.test(input) && wedgeAllowsCommand("/collab")) {
+      return focusWidget("collab", input, t0);
     }
-    if (RE_TEAM.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "teamdesk", raw: input }, t0);
+    if (RE_TEAM.test(input) && wedgeAllowsCommand("/team")) {
+      return focusWidget("teamdesk", input, t0);
     }
-    if (RE_ENTERPRISE.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "enterpriseops", raw: input }, t0);
+    if (RE_ENTERPRISE.test(input) && wedgeAllowsCommand("/enterprise")) {
+      return focusWidget("enterpriseops", input, t0);
     }
-    if (RE_INTEGRATIONS.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "integrations", raw: input }, t0);
+    if (RE_INTEGRATIONS.test(input) && wedgeAllowsCommand("/integrations")) {
+      return focusWidget("integrations", input, t0);
     }
-    if (RE_PROPRIETARY.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "propintel", raw: input }, t0);
+    if (RE_PROPRIETARY.test(input) && wedgeAllowsCommand("/propintel")) {
+      return focusWidget("propintel", input, t0);
     }
-    if (RE_ECOSYSTEM.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "ecosystem", raw: input }, t0);
+    if (RE_ECOSYSTEM.test(input) && wedgeAllowsCommand("/ecosystem")) {
+      return focusWidget("ecosystem", input, t0);
+    }
+    if (RE_GLOBAL_STRATEGY.test(input) && wedgeAllowsCommand("/globalstrategy")) {
+      return focusWidget("globalstrategy", input, t0);
     }
 
     const routine = RE_ROUTINE.exec(input);
-    if (routine) {
+    if (routine && wedgeAllowsCommand("/routine")) {
       return fast(
         { type: "LAUNCH_ROUTINE", routineId: routine[1], raw: input, path: "fast" },
         t0,
       );
     }
 
-    if (RE_JOURNAL.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "traderjournal", raw: input }, t0);
+    if (RE_JOURNAL.test(input) && wedgeAllowsCommand("/journal")) {
+      return focusWidget("traderjournal", input, t0);
     }
 
-    if (RE_RESEARCH.test(input)) {
-      return fast({ type: "FOCUS_WIDGET", widgetId: "research", raw: input }, t0);
+    if (RE_RESEARCH.test(input) && wedgeAllowsCommand("/research")) {
+      return focusWidget("research", input, t0);
     }
 
     const workspace = RE_WORKSPACE.exec(input);
-    if (workspace) {
+    if (workspace && wedgeAllowsCommand("/workspace")) {
       return fast(
         {
           type: "WORKFLOW_OPEN_ASSET",
@@ -238,13 +328,17 @@ export class IntentParser {
         ecosystem: "ecosystem",
         finos: "ecosystem",
         cryptoos: "ecosystem",
+        globalstrategy: "globalstrategy",
+        globalinfra: "globalstrategy",
+        infrastrategy: "globalstrategy",
+        gtm: "globalstrategy",
       };
       const widgetId = map[focus[1].toLowerCase()] ?? "chart";
-      return fast({ type: "FOCUS_WIDGET", widgetId, raw: input }, t0);
+      return focusWidget(widgetId, input, t0);
     }
 
     const graph = RE_GRAPH.exec(input);
-    if (graph) {
+    if (graph && wedgeAllowsCommand("/graph")) {
       const prompt = graph[1]?.trim() ?? "";
       if (prompt) {
         return {
@@ -278,6 +372,14 @@ export class IntentParser {
       };
     }
 
+    const perpTicker = RE_PERP_TICKER.exec(input);
+    if (perpTicker) {
+      return fast(
+        { type: "TICKER_SELECT", query: perpTicker[1].toUpperCase(), raw: input },
+        t0,
+      );
+    }
+
     if (RE_TICKER.test(input) && !input.includes(" ")) {
       return fast({ type: "TICKER_SELECT", query: input, raw: input }, t0);
     }
@@ -299,4 +401,16 @@ function fast(
     elapsedMs: performance.now() - t0,
     path: "fast",
   };
+}
+
+function focusWidget(widgetId: string, raw: string, t0: number, coin?: string): ParseResult {
+  return fast(
+    {
+      type: "FOCUS_WIDGET",
+      widgetId: wedgeResolveWidget(widgetId),
+      coin,
+      raw,
+    },
+    t0,
+  );
 }

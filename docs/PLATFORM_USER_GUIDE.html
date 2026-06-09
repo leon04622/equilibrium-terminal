@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Equilibrium Terminal — Platform User Guide</title>
+<style>
+@page { size: A4; margin: 18mm 14mm; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #1a1a1a;
+  max-width: 100%;
+}
+h1 { font-size: 22pt; color: #0a3d4a; border-bottom: 2px solid #00a8b5; padding-bottom: 6px; margin-top: 0; }
+h2 { font-size: 14pt; color: #0a3d4a; margin-top: 1.4em; page-break-after: avoid; }
+h3 { font-size: 11.5pt; color: #333; margin-top: 1em; page-break-after: avoid; }
+h4 { font-size: 10.5pt; color: #444; }
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: 9.5pt; page-break-inside: avoid; }
+th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+th { background: #e8f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f8fafa; }
+code { background: #f0f0f0; padding: 1px 4px; font-size: 9pt; }
+pre { background: #f4f4f4; padding: 10px; font-size: 8.5pt; overflow-x: auto; border-left: 3px solid #00a8b5; }
+blockquote { border-left: 4px solid #00a8b5; margin: 1em 0; padding: 0.4em 1em; background: #f5fafb; color: #333; }
+hr { border: none; border-top: 1px solid #ddd; margin: 1.5em 0; }
+ul, ol { margin: 0.4em 0 0.8em 1.2em; }
+li { margin: 0.2em 0; }
+.cover { text-align: center; padding: 3em 1em 2em; page-break-after: always; }
+.cover h1 { border: none; font-size: 26pt; }
+.cover p { color: #555; font-size: 11pt; }
+.toc { page-break-after: always; }
+.toc ol { line-height: 1.6; }
+@media print {
+  h2 { page-break-before: auto; }
+  .page-break { page-break-after: always; height: 0; margin: 0; border: 0; }
+}
+</style>
+</head>
+<body>
+<h1 id="equilibrium-terminal">Equilibrium Terminal</h1>
+<h2 id="complete-platform-user-guide">Complete Platform User Guide</h2>
+<p><strong>Version:</strong> 1.0 · May 2026<br />
+<strong>Product:</strong> Institutional Hyperliquid execution desk &amp; expanded crypto operating terminal<br />
+<strong>Production URL:</strong> https://equilibrium-terminal-three.vercel.app  </p>
+<hr />
+<blockquote>
+<p><strong>Disclaimer:</strong> This guide describes platform capabilities for operational training. Nothing herein is financial advice. The human trader remains in control. Equilibrium does not execute autonomous trades.</p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-what-equilibrium-terminal-is">What Equilibrium Terminal Is</a></li>
+<li><a href="#2-step-by-step-how-the-platform-works">Step-by-Step: How the Platform Works</a></li>
+<li><a href="#3-access-login--first-session">Access, Login &amp; First Session</a></li>
+<li><a href="#4-header-experience-bar--workspace-modes">Header, Experience Bar &amp; Workspace Modes</a></li>
+<li><a href="#5-core-execution-desk-v1-wedge">Core Execution Desk (V1 Wedge)</a></li>
+<li><a href="#6-omnibar-command-system">OmniBar Command System</a></li>
+<li><a href="#7-alerts-intelligence--notifications">Alerts, Intelligence &amp; Notifications</a></li>
+<li><a href="#8-wallet-execution--hyperliquid-connection">Wallet, Execution &amp; Hyperliquid Connection</a></li>
+<li><a href="#9-expanded-workspace--all-panels">Expanded Workspace — All Panels</a></li>
+<li><a href="#10-keyboard-shortcuts--quick-reference">Keyboard Shortcuts &amp; Quick Reference</a></li>
+<li><a href="#11-troubleshooting">Troubleshooting</a></li>
+<li><a href="#12-appendix-alpha-codes--environment">Appendix: Alpha Codes &amp; Environment</a></li>
+</ol>
+<hr />
+<hr />
+<h2 id="1-what-equilibrium-terminal-is">1. What Equilibrium Terminal Is</h2>
+<p>Equilibrium Terminal is built to become <strong>the Bloomberg Terminal for crypto</strong> — an institutional-grade environment for digital asset markets.</p>
+<h3 id="core-mission">Core mission</h3>
+<table>
+<thead>
+<tr>
+<th>Pillar</th>
+<th>Meaning for you</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Information superiority</strong></td>
+<td>Book, tape, intel, alerts, and newswire in one surface</td>
+</tr>
+<tr>
+<td><strong>Execution superiority</strong></td>
+<td>Native Hyperliquid ticket, DOM, slippage awareness</td>
+</tr>
+<tr>
+<td><strong>Workflow superiority</strong></td>
+<td>Command-first navigation (OmniBar), draggable panels</td>
+</tr>
+<tr>
+<td><strong>Operational clarity</strong></td>
+<td>Calm institutional UI — no retail clutter</td>
+</tr>
+<tr>
+<td><strong>Human-centered</strong></td>
+<td>AI summarizes and organizes — <strong>you</strong> decide and execute</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-equilibrium-is-not">What Equilibrium is NOT</h3>
+<ul>
+<li>Not an auto-trading bot  </li>
+<li>Not “AI tells you what to buy”  </li>
+<li>Not a social or gamified retail app  </li>
+</ul>
+<h3 id="two-workspace-modes">Two workspace modes</h3>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Label</th>
+<th>Who it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Desk focus (default)</strong></td>
+<td>HL EXECUTION DESK</td>
+<td>Day-to-day Hyperliquid trading — 9 core panels</td>
+</tr>
+<tr>
+<td><strong>Full workspace</strong></td>
+<td>EQUILIBRIUM TERMINAL</td>
+<td>Power users, desks, research — 40+ panels via <strong>EXPAND</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Toggle between them with <strong>EXPAND</strong> in the header or OmniBar <code>/desk</code> and <code>/expand</code>.</p>
+<hr />
+<hr />
+<h2 id="2-step-by-step-how-the-platform-works">2. Step-by-Step: How the Platform Works</h2>
+<p>Follow this sequence every session. Numbers match the operational flow inside the product.</p>
+<h3 id="step-1-open-the-terminal-unlock-alpha">Step 1 — Open the terminal &amp; unlock alpha</h3>
+<ol>
+<li>Navigate to the production URL (or your deployment).  </li>
+<li>If the <strong>Alpha Invite Gate</strong> appears, enter an invite code (see <a href="#12-appendix-alpha-codes--environment">Appendix</a>) or use <code>?invite=YOUR-CODE</code> in the URL.  </li>
+<li>Click <strong>UNLOCK TERMINAL</strong>.  </li>
+<li><em>Note:</em> Invite unlock is separate from wallet connection.</li>
+</ol>
+<h3 id="step-2-confirm-live-data-connection">Step 2 — Confirm live data connection</h3>
+<ol>
+<li>Check the header <strong>stream status</strong> (connected / reconnecting / offline).  </li>
+<li>Core panels (HyperBook, Chart) should update within seconds.  </li>
+<li>If offline, wait for reconnect or refresh — execution should not proceed on stale data.</li>
+</ol>
+<h3 id="step-3-select-your-market-active-coin">Step 3 — Select your market (active coin)</h3>
+<ol>
+<li>Use the <strong>asset picker</strong> or press <strong>Ctrl+K</strong> (OmniBar).  </li>
+<li>Type a symbol (e.g. <code>BTC</code>, <code>ETH</code>, <code>HYPE</code>) and press <strong>Enter</strong>.  </li>
+<li><strong>All coin-scoped panels sync:</strong> chart, L2 book, trade tape subscription, alerts, DOM, slippage.</li>
+</ol>
+<h3 id="step-4-read-the-market-pre-trade">Step 4 — Read the market (pre-trade)</h3>
+<ol>
+<li><strong>HyperBook</strong> — liquidity, spread, depth imbalance.  </li>
+<li><strong>Chart</strong> — price structure; HUD shows regime, stress, stream pulse.  </li>
+<li><strong>TAPE (Tactical Wire)</strong> — intelligence vectors (whales, funding, clusters).  </li>
+<li><strong>Surveillance</strong> — regime and stress gauge.  </li>
+<li><strong>Slippage radar</strong> — estimated impact before you size an order.</li>
+</ol>
+<h3 id="step-5-configure-submit-an-order">Step 5 — Configure &amp; submit an order</h3>
+<ol>
+<li>Open <strong>Trade ticket</strong> (EXEC panel).  </li>
+<li>Choose side, size, order type (limit/market per product support).  </li>
+<li>Read <strong>Execution warning banner</strong> if liquidity is thin.  </li>
+<li><strong>Connect wallet</strong> if not connected; approve Hyperliquid agent when prompted.  </li>
+<li>Submit — confirm <strong>ORDER SUBMITTING</strong> state; verify fill in ticket/positions.</li>
+</ol>
+<h3 id="step-6-monitor-risk-events">Step 6 — Monitor risk &amp; events</h3>
+<ol>
+<li><strong>Positions</strong> — live PnL, size, liquidation proximity.  </li>
+<li><strong>ALERTS</strong> — rule triggers (OI, funding flip, whale ≥$75k, liq clusters).  </li>
+<li>Click any alert row to <strong>focus chart</strong> on that symbol.</li>
+</ol>
+<h3 id="step-7-use-commands-for-speed">Step 7 — Use commands for speed</h3>
+<ol>
+<li><strong>Ctrl+K</strong> → <code>/depth</code>, <code>/chart</code>, <code>/exec</code>, <code>/monitor</code>, <code>/alerts</code>.  </li>
+<li><code>/desk</code> resets wedge layout; <code>/expand</code> opens full platform.</li>
+</ol>
+<h3 id="step-8-optional-expand-for-research-ops">Step 8 — Optional: expand for research &amp; ops</h3>
+<ol>
+<li>Click <strong>EXPAND</strong> when you need reliability, newswire, portfolio desk, etc.  </li>
+<li>Scroll workspace or use OmniBar to focus specific panels.  </li>
+<li>Return to desk with <strong>EXPAND</strong> off or <code>/desk</code>.</li>
+</ol>
+<h3 id="data-flow-simplified">Data flow (simplified)</h3>
+<pre><code>Hyperliquid WebSocket
+    → Terminal streams (book, trades, candles, clearinghouse)
+        → Panels (HyperBook, Chart, TAPE, Positions)
+        → Alert engine (tape → rules → ALERTS panel)
+        → Intelligence wire (whale prints → TAPE)
+        → Optional: distribution newswire, mobile desk, APIs
+</code></pre>
+<hr />
+<hr />
+<h2 id="3-access-login-first-session">3. Access, Login &amp; First Session</h2>
+<h3 id="alpha-invite-gate">Alpha invite gate</h3>
+<p>Production may require invite validation.</p>
+<table>
+<thead>
+<tr>
+<th>Default code</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EQ-ALPHA-2026</code></td>
+<td>General alpha</td>
+</tr>
+<tr>
+<td><code>EQ-HL-DESK</code></td>
+<td>Hyperliquid desk cohort</td>
+</tr>
+<tr>
+<td><code>EQ-EXEC</code></td>
+<td>Execution-focused users</td>
+</tr>
+</tbody>
+</table>
+<p><strong>URL unlock:</strong> <code>https://equilibrium-terminal-three.vercel.app/?invite=EQ-ALPHA-2026</code></p>
+<h3 id="operator-dev-bypass-environment">Operator / dev bypass (environment)</h3>
+<ul>
+<li><code>NEXT_PUBLIC_EQ_OPERATOR_ACCESS=true</code>  </li>
+<li><code>NEXT_PUBLIC_EQ_ALPHA_INVITE_REQUIRED=false</code>  </li>
+<li>Development mode skips invite locally.</li>
+</ul>
+<h3 id="in-app-onboarding-walkthrough">In-app onboarding walkthrough</h3>
+<ol>
+<li>Open <strong>PRODUCT</strong> panel (commercial console).  </li>
+<li>Tab <strong>ONBOARD</strong> → <strong>RESUME WALKTHROUGH</strong>.  </li>
+<li>Steps: welcome → workspace → exchange connect → execution desk → OmniBar → expand.</li>
+</ol>
+<hr />
+<hr />
+<h2 id="4-header-experience-bar-workspace-modes">4. Header, Experience Bar &amp; Workspace Modes</h2>
+<h3 id="header-controls">Header controls</h3>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>EXPAND</strong></td>
+<td>Toggle full workspace vs HL execution desk</td>
+</tr>
+<tr>
+<td><strong>Stream status</strong></td>
+<td>WebSocket health to Hyperliquid</td>
+</tr>
+<tr>
+<td><strong>Asset / coin</strong></td>
+<td>Active symbol for scoped panels</td>
+</tr>
+<tr>
+<td><strong>Wallet</strong></td>
+<td>Connect / disconnect trading wallet</td>
+</tr>
+<tr>
+<td><strong>OmniBar trigger</strong></td>
+<td>Opens command palette (also Ctrl+K)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="terminal-experience-bar">Terminal Experience Bar</h3>
+<p>Scores and toggles across institutional subsystems (environment, reliability, execution, etc.). Key <strong>user-facing</strong> controls:</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Density</strong></td>
+<td>COMPACT / STANDARD / COMFORT row height</td>
+</tr>
+<tr>
+<td><strong>CALM</strong></td>
+<td>Suppresses aggressive price flashes</td>
+</tr>
+<tr>
+<td><strong>MOTION</strong></td>
+<td>Reduces animation; respects reduced-motion preference</td>
+</tr>
+</tbody>
+</table>
+<h3 id="terminal-modes-adaptive-workspace">Terminal modes (adaptive workspace)</h3>
+<p>Modes (execution, research, macro, quant, etc.) adjust <strong>chrome and emphasis</strong> — subtle header accent and panel priority, not a different product.</p>
+<hr />
+<hr />
+<h2 id="5-core-execution-desk-v1-wedge">5. Core Execution Desk (V1 Wedge)</h2>
+<p>Default layout when <strong>desk focus</strong> is on. Nine panels — always visible in wedge mode.</p>
+<hr />
+<h3 id="51-hyperbook-l2-depth">5.1 HyperBook — L2 DEPTH</h3>
+<p><strong>Purpose:</strong> Real-time level-2 order book for the active coin.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Subscribes to Hyperliquid L2 via terminal WebSocket.  </li>
+<li>Normalizes bids/asks into price levels with cumulative size.  </li>
+<li>Mid price flash indicates tick direction.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Select coin (Step 3 above).  </li>
+<li>Read top-of-book spread and depth walls.  </li>
+<li>Large resting liquidity may indicate support/resistance.  </li>
+<li>OmniBar: <code>/liq BTC</code> focuses book context for BTC.</li>
+</ol>
+<hr />
+<h3 id="52-chart-ohlcv">5.2 Chart — OHLCV</h3>
+<p><strong>Purpose:</strong> Price chart with institutional operational HUD.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Candle/stream data from Hyperliquid.  </li>
+<li><strong>Chart operational HUD:</strong> regime ribbon, stress, spread, live pulse.  </li>
+<li>Equilibrium chart color system; optional event overlays from intel/execution.  </li>
+<li>Tactical overlay on canvas (grid, volatility veil) via presence engine.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Select timeframe from chart controls (if exposed).  </li>
+<li>Use HUD chips before sizing risk.  </li>
+<li>Alert click or OmniBar <code>/chart ETH</code> jumps here.  </li>
+<li>Advanced: replay/overlays in expanded chart analytics (see ADVANCED_CHARTING.md).</li>
+</ol>
+<hr />
+<h3 id="53-tape-tactical-intelligence-wire">5.3 TAPE — Tactical Intelligence Wire</h3>
+<p><strong>Panel ID:</strong> <code>intelligence</code> · <strong>Header:</strong> TACTICAL WIRE</p>
+<p><strong>Purpose:</strong> Live stream of ranked tactical vectors — whale prints, funding, agentic fusion, alert bridges.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Large tape prints (≥ <strong>$75,000</strong> notional) become intelligence items → wire entries.  </li>
+<li><code>useMarketPresence</code> maps intelligence into wire with severity and flash.  </li>
+<li>New items scroll to top; click row to select coin.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Watch <strong>TIME · SYM · DIR · CNF · ACC</strong> columns.  </li>
+<li>Critical severity = fastest flash.  </li>
+<li>Pair with <strong>ALERTS</strong> for rule-based follow-up.  </li>
+<li>OmniBar: <code>/intel</code> or asset search.</li>
+</ol>
+<hr />
+<h3 id="54-trade-ticket-exec">5.4 Trade Ticket — EXEC</h3>
+<p><strong>Purpose:</strong> Submit orders to Hyperliquid.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Prefill via OmniBar <code>/exec buy BTC 0.5</code>.  </li>
+<li>Reads book mid/spread for context.  </li>
+<li><strong>Execution warning banner</strong> when liquidity quality is poor.  </li>
+<li>Wallet + agent approval required for live submit.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Connect wallet (header).  </li>
+<li>Set side, size, price type.  </li>
+<li>Check slippage radar.  </li>
+<li>Submit; watch positions panel for fill truth.</li>
+</ol>
+<hr />
+<h3 id="55-positions-risk">5.5 Positions — RISK</h3>
+<p><strong>Purpose:</strong> Open positions, margin, unrealized PnL.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Clearinghouse state normalized from Hyperliquid.  </li>
+<li>PnL flash on change (unless CALM mode suppresses).</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Verify size and coin match intent after every fill.  </li>
+<li>Use as source of truth — not ticket alone.</li>
+</ol>
+<hr />
+<h3 id="56-dom-ladder-dom-ofa">5.6 DOM Ladder — DOM OFA</h3>
+<p><strong>Purpose:</strong> Depth-of-market ladder / microstructure view.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Order flow and ladder visualization tied to active book.  </li>
+<li>Complements HyperBook for tick-level execution decisions.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>OmniBar <code>/depth SOL</code> opens ladder + selects SOL.  </li>
+<li>Use when scaling in/out at specific levels.</li>
+</ol>
+<hr />
+<h3 id="57-slippage-radar-slip-radar">5.7 Slippage Radar — SLIP RADAR</h3>
+<p><strong>Purpose:</strong> Pre-trade execution quality — spread, estimated slippage, impact.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Composes book state + recent trade volatility.  </li>
+<li>Feeds execution intelligence pipeline (Phase 43).</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li><strong>Always check before market orders.</strong>  </li>
+<li>OmniBar <code>/monitor funding</code> routes to monitoring surfaces.  </li>
+<li>Wide radar = reduce size or use limits.</li>
+</ol>
+<hr />
+<h3 id="58-alert-engine-rule-engine">5.8 Alert Engine — RULE ENGINE</h3>
+<p><strong>Purpose:</strong> Rule-based market event triggers on live tape.</p>
+<p><strong>Default rules (enabled):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OI surge</td>
+<td>Open-interest proxy +8% (rolling window)</td>
+</tr>
+<tr>
+<td>Funding flip</td>
+<td>Funding crosses negative</td>
+</tr>
+<tr>
+<td>Whale transfer</td>
+<td>Single print ≥ <strong>$75,000</strong> on active coin</td>
+</tr>
+<tr>
+<td>Liquidation cluster</td>
+<td>3+ sells ≥$40k in 60s, total ≥$250k</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How it works:</strong></p>
+<ul>
+<li><code>useAlertEngine</code> listens to latest trade on selected coin.  </li>
+<li><code>MetricsTracker</code> emits events → <code>Evaluator</code> matches rules → row in panel.  </li>
+<li>AI explanation line attaches asynchronously (context only).  </li>
+<li>Click row → focus asset + workflow bridge.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Keep panel visible in wedge (bottom area).  </li>
+<li>Watch for green flash on new triggers.  </li>
+<li>Do not disable rules unless you understand blind spots.</li>
+</ol>
+<hr />
+<h3 id="59-surveillance-surveillance">5.9 Surveillance — SURVEILLANCE</h3>
+<p><strong>Purpose:</strong> Market regime, stress gauge, atmosphere monitoring.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li><code>useMarketPresence</code> computes stress from book + trades.  </li>
+<li>Regime inference (trend/range/stress labels).  </li>
+<li>Complements chart HUD.</li>
+</ul>
+<p><strong>How to use:</strong></p>
+<ol>
+<li>Glance before increasing size in fast markets.  </li>
+<li>Pair with TAPE for narrative + quantitative stress.</li>
+</ol>
+<hr />
+<hr />
+<h2 id="6-omnibar-command-system">6. OmniBar Command System</h2>
+<p><strong>Open:</strong> <code>Ctrl+K</code> or <code>Cmd+K</code> · Type <code>/</code> when not in an input field.</p>
+<h3 id="v1-desk-commands">V1 (desk) commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BTC</code> / <code>ETH-PERP</code></td>
+<td>Select asset, focus chart</td>
+</tr>
+<tr>
+<td><code>/chart ETH</code></td>
+<td>Chart + asset</td>
+</tr>
+<tr>
+<td><code>/depth SOL</code></td>
+<td>DOM ladder + asset</td>
+</tr>
+<tr>
+<td><code>/liq SOL</code></td>
+<td>HyperBook focus</td>
+</tr>
+<tr>
+<td><code>/exec buy BTC 0.5</code></td>
+<td>Prefill ticket</td>
+</tr>
+<tr>
+<td><code>/monitor funding</code></td>
+<td>Slippage / funding monitor</td>
+</tr>
+<tr>
+<td><code>/alerts BTC</code></td>
+<td>Alerts panel + asset</td>
+</tr>
+<tr>
+<td><code>/intel</code></td>
+<td>Intelligence / tape focus</td>
+</tr>
+<tr>
+<td><code>/vol</code></td>
+<td>Volatility surfaces</td>
+</tr>
+<tr>
+<td><code>/summarize</code></td>
+<td>AI summary (facts only)</td>
+</tr>
+<tr>
+<td><code>/watch</code> <code>/unwatch</code></td>
+<td>Watchlist</td>
+</tr>
+<tr>
+<td><code>/desk</code></td>
+<td>Reset HL execution desk layout</td>
+</tr>
+<tr>
+<td><code>/expand</code></td>
+<td>Full workspace</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>Command catalog</td>
+</tr>
+<tr>
+<td><code>/focus</code></td>
+<td>Focus specific widget</td>
+</tr>
+</tbody>
+</table>
+<h3 id="advanced-commands-require-expand-full-workspace">Advanced commands (require EXPAND / full workspace)</h3>
+<p><code>/macro</code> · <code>/graph</code> · <code>/journal</code> · <code>/research</code> · <code>/workspace</code> · <code>/briefing</code> · <code>/coverage</code> · <code>/reliability</code> · <code>/newswire</code> · <code>/incidents</code> · <code>/ingest</code> · <code>/collab</code> · <code>/team</code> · <code>/enterprise</code> · <code>/integrations</code> · <code>/routine</code> · and more.</p>
+<h3 id="ai-boundary">AI boundary</h3>
+<p><code>/summarize</code> and copilot paths provide <strong>structure and facts</strong> — not trade recommendations.</p>
+<hr />
+<hr />
+<h2 id="7-alerts-intelligence-notifications">7. Alerts, Intelligence &amp; Notifications</h2>
+<h3 id="three-layers-of-notification">Three layers of “notification”</h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+<th>What you see</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tape / wire</strong></td>
+<td>TAPE panel</td>
+<td>Whale buy/sell lines, tactical vectors</td>
+</tr>
+<tr>
+<td><strong>Alert engine</strong></td>
+<td>ALERTS panel</td>
+<td>Rule triggers with AI context line</td>
+</tr>
+<tr>
+<td><strong>Distribution</strong></td>
+<td>NEWSWIRE panel (advanced)</td>
+<td>Critical newswire → optional <strong>desktop notification</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="whale-alerts-not-removed">Whale alerts (not removed)</h3>
+<ul>
+<li>Threshold: <strong>$75,000</strong> notional on <strong>active coin</strong> tape.  </li>
+<li>Surfaces: ALERTS + TAPE (+ optional wire flash).  </li>
+<li>Cooldown: 60 seconds per whale rule.</li>
+</ul>
+<h3 id="desktop-notifications">Desktop notifications</h3>
+<p>Enable in <strong>MARKET NEWSWIRE</strong> → <strong>DELIVERY</strong> tab (advanced). Requires browser permission. Fires on <strong>critical</strong> distribution items, not every tape print.</p>
+<h3 id="mobile-companion-advanced">Mobile companion (advanced)</h3>
+<p><strong>MOBILE OPS</strong> panel aggregates alerts for continuous awareness — see MOBILE_OPERATIONAL.md.</p>
+<hr />
+<hr />
+<h2 id="8-wallet-execution-hyperliquid-connection">8. Wallet, Execution &amp; Hyperliquid Connection</h2>
+<h3 id="connection-steps">Connection steps</h3>
+<ol>
+<li>Click <strong>Connect wallet</strong> in header.  </li>
+<li>Approve wallet provider (e.g. MetaMask / WalletConnect per deployment).  </li>
+<li>Approve <strong>Hyperliquid agent</strong> when prompted (one-time per agent policy).  </li>
+<li>Confirm address matches intended trading account.</li>
+</ol>
+<h3 id="execution-truth">Execution truth</h3>
+<ul>
+<li><strong>Positions panel</strong> = authoritative open risk.  </li>
+<li>Ticket confirmation = intent only until clearinghouse confirms.  </li>
+<li>Never trade on <strong>offline</strong> or <strong>reconnecting</strong> stream without acknowledgment.</li>
+</ul>
+<h3 id="kill-switches-alpha">Kill switches (alpha)</h3>
+<p>Feature flags in <strong>PRODUCT → ALPHA</strong> can disable execution, intel, or alerts without redeploy.</p>
+<hr />
+<hr />
+<h2 id="9-expanded-workspace-all-panels">9. Expanded Workspace — All Panels</h2>
+<p>Enable via <strong>EXPAND</strong>. Panels append below the core desk. Grouped by function.</p>
+<hr />
+<h3 id="91-market-macro">9.1 Market &amp; macro</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MACRO MATRIX</strong></td>
+<td><code>macro</code></td>
+<td>Cross-asset macro tickers (DXY, yields, indices)</td>
+<td>Top ribbon context before risk-on/off</td>
+</tr>
+<tr>
+<td><strong>GLOBAL STRAT</strong></td>
+<td><code>globalstrategy</code></td>
+<td>Global strategy desk — regional/session framing</td>
+<td><code>/globalstrategy</code></td>
+</tr>
+<tr>
+<td><strong>GLOBAL INTEL</strong></td>
+<td><code>globaldesk</code></td>
+<td>Global intelligence orchestration</td>
+<td>Expanded ops review</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="92-ai-decision-support">9.2 AI &amp; decision support</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AI LAYER</strong></td>
+<td><code>copilot</code></td>
+<td>Contextual Q&amp;A — funding, OI, whale flow</td>
+<td>Ask factual questions; no auto-trade</td>
+</tr>
+<tr>
+<td><strong>AGENTIC</strong></td>
+<td><code>proactive</code></td>
+<td>Fused agent opportunities (whale, liq, funding agents)</td>
+<td>Click row → load workspace on coin</td>
+</tr>
+<tr>
+<td><strong>CONTEXT</strong></td>
+<td><code>decision</code></td>
+<td>Decision command center</td>
+<td>Scenario context before size</td>
+</tr>
+<tr>
+<td><strong>OPERATOR AI</strong></td>
+<td><code>operatordesk</code></td>
+<td>Operator-grade AI desk responses</td>
+<td>Desk operator queries</td>
+</tr>
+</tbody>
+</table>
+<p><em>AI organizes information; human decides.</em></p>
+<hr />
+<h3 id="93-research-knowledge">9.3 Research &amp; knowledge</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>KNOWLEDGE GRAPH</strong></td>
+<td><code>knowledgegraph</code></td>
+<td>Entity graph — assets, whales, narratives</td>
+<td><code>/graph whale</code></td>
+</tr>
+<tr>
+<td><strong>JOURNAL</strong></td>
+<td><code>traderjournal</code></td>
+<td>Trade journal &amp; session notes</td>
+<td><code>/journal</code></td>
+</tr>
+<tr>
+<td><strong>RESEARCH</strong></td>
+<td><code>research</code></td>
+<td>Research workspace</td>
+<td><code>/research</code></td>
+</tr>
+<tr>
+<td><strong>RESEARCH DESK</strong></td>
+<td><code>researchdesk</code></td>
+<td>Institutional research operating desk</td>
+<td>Deep dive workflows</td>
+</tr>
+<tr>
+<td><strong>MARKET MEMORY</strong></td>
+<td><code>memorydesk</code></td>
+<td>Historical pattern / memory signals</td>
+<td>Compare to prior regimes</td>
+</tr>
+<tr>
+<td><strong>EQ INTEL</strong></td>
+<td><code>propintel</code></td>
+<td>Proprietary intelligence layer</td>
+<td>Internal signals</td>
+</tr>
+<tr>
+<td><strong>INTEL</strong></td>
+<td><code>intelengine</code></td>
+<td>Market intelligence console — events per asset</td>
+<td>Asset-level event detection</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="94-coverage-ingestion-newswire">9.4 Coverage, ingestion &amp; newswire</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>COVERAGE</strong></td>
+<td><code>marketcoverage</code></td>
+<td>On-chain, macro, narrative coverage map</td>
+<td>Universe scan</td>
+</tr>
+<tr>
+<td><strong>INGEST</strong></td>
+<td><code>ingestion</code></td>
+<td>Data ingestion health &amp; pipelines</td>
+<td>Ops verification</td>
+</tr>
+<tr>
+<td><strong>NEWSWIRE</strong></td>
+<td><code>newswire</code></td>
+<td>Operational newswire — tape, incidents, briefings</td>
+<td><code>/newswire</code> · Ctrl+N focus</td>
+</tr>
+<tr>
+<td><strong>DAILY OPS</strong></td>
+<td><code>dailyops</code></td>
+<td>Daily operating console — prioritized alerts</td>
+<td>Morning routine</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Newswire tabs:</strong> TAPE · INCIDENTS · BRIEFINGS · PERSONAL · DELIVERY · SYNDICATE</p>
+<hr />
+<h3 id="95-execution-analytics">9.5 Execution &amp; analytics</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>EXEC INTEL</strong></td>
+<td><code>execintel</code></td>
+<td>Order flow, liquidity heatmap, execution quality</td>
+<td>Post-trade and pre-trade analytics</td>
+</tr>
+<tr>
+<td><strong>LIVE EXEC</strong></td>
+<td><code>liveexec</code></td>
+<td>Live execution desk — multi-asset, desk presets</td>
+<td>Scalping / MM / treasury presets</td>
+</tr>
+<tr>
+<td><strong>DERIVATIVES DESK</strong></td>
+<td><code>derivdesk</code></td>
+<td>Funding, OI, vol surfaces</td>
+<td>Perp-focused workflows</td>
+</tr>
+<tr>
+<td><strong>PORTFOLIO DESK</strong></td>
+<td><code>portfoliodesk</code></td>
+<td>Portfolio risk &amp; treasury view</td>
+<td>Multi-asset exposure</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="96-systemic-ecosystem">9.6 Systemic &amp; ecosystem</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SYSTEMIC INTEL</strong></td>
+<td><code>systemicintel</code></td>
+<td>Systemic risk, contagion, narratives</td>
+<td>Risk-off planning</td>
+</tr>
+<tr>
+<td><strong>ECOSYSTEM</strong></td>
+<td><code>ecosystem</code></td>
+<td>Crypto financial ecosystem map</td>
+<td>Strategic context</td>
+</tr>
+<tr>
+<td><strong>MARKET CMD</strong></td>
+<td><code>marketcmd</code></td>
+<td>Market command — situational vitals</td>
+<td>Command-layer snapshot</td>
+</tr>
+<tr>
+<td><strong>MARKET MEMORY</strong></td>
+<td><code>memorydesk</code></td>
+<td>Regime memory (see above)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="97-reliability-platform-ops">9.7 Reliability, platform &amp; ops</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RELIABILITY</strong></td>
+<td><code>reliability</code></td>
+<td>Trust, latency, data integrity</td>
+<td>Before trusting live size</td>
+</tr>
+<tr>
+<td><strong>TOTE</strong></td>
+<td><code>diagnostics</code></td>
+<td>Telemetry &amp; diagnostics</td>
+<td>Debug stream issues</td>
+</tr>
+<tr>
+<td><strong>QUANT</strong></td>
+<td><code>alphalab</code></td>
+<td>Alpha lab / quant experiments</td>
+<td>Research only</td>
+</tr>
+<tr>
+<td><strong>PLATFORM</strong></td>
+<td><code>infra</code></td>
+<td>Infrastructure diagnostics</td>
+<td>Engineering</td>
+</tr>
+<tr>
+<td><strong>OPS COMMAND</strong></td>
+<td><code>opscommand</code></td>
+<td>Unified ops command vitals</td>
+<td>Desk lead monitoring</td>
+</tr>
+<tr>
+<td><strong>UNIFIED OPS</strong></td>
+<td><code>unifiedops</code></td>
+<td>Cross-system propagation desk</td>
+<td>Enterprise coordination</td>
+</tr>
+<tr>
+<td><strong>DESK OPS</strong></td>
+<td><code>deskops</code></td>
+<td>Desk operations console</td>
+<td>Session ops</td>
+</tr>
+<tr>
+<td><strong>LIVE DEPLOY</strong></td>
+<td><code>livedeploy</code></td>
+<td>Deployment &amp; launch readiness</td>
+<td>Go-live checklist</td>
+</tr>
+<tr>
+<td><strong>TERMINAL POLISH</strong></td>
+<td><code>maturitydesk</code></td>
+<td>Product maturity / UX polish scores</td>
+<td>QA &amp; polish review</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="98-enterprise-team-commercial">9.8 Enterprise, team &amp; commercial</h3>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>ID</th>
+<th>Purpose</th>
+<th>How to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TEAM NET</strong></td>
+<td><code>teamdesk</code></td>
+<td>Team desk grid</td>
+<td>Multi-trader coordination</td>
+</tr>
+<tr>
+<td><strong>COLLAB</strong></td>
+<td><code>collab</code></td>
+<td>Collaboration console</td>
+<td>Shared context</td>
+</tr>
+<tr>
+<td><strong>ENTERPRISE</strong></td>
+<td><code>enterpriseops</code></td>
+<td>Enterprise operations</td>
+<td>Org-level ops</td>
+</tr>
+<tr>
+<td><strong>INTEGRATE</strong></td>
+<td><code>integrations</code></td>
+<td>Industry integrations</td>
+<td>External system hooks</td>
+</tr>
+<tr>
+<td><strong>PRODUCT</strong></td>
+<td><code>commercial</code></td>
+<td>Packaging, onboarding, alpha, billing tabs</td>
+<td>Onboarding &amp; commercial</td>
+</tr>
+<tr>
+<td><strong>BILLING DESK</strong></td>
+<td><code>billingdesk</code></td>
+<td>Commercial billing vitals</td>
+<td>Finance ops</td>
+</tr>
+<tr>
+<td><strong>PLATFORM DESK</strong></td>
+<td><code>platformdesk</code></td>
+<td>API, SDK, extensibility</td>
+<td>Institutional API consumers</td>
+</tr>
+<tr>
+<td><strong>MOBILE OPS</strong></td>
+<td><code>mobiledesk</code></td>
+<td>Mobile companion &amp; alert delivery</td>
+<td>Away-from-desk monitoring</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="99-security-performance-notes">9.9 Security &amp; performance notes</h3>
+<ul>
+<li>Panels compose <strong>read-only intelligence</strong> unless explicitly execution (ticket).  </li>
+<li>API routes (<code>/api/*/vitals</code>) back many desks — scores also appear on experience bar.  </li>
+<li>See <code>docs/</code> for phase-specific deep dives (EXECUTION_ANALYTICS.md, SECURITY_TRUST.md, etc.).</li>
+</ul>
+<hr />
+<hr />
+<h2 id="10-keyboard-shortcuts-quick-reference">10. Keyboard Shortcuts &amp; Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ctrl+K</code> / <code>Cmd+K</code></td>
+<td>Open OmniBar</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>Open OmniBar (when not typing in input)</td>
+</tr>
+<tr>
+<td><code>Ctrl+N</code></td>
+<td>Focus newswire (advanced)</td>
+</tr>
+<tr>
+<td>Drag panel header</td>
+<td>Move panel in grid</td>
+</tr>
+<tr>
+<td>Resize panel corner</td>
+<td>Resize in grid</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wedge-panel-map-default-positions">Wedge panel map (default positions)</h3>
+<pre><code>┌──────────┬────────────────────┬──────────┐
+│ HyperBook│      Chart         │   TAPE   │
+│          │                    ├──────────┤
+│          │                    │DOM Ladder│
+├──────────┼──────────┬─────────┴──────────┤
+│  Ticket  │ Positions│Slip│ALERTS│Surveil │
+└──────────┴──────────┴────┴──────┴────────┘
+</code></pre>
+<hr />
+<hr />
+<h2 id="11-troubleshooting">11. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Locked at login</td>
+<td>Alpha invite required</td>
+<td>Use invite code or URL <code>?invite=</code></td>
+</tr>
+<tr>
+<td>No whale alerts</td>
+<td>Wrong coin / quiet tape / below $75k</td>
+<td>Select liquid pair; check ALERTS + TAPE</td>
+</tr>
+<tr>
+<td>Book/chart frozen</td>
+<td>Stream disconnected</td>
+<td>Check header status; refresh</td>
+</tr>
+<tr>
+<td>Order won’t submit</td>
+<td>Wallet not connected / agent</td>
+<td>Connect wallet; approve agent</td>
+</tr>
+<tr>
+<td>Panels missing</td>
+<td>Desk focus mode</td>
+<td>Click <strong>EXPAND</strong></td>
+</tr>
+<tr>
+<td>OmniBar command ignored</td>
+<td>Advanced command in desk mode</td>
+<td><code>/expand</code> first</td>
+</tr>
+<tr>
+<td>Flashes too aggressive</td>
+<td>CALM off</td>
+<td>Enable <strong>CALM</strong> in experience bar</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<hr />
+<h2 id="12-appendix-alpha-codes-environment">12. Appendix: Alpha Codes &amp; Environment</h2>
+<h3 id="default-alpha-codes">Default alpha codes</h3>
+<ul>
+<li><code>EQ-ALPHA-2026</code>  </li>
+<li><code>EQ-HL-DESK</code>  </li>
+<li><code>EQ-EXEC</code>  </li>
+</ul>
+<h3 id="documentation-index-repo-docs">Documentation index (repo <code>docs/</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wedge strategy</td>
+<td>WEDGE_STRATEGY.md</td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td>ONBOARDING.md</td>
+</tr>
+<tr>
+<td>OmniBar</td>
+<td>OMNIBAR_COMMAND_SYSTEM.md</td>
+</tr>
+<tr>
+<td>Terminal UX</td>
+<td>TERMINAL_EXPERIENCE.md</td>
+</tr>
+<tr>
+<td>Alpha launch</td>
+<td>ALPHA_LAUNCH.md</td>
+</tr>
+<tr>
+<td>Live deployment</td>
+<td>LIVE_DEPLOYMENT.md</td>
+</tr>
+<tr>
+<td>Video tutorial script</td>
+<td>VIDEO_TUTORIAL.md</td>
+</tr>
+</tbody>
+</table>
+<h3 id="support-workflow-for-desks">Support workflow for desks</h3>
+<ol>
+<li>Reproduce in desk mode (<code>/desk</code>).  </li>
+<li>Capture stream status + active coin.  </li>
+<li>Note panel ID from header (e.g. ALERTS = <code>alerts</code>).  </li>
+<li>Check RELIABILITY + TOTE if data truth is questioned.</li>
+</ol>
+<hr />
+<p><strong>© Equilibrium Terminal · Institutional use · Human trader remains central</strong></p>
+<p><em>End of guide</em></p>
+</body>
+</html>

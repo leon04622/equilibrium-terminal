@@ -34,6 +34,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 78,
     propintel: 92,
     ecosystem: 95,
+    globalstrategy: 88,
   },
   execution: {
     macro: 25,
@@ -67,6 +68,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 28,
     propintel: 45,
     ecosystem: 50,
+    globalstrategy: 42,
   },
   research: {
     macro: 60,
@@ -100,6 +102,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 80,
     propintel: 88,
     ecosystem: 90,
+    globalstrategy: 72,
   },
   macro: {
     macro: 98,
@@ -133,6 +136,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 65,
     propintel: 70,
     ecosystem: 68,
+    globalstrategy: 38,
   },
   scalping: {
     macro: 20,
@@ -166,6 +170,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 6,
     propintel: 8,
     ecosystem: 10,
+    globalstrategy: 8,
   },
   ai_analyst: {
     macro: 50,
@@ -199,6 +204,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 62,
     propintel: 75,
     ecosystem: 82,
+    globalstrategy: 78,
   },
   portfolio: {
     macro: 55,
@@ -232,6 +238,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 85,
     propintel: 94,
     ecosystem: 92,
+    globalstrategy: 85,
   },
   narrative: {
     macro: 75,
@@ -265,6 +272,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 88,
     propintel: 90,
     ecosystem: 88,
+    globalstrategy: 80,
   },
   quant: {
     macro: 50,
@@ -298,6 +306,7 @@ export const MODE_PANEL_WEIGHTS: Record<TerminalMode, Record<WorkspacePanelId, n
     integrations: 55,
     propintel: 72,
     ecosystem: 70,
+    globalstrategy: 65,
   },
 };
 

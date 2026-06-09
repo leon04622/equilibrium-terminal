@@ -89,7 +89,8 @@ function PositionRowView({
 }
 
 export function PositionsTable() {
-  const { isConnected, closePositionMarket } = useHyperliquidAuthContext();
+  const { isConnected, closePositionMarket, connectWallet, isConnecting } =
+    useHyperliquidAuthContext();
   const accountValue = useHyperliquidStore((s) => s.accountValue);
   const withdrawable = useHyperliquidStore((s) => s.withdrawable);
   const orderPending = useHyperliquidStore((s) => s.orderPending);
@@ -100,8 +101,18 @@ export function PositionsTable() {
 
   if (!isConnected || !walletAddress) {
     return (
-      <div className="flex h-full items-center justify-center p-4 font-mono text-xs text-terminal-muted">
-        Connect wallet to view positions & margin
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
+        <p className="font-mono text-xs text-terminal-muted">
+          Connect a wallet to view your positions, margin & PnL.
+        </p>
+        <button
+          type="button"
+          onClick={connectWallet}
+          disabled={isConnecting}
+          className="flex items-center gap-1 border border-cyan-700/60 bg-cyan-950/40 px-3 py-1 font-mono text-[10px] text-cyan-200 hover:bg-cyan-900/50 disabled:opacity-50"
+        >
+          {isConnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect Wallet"}
+        </button>
       </div>
     );
   }

@@ -127,6 +127,7 @@ export const ALL_WORKSPACE_PANEL_IDS = [
   "integrations",
   "propintel",
   "ecosystem",
+  "globalstrategy",
 ] as const;
 
 export type WorkspacePanelId = (typeof ALL_WORKSPACE_PANEL_IDS)[number];
