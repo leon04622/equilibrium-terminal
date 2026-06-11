@@ -24,10 +24,13 @@ import {
   ORDER_BOOK_REPLAY_SCENARIO,
   type OBHighlight,
 } from "@/lib/education/orderBookLessonScenes";
+import { speakAcademyNarration } from "@/lib/education/academyVoice";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
+  isLessonSpeaking,
   lessonVoiceSupported,
+  armLessonVoice,
   setLessonVoiceEnabled,
   speakLesson,
 } from "@/lib/education/LessonNarrator";
@@ -119,6 +122,7 @@ export function CinematicOrderBookLesson() {
     (i: number) => {
       const token = ++tokenRef.current;
       clearTimers();
+      if (isLessonSpeaking()) cancelLesson();
       setCheckState("idle");
       setReveal(false);
       const b = beats[i];
@@ -139,18 +143,16 @@ export function CinematicOrderBookLesson() {
       };
 
       const text = narrationText(i);
-      if (voiceOnRef.current && supported) {
-        speakLesson(text, {
-          rate: beginnerRef.current ? 0.88 : 1.04,
-          onEnd: afterNarration,
-          onError: () => {
-            if (tokenRef.current !== token) return;
-            holdTimer.current = setTimeout(afterNarration, estimateMs(text, beginnerRef.current));
-          },
-        });
-      } else {
-        holdTimer.current = setTimeout(afterNarration, estimateMs(text, beginnerRef.current));
-      }
+      speakAcademyNarration(text, {
+        voiceOn: voiceOnRef.current,
+        supported,
+        rate: beginnerRef.current ? 0.88 : 1.04,
+        onEnd: afterNarration,
+        onError: () => {
+          if (tokenRef.current !== token) return;
+          holdTimer.current = setTimeout(afterNarration, estimateMs(text, beginnerRef.current));
+        },
+      });
     },
     [narrationText, supported, clearTimers],
   );
@@ -158,6 +160,7 @@ export function CinematicOrderBookLesson() {
   // Reset to the resume point whenever the lesson is (re)opened.
   useEffect(() => {
     if (!active) return;
+    armLessonVoice();
     const start = Math.min(Math.max(startStep, 0), beats.length - 1);
     setBeatIndex(start);
     setPlaying(true);
@@ -179,7 +182,6 @@ export function CinematicOrderBookLesson() {
     if (beats[beatIndex]?.phase === "outro") markCompleted();
     return () => {
       clearTimers();
-      cancelLesson();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId, beatIndex]);

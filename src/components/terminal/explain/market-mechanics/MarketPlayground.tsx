@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { usePlaygroundLoop } from "@/lib/education/usePlaygroundLoop";
 import { ArrowDown, ArrowRight, ArrowUp, Check, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MMVisual } from "@/lib/education/marketMechanicsScenes";
@@ -26,18 +26,6 @@ const SELL = {
   border: "border-rose-500/40",
   solid: "bg-rose-500/70",
 };
-
-/** Loop 0..steps-1 every intervalMs. When not animating, returns restStep. */
-function useLoop(steps: number, intervalMs: number, animate: boolean, restStep?: number): number {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    if (!animate || steps <= 1) return;
-    setStep(0);
-    const id = window.setInterval(() => setStep((s) => (s + 1) % steps), intervalMs);
-    return () => window.clearInterval(id);
-  }, [steps, intervalMs, animate]);
-  return animate ? step : restStep ?? steps - 1;
-}
 
 function Chip({
   price,
@@ -101,7 +89,7 @@ function SideLabel({ text, tone }: { text: string; tone: typeof BUY | typeof SEL
 function Negotiation({ animate }: { animate: boolean }) {
   const buyerPrices = [100, 101, 102, 103];
   const sellerPrices = [105, 104, 103, 103];
-  const step = useLoop(4, 1300, animate, 3);
+  const step = usePlaygroundLoop(4, 1300, animate, 3);
   const agreed = step >= 3;
   const shift = step * 18; // px the figures move toward the centre
 
@@ -180,7 +168,7 @@ function WaitingRoom({ labelled }: { labelled?: boolean }) {
 
 /* ----------------------------- LESSON 3 ----------------------------------- */
 function PriceMove({ animate }: { animate: boolean }) {
-  const step = useLoop(2, 2400, animate, 0);
+  const step = usePlaygroundLoop(2, 2400, animate, 0);
   const up = step === 0;
   const price = up ? 104 : 98;
   return (
@@ -297,7 +285,7 @@ function Imbalance() {
 /* ----------------------------- LESSON 8 ----------------------------------- */
 function Slippage({ animate }: { animate: boolean }) {
   const levels = [103, 104, 105, 106];
-  const step = useLoop(5, 900, animate, 4); // 0 = nothing filled, 4 = all filled
+  const step = usePlaygroundLoop(5, 900, animate, 4); // 0 = nothing filled, 4 = all filled
   const filled = step;
   const avgByStep = [0, 103, 103.5, 104, 104.5];
   const avg = avgByStep[filled] || 0;
@@ -341,7 +329,7 @@ function Slippage({ animate }: { animate: boolean }) {
 /* ----------------------------- LESSON 9 ----------------------------------- */
 function Danger({ animate }: { animate: boolean }) {
   const levels = [103, 109, 118];
-  const step = useLoop(4, 1000, animate, 3);
+  const step = usePlaygroundLoop(4, 1000, animate, 3);
   const filled = step;
   const avgByStep = [0, 103, 106, 110];
   const avg = avgByStep[filled] || 0;
@@ -441,11 +429,16 @@ function Recap() {
 export function MarketPlayground({
   visual,
   reduceMotion,
+  sceneKey = "",
+  animate: animateProp,
 }: {
   visual: MMVisual;
   reduceMotion: boolean;
+  sceneKey?: string;
+  animate?: boolean;
 }) {
-  const animate = !reduceMotion;
+  const animate = animateProp ?? !reduceMotion;
+  void sceneKey;
   switch (visual) {
     case "negotiation":
       return <Negotiation animate={animate} />;

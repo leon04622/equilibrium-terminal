@@ -68,7 +68,28 @@ import { MarketMechanicsSimulator } from "@/components/terminal/explain/MarketMe
 import { LessonLiveBridge } from "@/components/terminal/explain/LessonLiveBridge";
 import { FundingCrowdingSimulator } from "@/components/terminal/explain/FundingCrowdingSimulator";
 import { FundingLiveBridge } from "@/components/terminal/explain/FundingLiveBridge";
+import { TradeTypesSimulator } from "@/components/terminal/explain/TradeTypesSimulator";
+import { TradeTypesLiveBridge } from "@/components/terminal/explain/TradeTypesLiveBridge";
+import { LiquidationsSimulator } from "@/components/terminal/explain/LiquidationsSimulator";
+import { LiquidationsLiveBridge } from "@/components/terminal/explain/LiquidationsLiveBridge";
+import { RiskManagementSimulator } from "@/components/terminal/explain/RiskManagementSimulator";
+import { RiskManagementLiveBridge } from "@/components/terminal/explain/RiskManagementLiveBridge";
+import { SlippageSimulator } from "@/components/terminal/explain/SlippageSimulator";
+import { SlippageLiveBridge } from "@/components/terminal/explain/SlippageLiveBridge";
+import { ExecutionSimulator } from "@/components/terminal/explain/ExecutionSimulator";
+import { ExecutionLiveBridge } from "@/components/terminal/explain/ExecutionLiveBridge";
+import { PortfolioRiskSimulator } from "@/components/terminal/explain/PortfolioRiskSimulator";
+import { PortfolioRiskLiveBridge } from "@/components/terminal/explain/PortfolioRiskLiveBridge";
+import { DailyOperationsSimulator } from "@/components/terminal/explain/DailyOperationsSimulator";
+import { DailyOperationsLiveBridge } from "@/components/terminal/explain/DailyOperationsLiveBridge";
+import { OperatorJournalSimulator } from "@/components/terminal/explain/OperatorJournalSimulator";
+import { OperatorJournalLiveBridge } from "@/components/terminal/explain/OperatorJournalLiveBridge";
+import { LiveDeskSimulator } from "@/components/terminal/explain/LiveDeskSimulator";
+import { LiveDeskLiveBridge } from "@/components/terminal/explain/LiveDeskLiveBridge";
 import { LearningHubLauncher } from "@/components/terminal/explain/LearningHubLauncher";
+import { LearningCommandCenter } from "@/components/terminal/explain/LearningCommandCenter";
+import { AcademySessionGuard } from "@/components/terminal/explain/AcademySessionGuard";
+import { AcademyPerformancePanel } from "@/components/terminal/explain/AcademyPerformancePanel";
 import { AlphaInviteGate } from "@/components/terminal/AlphaInviteGate";
 import { OnboardingWalkthrough } from "@/components/terminal/OnboardingWalkthrough";
 import { DailyStateStrip } from "@/components/terminal/DailyStateStrip";
@@ -594,6 +615,27 @@ export function WorkspaceManager() {
       <LessonLiveBridge />
       <FundingCrowdingSimulator />
       <FundingLiveBridge />
+      <TradeTypesSimulator />
+      <TradeTypesLiveBridge />
+      <LiquidationsSimulator />
+      <LiquidationsLiveBridge />
+      <RiskManagementSimulator />
+      <RiskManagementLiveBridge />
+      <SlippageSimulator />
+      <SlippageLiveBridge />
+      <ExecutionSimulator />
+      <ExecutionLiveBridge />
+      <PortfolioRiskSimulator />
+      <PortfolioRiskLiveBridge />
+      <DailyOperationsSimulator />
+      <DailyOperationsLiveBridge />
+      <OperatorJournalSimulator />
+      <OperatorJournalLiveBridge />
+      <LiveDeskSimulator />
+      <LiveDeskLiveBridge />
+      <LearningCommandCenter />
+      <AcademySessionGuard />
+      <AcademyPerformancePanel />
       <header
         className={cn(
           "flex shrink-0 items-center gap-2 border-b-[0.5px] bg-slate-950 px-1 py-0.5",
@@ -607,7 +649,7 @@ export function WorkspaceManager() {
           </span>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
           <OmniBar />
           <LearningHubLauncher />
           <DailyStateStrip />

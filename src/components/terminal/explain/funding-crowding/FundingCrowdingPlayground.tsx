@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+
+import { usePlaygroundLoop } from "@/lib/education/usePlaygroundLoop";
 import { ArrowDown, ArrowRight, ArrowUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FCVisual } from "@/lib/education/fundingCrowdingScenes";
@@ -17,17 +18,6 @@ const SHORT = {
   border: "border-rose-500/40",
   solid: "bg-rose-500/70",
 };
-
-function useLoop(steps: number, intervalMs: number, animate: boolean, rest = 0): number {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    if (!animate || steps <= 1) return;
-    setStep(0);
-    const id = window.setInterval(() => setStep((s) => (s + 1) % steps), intervalMs);
-    return () => window.clearInterval(id);
-  }, [steps, intervalMs, animate]);
-  return animate ? step : rest;
-}
 
 function Stage({ children }: { children: React.ReactNode }) {
   return (
@@ -46,7 +36,7 @@ function TraderDot({ tone, className }: { tone: typeof LONG | typeof SHORT; clas
 }
 
 function CrowdBuilding({ animate }: { animate: boolean }) {
-  const n = useLoop(6, 700, animate, 5);
+  const n = usePlaygroundLoop(6, 700, animate, 5);
   return (
     <Stage>
       <div className="flex flex-col items-center gap-3">
@@ -69,7 +59,7 @@ function CrowdBuilding({ animate }: { animate: boolean }) {
 }
 
 function Balancing({ animate }: { animate: boolean }) {
-  const tilt = useLoop(4, 1200, animate, 2);
+  const tilt = usePlaygroundLoop(4, 1200, animate, 2);
   const leanLong = tilt < 2;
   return (
     <Stage>
@@ -107,7 +97,7 @@ function PaymentFlow({
   label: string;
   animate: boolean;
 }) {
-  const pulse = useLoop(3, 900, animate, 1);
+  const pulse = usePlaygroundLoop(3, 900, animate, 1);
   return (
     <Stage>
       <div className="flex items-center gap-4">
@@ -129,7 +119,7 @@ function PaymentFlow({
 }
 
 function ShortSqueeze({ animate }: { animate: boolean }) {
-  const step = useLoop(5, 850, animate, 4);
+  const step = usePlaygroundLoop(5, 850, animate, 4);
   const price = 100 + step * 2;
   const shortsLeft = Math.max(0, 5 - step);
   return (
@@ -156,7 +146,7 @@ function ShortSqueeze({ animate }: { animate: boolean }) {
 }
 
 function LongSqueeze({ animate }: { animate: boolean }) {
-  const step = useLoop(5, 850, animate, 4);
+  const step = usePlaygroundLoop(5, 850, animate, 4);
   const price = 100 - step * 2;
   const longsLeft = Math.max(0, 5 - step);
   return (
@@ -202,11 +192,16 @@ function IntroRecap({ kind }: { kind: "intro" | "recap" }) {
 export function FundingCrowdingPlayground({
   visual,
   reduceMotion = false,
+  sceneKey = "",
+  animate: animateProp,
 }: {
   visual: FCVisual;
   reduceMotion?: boolean;
+  sceneKey?: string;
+  animate?: boolean;
 }) {
-  const animate = !reduceMotion;
+  const animate = animateProp ?? !reduceMotion;
+  void sceneKey;
   switch (visual) {
     case "crowdBuilding":
       return <CrowdBuilding animate={animate} />;

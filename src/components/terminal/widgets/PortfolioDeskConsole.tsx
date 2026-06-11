@@ -28,9 +28,19 @@ function sev(s: string): string {
   return terminalSkin.textUp;
 }
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Row({
+  label,
+  value,
+  tone,
+  region,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  region?: string;
+}) {
   return (
-    <div className="flex justify-between border-b border-slate-800/80 py-0.5">
+    <div className="flex justify-between border-b border-slate-800/80 py-0.5" data-portfolio-region={region}>
       <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{label}</span>
       <span className={cn(TERMINAL_TYPO.micro, tone ?? "text-slate-400")}>{value}</span>
     </div>
@@ -60,7 +70,7 @@ export function PortfolioDeskConsole() {
     n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div data-portfolio-panel="portfoliodesk" className="flex h-full flex-col overflow-hidden">
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Landmark className="h-3 w-3 text-amber-400" />
         <span className={cn(TERMINAL_TYPO.label, "text-amber-300")}>PORTFOLIO DESK</span>
@@ -94,8 +104,8 @@ export function PortfolioDeskConsole() {
             <Row label="Total AUM" value={fmtUsd(snapshot.portfolio.totalAumUsd)} />
             <Row label="Account value" value={fmtUsd(snapshot.portfolio.accountValueUsd)} />
             <Row label="Withdrawable" value={fmtUsd(snapshot.portfolio.withdrawableUsd)} />
-            <Row label="Net PnL" value={fmtUsd(snapshot.portfolio.netPnlUsd)} tone={snapshot.portfolio.netPnlUsd >= 0 ? terminalSkin.textUp : terminalSkin.textDown} />
-            <Row label="Positions" value={String(snapshot.portfolio.positionCount)} />
+            <Row region="net-pnl" label="Net PnL" value={fmtUsd(snapshot.portfolio.netPnlUsd)} tone={snapshot.portfolio.netPnlUsd >= 0 ? terminalSkin.textUp : terminalSkin.textDown} />
+            <Row region="position-count-desk" label="Positions" value={String(snapshot.portfolio.positionCount)} />
             <Row label="Venues" value={String(snapshot.portfolio.venueCount)} />
             {snapshot.portfolio.holdings.slice(0, 8).map((h) => (
               <div key={`${h.venue}-${h.asset}`} className="border-b border-slate-800 py-0.5">
@@ -112,16 +122,16 @@ export function PortfolioDeskConsole() {
 
         {activeTab === "risk" && (
           <section className="space-y-0.5">
-            <Row label="Risk tier" value={snapshot.risk.riskTier.toUpperCase()} tone={sev(snapshot.risk.riskTier)} />
-            <Row label="Leverage" value={`${snapshot.risk.leverageRatio}x`} />
-            <Row label="Margin util" value={`${snapshot.risk.marginUtilizationPct}%`} />
+            <Row region="risk-tier" label="Risk tier" value={snapshot.risk.riskTier.toUpperCase()} tone={sev(snapshot.risk.riskTier)} />
+            <Row region="leverage-ratio" label="Leverage" value={`${snapshot.risk.leverageRatio}x`} />
+            <Row region="margin-util" label="Margin util" value={`${snapshot.risk.marginUtilizationPct}%`} />
             <Row label="Liquidation risk" value={String(snapshot.risk.liquidationRiskScore)} tone={sev(snapshot.risk.riskTier)} />
             <Row label="Collateral health" value={String(snapshot.risk.collateralHealthScore)} />
-            <Row label="Concentration" value={String(snapshot.risk.concentrationScore)} />
+            <Row region="concentration" label="Concentration" value={String(snapshot.risk.concentrationScore)} />
             <Row label="Stablecoin dep" value={`${snapshot.risk.stablecoinDependencyPct}%`} />
             <Row label="Vol exposure" value={String(snapshot.risk.volatilityExposureScore)} />
-            <Row label="Direction" value={snapshot.risk.directionalBias.toUpperCase()} />
-            <Row label="Correlation stress" value={String(snapshot.risk.correlationStress)} />
+            <Row region="directional-bias" label="Direction" value={snapshot.risk.directionalBias.toUpperCase()} />
+            <Row region="correlation-stress" label="Correlation stress" value={String(snapshot.risk.correlationStress)} />
           </section>
         )}
 
@@ -143,10 +153,10 @@ export function PortfolioDeskConsole() {
             <Row label="Unrealized PnL" value={fmtUsd(snapshot.analytics.unrealizedPnlUsd)} />
             <Row label="Realized PnL" value={fmtUsd(snapshot.analytics.realizedPnlUsd)} />
             <Row label="Total PnL" value={fmtUsd(snapshot.analytics.totalPnlUsd)} />
-            <Row label="Max drawdown" value={`${snapshot.analytics.maxDrawdownPct}%`} />
+            <Row region="max-drawdown" label="Max drawdown" value={`${snapshot.analytics.maxDrawdownPct}%`} />
             <Row label="Sharpe proxy" value={String(snapshot.analytics.sharpeProxy)} />
             <Row label="Capital efficiency" value={String(snapshot.analytics.capitalEfficiencyScore)} />
-            <Row label="Exposure heat" value={String(snapshot.analytics.exposureHeat)} />
+            <Row region="exposure-heat" label="Exposure heat" value={String(snapshot.analytics.exposureHeat)} />
             <Row label="Risk-adj return" value={String(snapshot.analytics.riskAdjustedReturn)} />
           </section>
         )}
@@ -158,7 +168,7 @@ export function PortfolioDeskConsole() {
             <Row label="Margin health" value={String(snapshot.collateral.marginHealthScore)} />
             <Row label="Borrowing exposure" value={fmtUsd(snapshot.collateral.borrowingExposureUsd)} />
             <Row label="Funding cost" value={`${snapshot.collateral.fundingCostBps} bps`} />
-            <Row label="Liq proximity" value={`${snapshot.collateral.liquidationProximityPct}%`} tone={sev(snapshot.risk.riskTier)} />
+            <Row region="liq-proximity" label="Liq proximity" value={`${snapshot.collateral.liquidationProximityPct}%`} tone={sev(snapshot.risk.riskTier)} />
             <Row label="Cross-margin dep" value={`${snapshot.collateral.crossMarginDependency}%`} />
           </section>
         )}

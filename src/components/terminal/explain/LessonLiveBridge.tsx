@@ -29,10 +29,12 @@ import {
   type BookRegion,
 } from "@/lib/education/lessonBridgeSteps";
 import { LiveBookCoach } from "@/lib/education/liveBookCoach";
+import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
   lessonVoiceSupported,
+  armLessonVoice,
   setLessonVoiceEnabled,
   speakLesson,
 } from "@/lib/education/LessonNarrator";
@@ -153,7 +155,9 @@ export function LessonLiveBridge() {
       if (!s) return;
       if (i >= steps.length - 1) markBridgeCompleted();
 
-      const text = lineFor(i);
+      const book = useHyperliquidStore.getState().book;
+      const coachText = lineFor(i);
+      const text = buildBridgeNarration(s, coachText, book);
       const waitsForUser =
         s.mode === "recognize" || s.mode === "decide" || s.mode === "compare" || s.mode === "observe";
       const autoAdvance = !waitsForUser;
@@ -171,18 +175,16 @@ export function LessonLiveBridge() {
         }, hold);
       };
 
-      if (voiceOnRef.current && supported) {
-        speakLesson(text, {
-          rate: 0.94,
-          onEnd: afterNarration,
-          onError: () => {
-            if (tokenRef.current !== token) return;
-            if (autoAdvance) holdTimer.current = setTimeout(afterNarration, estimateMs(text));
-          },
-        });
-      } else if (autoAdvance) {
-        holdTimer.current = setTimeout(afterNarration, estimateMs(text));
-      }
+      speakAcademyNarration(text, {
+        voiceOn: voiceOnRef.current,
+        supported,
+        rate: 0.94,
+        onEnd: afterNarration,
+        onError: () => {
+          if (tokenRef.current !== token) return;
+          if (autoAdvance) holdTimer.current = setTimeout(afterNarration, estimateMs(text));
+        },
+      });
     },
     [supported, clearTimers, lineFor, markBridgeCompleted],
   );
@@ -190,6 +192,7 @@ export function LessonLiveBridge() {
   // Spotlight the REAL order book panel while the bridge is open.
   useEffect(() => {
     if (!active) return;
+    armLessonVoice();
     setHighlightPanel(ORDER_BOOK_BRIDGE_PANEL);
     setFocusMode(true);
     terminalBus.emit("widget:focus", { widgetId: ORDER_BOOK_BRIDGE_PANEL });
@@ -197,7 +200,7 @@ export function LessonLiveBridge() {
       setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, setFocusMode, setHighlightPanel]);
+  }, [active, runId, setFocusMode, setHighlightPanel]);
 
   useEffect(() => {
     if (!active) return;
@@ -213,7 +216,6 @@ export function LessonLiveBridge() {
     enter(index);
     return () => {
       clearTimers();
-      cancelLesson();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId, index]);

@@ -71,7 +71,8 @@ function Bar({ label, value }: { label: string; value: number }) {
 }
 
 export function OperatorJournalConsole() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("session");
+  const tab = useOperatorJournalStore((s) => s.activeTab);
+  const setTab = useOperatorJournalStore((s) => s.setActiveTab);
   const snapshot = useOperatorJournalStore((s) => s.snapshot);
   const logDecision = useOperatorJournalStore((s) => s.logDecision);
   const endSession = useOperatorJournalStore((s) => s.endSession);
@@ -122,8 +123,8 @@ export function OperatorJournalConsole() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
+    <div className="flex h-full flex-col overflow-hidden" data-journal-panel="operatorjournal">
+      <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")} data-journal-region="panel">
         <ClipboardList className="h-3 w-3 text-cyan-400" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-200")}>OPERATOR JOURNAL</span>
         <span className={cn(TERMINAL_TYPO.micro, GRADE_COLOR[scorecard.grade])}>
@@ -156,8 +157,8 @@ export function OperatorJournalConsole() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {tab === "session" ? (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-1">
+          <div className="space-y-2" data-journal-region="session">
+            <div className="grid grid-cols-2 gap-1" data-journal-region="scorecard">
               <Bar label="EXECUTION" value={scorecard.execution} />
               <Bar label="DISCIPLINE" value={scorecard.discipline} />
               <Bar label="DECISION Q" value={scorecard.decisionQuality} />
@@ -192,8 +193,8 @@ export function OperatorJournalConsole() {
         ) : null}
 
         {tab === "log" ? (
-          <div className="space-y-1.5">
-            <div className="border border-slate-800 p-1.5">
+          <div className="space-y-1.5" data-journal-region="log">
+            <div className="border border-slate-800 p-1.5" data-journal-region="decision-form">
               <div className="flex flex-wrap gap-0.5">
                 {KINDS.map((k) => (
                   <button
@@ -300,7 +301,7 @@ export function OperatorJournalConsole() {
         ) : null}
 
         {tab === "exec" ? (
-          <div className="space-y-2">
+          <div className="space-y-2" data-journal-region="exec">
             <Bar label="EXECUTION QUALITY" value={executionQuality.score} />
             <div className="grid grid-cols-3 gap-1">
               <div className="border border-slate-800 p-1 text-center">
@@ -342,7 +343,7 @@ export function OperatorJournalConsole() {
         ) : null}
 
         {tab === "behavior" ? (
-          <div className="space-y-1">
+          <div className="space-y-1" data-journal-region="behavior">
             {behavioralFlags.length === 0 ? (
               <p className={cn(TERMINAL_TYPO.micro, "text-emerald-400")}>
                 No behavioral warnings — disciplined operation.
@@ -378,7 +379,7 @@ export function OperatorJournalConsole() {
 
         {tab === "review" ? (
           review ? (
-            <div className="space-y-2">
+            <div className="space-y-2" data-journal-region="review">
               <div className="grid grid-cols-3 gap-1 text-center">
                 <div className="border border-slate-800 p-1">
                   <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>QUALITY</p>
@@ -448,7 +449,7 @@ export function OperatorJournalConsole() {
         ) : null}
 
         {tab === "patterns" ? (
-          <div className="space-y-1">
+          <div className="space-y-1" data-journal-region="patterns">
             {patterns.map((p) => (
               <div key={p.id} className="border border-slate-800 p-1.5">
                 <div className="flex items-center justify-between">

@@ -28,6 +28,7 @@ export function ChartOperationalHud() {
         style={{ background: regimeVis.ribbon }}
       >
         <span
+          data-chart-region="regime"
           className={cn(
             TERMINAL_TYPO.micro,
             "border-r border-slate-800/80 px-1.5 py-0.5 text-slate-300",
@@ -60,7 +61,7 @@ export function ChartOperationalHud() {
 
       <div className="flex items-end justify-between gap-0.5 px-0.5 pb-0.5">
         <div className="flex flex-wrap gap-0.5">
-          <HudChip label="MID" value={book?.mid ? book.mid.toFixed(2) : "—"} />
+          <HudChip label="MID" value={book?.mid ? book.mid.toFixed(2) : "—"} region="mid" />
           <HudChip label="INTEL" value={String(intelCount)} accent />
           <HudChip label="LIQ" value={stress.bookImbalance >= 0 ? "BID" : "ASK"} />
         </div>
@@ -90,13 +91,16 @@ function HudChip({
   label,
   value,
   accent,
+  region,
 }: {
   label: string;
   value: string;
   accent?: boolean;
+  region?: string;
 }) {
   return (
     <span
+      data-chart-region={region}
       className={cn(
         TERMINAL_TYPO.micro,
         "border border-slate-800/90 bg-slate-950/85 px-1 py-px",

@@ -59,14 +59,18 @@ function newSession(): OperatorSession {
   };
 }
 
+export type OperatorJournalTab = "session" | "log" | "exec" | "behavior" | "review" | "patterns";
+
 export interface OperatorJournalState {
   session: OperatorSession;
   history: OperatorSession[];
   decisions: DecisionEntry[];
   snapshot: OperatorJournalSnapshot | null;
   activeReplay: ActiveReplay | null;
+  activeTab: OperatorJournalTab;
 
   hydrate: () => void;
+  setActiveTab: (tab: OperatorJournalTab) => void;
   ensureSession: () => void;
   logDecision: (input: {
     coin: string;
@@ -91,6 +95,9 @@ export const useOperatorJournalStore = create<OperatorJournalState>()(
     decisions: [],
     snapshot: null,
     activeReplay: null,
+    activeTab: "session",
+
+    setActiveTab: (activeTab) => set({ activeTab }),
 
     hydrate: () => {
       const history = read<OperatorSession[]>(HISTORY_KEY, []);

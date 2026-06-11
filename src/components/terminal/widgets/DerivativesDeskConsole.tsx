@@ -105,7 +105,7 @@ export function DerivativesDeskConsole() {
             <Row label="ATM IV" value={`${snapshot.volatility.impliedVolAtm}%`} />
             <Row label="Realized vol" value={`${snapshot.volatility.realizedVol}%`} />
             <Row label="Vol spread" value={`${snapshot.volatility.volSpread}`} tone={sev(snapshot.volatility.regime)} />
-            <Row label="Regime" value={snapshot.volatility.regime.toUpperCase()} tone={sev(snapshot.volatility.regime)} />
+            <Row region="vol-regime" label="Regime" value={snapshot.volatility.regime.toUpperCase()} tone={sev(snapshot.volatility.regime)} />
             <Row label="Term slope" value={String(snapshot.volatility.termStructureSlope)} />
             <Row label="25Δ skew" value={String(snapshot.volatility.skew25d)} />
             <Row label="Smile curvature" value={String(snapshot.volatility.smileCurvature)} />
@@ -149,7 +149,7 @@ export function DerivativesDeskConsole() {
             <Row label="Cross-venue avg" value={`${snapshot.funding.crossVenueFundingBps} bps`} />
             <Row label="Divergence" value={`${snapshot.funding.fundingDivergenceBps} bps`} />
             <Row region="oi" label="OI growth" value={`${snapshot.funding.oiGrowthPct}%`} />
-            <Row label="Leverage conc" value={String(snapshot.funding.leverageConcentration)} />
+            <Row region="leverage-conc" label="Leverage conc" value={String(snapshot.funding.leverageConcentration)} />
             <Row region="crowding" label="Crowding" value={snapshot.funding.crowdingBias.toUpperCase()} />
             <Row
               region="liq"
@@ -163,12 +163,12 @@ export function DerivativesDeskConsole() {
         {activeTab === "state" && (
           <section className="space-y-0.5">
             <Row label="Market regime" value={snapshot.marketState.regime.replace(/_/g, " ")} />
-            <Row label="Leverage saturation" value={String(snapshot.marketState.leverageSaturation)} />
+            <Row region="leverage-sat" label="Leverage saturation" value={String(snapshot.marketState.leverageSaturation)} />
             <Row label="Vol regime" value={snapshot.marketState.volatilityRegime} tone={sev(snapshot.marketState.volatilityRegime)} />
             <Row label="Options pressure" value={String(snapshot.marketState.optionsPressure)} />
             <Row label="Dealer" value={snapshot.marketState.dealerPositioning} />
             <Row label="Funding stress" value={String(snapshot.marketState.fundingStress)} />
-            <Row label="Fragility" value={String(snapshot.marketState.fragilityScore)} tone={sev(snapshot.marketState.fragilityScore >= 70 ? "critical" : "watch")} />
+            <Row region="fragility" label="Fragility" value={String(snapshot.marketState.fragilityScore)} tone={sev(snapshot.marketState.fragilityScore >= 70 ? "critical" : "watch")} />
           </section>
         )}
 

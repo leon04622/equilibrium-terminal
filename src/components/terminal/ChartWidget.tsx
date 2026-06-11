@@ -191,7 +191,7 @@ export function ChartWidget() {
   }, []);
 
   return (
-    <div className="eq-chart-surface relative flex h-full flex-col overflow-hidden bg-slate-950">
+    <div data-chart-panel="chart" className="eq-chart-surface relative flex h-full flex-col overflow-hidden bg-slate-950">
       <ChartAnalyticsToolbar coin={selectedCoin} />
       <div className="relative min-h-0 flex-1" style={{ contain: "layout paint" }}>
         <div ref={containerRef} className="absolute inset-0" />

@@ -160,7 +160,10 @@ export function TradeTicket() {
   }
 
   return (
-    <div className={cn("flex h-full flex-col gap-1 p-1 font-mono", TERMINAL_TYPO.data)}>
+    <div
+      data-trade-panel="ticket"
+      className={cn("flex h-full flex-col gap-1 p-1 font-mono", TERMINAL_TYPO.data)}
+    >
       <ExecutionContextStrip />
       <ExecutionWarningBanner />
       <div className={cn(terminalSkin.border, "flex items-center justify-between bg-slate-950 px-1 py-0.5")}>
@@ -219,11 +222,12 @@ export function TradeTicket() {
       ) : null}
       {authError ? <p className="text-[10px] text-neon-ruby">{authError}</p> : null}
 
-      <div className="grid grid-cols-3 gap-px bg-slate-900">
+      <div className="grid grid-cols-3 gap-px bg-slate-900" data-trade-region="order-modes">
         {(["market", "limit", "stop"] as TradeOrderMode[]).map((m) => (
           <button
             key={m}
             type="button"
+            data-trade-region={`mode-${m}`}
             onClick={() => setMode(m)}
             className={cn(
               TERMINAL_TYPO.micro,
@@ -236,11 +240,12 @@ export function TradeTicket() {
         ))}
       </div>
 
-      <div className="grid grid-cols-4 gap-px bg-slate-900">
+      <div className="grid grid-cols-4 gap-px bg-slate-900" data-trade-region="leverage">
         {LEVERAGE_OPTIONS.map((lev) => (
           <button
             key={lev}
             type="button"
+            data-trade-region="leverage"
             onClick={() => setLeverage(lev)}
             className={cn(
               TERMINAL_TYPO.micro,
@@ -253,7 +258,7 @@ export function TradeTicket() {
         ))}
       </div>
 
-      <label className="flex flex-col gap-0.5">
+      <label className="flex flex-col gap-0.5" data-trade-region="size">
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Size</span>
         <input
           value={size}
@@ -263,7 +268,7 @@ export function TradeTicket() {
         />
       </label>
 
-      <div className="grid grid-cols-3 gap-px bg-slate-900">
+      <div className="grid grid-cols-3 gap-px bg-slate-900" data-trade-region="size-presets">
         {SIZE_PRESETS.map((pct) => (
           <button
             key={pct}
@@ -280,7 +285,7 @@ export function TradeTicket() {
       </div>
 
       {mode === "limit" ? (
-        <label className="flex flex-col gap-0.5">
+        <label className="flex flex-col gap-0.5" data-trade-region="limit-price">
           <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Limit price</span>
           <input
             value={limitPx}
@@ -291,7 +296,7 @@ export function TradeTicket() {
       ) : null}
 
       {mode === "stop" ? (
-        <label className="flex flex-col gap-0.5">
+        <label className="flex flex-col gap-0.5" data-trade-region="stop-trigger">
           <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Stop trigger</span>
           <input
             value={stopPx}
@@ -301,7 +306,7 @@ export function TradeTicket() {
         </label>
       ) : null}
 
-      <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+      <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")} data-trade-region="risk-display">
         Mark {markPx !== null ? formatPrice(markPx) : "—"} · Max ≈{" "}
         {maxNotional > 0 ? formatSize(maxNotional) : "—"} {selectedAsset?.symbol}
       </p>

@@ -46,7 +46,7 @@ export function ExecutionIntelligenceConsole() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden" data-execintel-panel="execintel">
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Activity className="h-3 w-3 text-emerald-400" />
         <span className={cn(TERMINAL_TYPO.label, "text-emerald-300")}>EXECUTION INTEL</span>
@@ -114,9 +114,9 @@ export function ExecutionIntelligenceConsole() {
 
         {activeTab === "quality" && (
           <section className="space-y-0.5">
-            <Row label="Slippage" value={`${snapshot.quality.slippageBps.toFixed(1)} bps`} tone={sev(snapshot.quality.riskTier)} />
-            <Row label="Spread" value={`${snapshot.quality.spreadBps.toFixed(1)} bps`} />
-            <Row label="Fill quality" value={String(snapshot.quality.fillQualityScore)} />
+            <Row region="quality-slippage" label="Slippage" value={`${snapshot.quality.slippageBps.toFixed(1)} bps`} tone={sev(snapshot.quality.riskTier)} />
+            <Row region="quality-spread" label="Spread" value={`${snapshot.quality.spreadBps.toFixed(1)} bps`} />
+            <Row region="fill-quality" label="Fill quality" value={String(snapshot.quality.fillQualityScore)} />
             <Row label="Latency" value={`${snapshot.quality.latencyMs}ms`} />
             <Row label="Liq impact" value={`${snapshot.quality.liquidityImpactBps.toFixed(1)} bps`} />
             <Row label="Efficiency" value={String(snapshot.quality.efficiencyScore)} />
@@ -186,13 +186,15 @@ function Row({
   label,
   value,
   tone,
+  region,
 }: {
   label: string;
   value: string;
   tone?: string;
+  region?: string;
 }) {
   return (
-    <div className="flex justify-between border-b border-slate-800 py-0.5">
+    <div className="flex justify-between border-b border-slate-800 py-0.5" data-execintel-region={region}>
       <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{label}</span>
       <span className={cn(TERMINAL_TYPO.micro, tone ?? "text-slate-300")}>{value}</span>
     </div>

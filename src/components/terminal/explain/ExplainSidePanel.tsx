@@ -8,6 +8,15 @@ import { ExplainVisualCueCard } from "@/components/terminal/explain/ExplainVisua
 import { GuidedLessonPlayer } from "@/components/terminal/explain/GuidedLessonPlayer";
 import { LiveOperatorCoach } from "@/components/terminal/explain/LiveOperatorCoach";
 import { LiveFundingCoachPanel } from "@/components/terminal/explain/LiveFundingCoach";
+import { LiveTradeTypesCoachPanel } from "@/components/terminal/explain/LiveTradeTypesCoach";
+import { LiveLiquidationsCoachPanel } from "@/components/terminal/explain/LiveLiquidationsCoach";
+import { LiveRiskManagementCoachPanel } from "@/components/terminal/explain/LiveRiskManagementCoach";
+import { LiveSlippageCoachPanel } from "@/components/terminal/explain/LiveSlippageCoach";
+import { LiveExecutionCoachPanel } from "@/components/terminal/explain/LiveExecutionCoach";
+import { LivePortfolioRiskCoachPanel } from "@/components/terminal/explain/LivePortfolioRiskCoach";
+import { LiveDailyOperationsCoachPanel } from "@/components/terminal/explain/LiveDailyOperationsCoach";
+import { LiveOperatorJournalCoachPanel } from "@/components/terminal/explain/LiveOperatorJournalCoach";
+import { LiveDeskCoachPanel } from "@/components/terminal/explain/LiveDeskCoachPanel";
 import { PlainEnglishPanel } from "@/components/terminal/explain/PlainEnglishPanel";
 import { ReplayLearningEngine } from "@/lib/operator-guide/ReplayLearningEngine";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
@@ -17,6 +26,7 @@ import { OperationalExplainEngine } from "@/lib/operator-guide/OperationalExplai
 import { OperationalPlaybooks } from "@/lib/operator-guide/OperationalPlaybooks";
 import { PanelPrimers } from "@/lib/operator-guide/PanelPrimers";
 import { TranslationEngine } from "@/lib/education/TranslationEngine";
+import { armLessonVoice } from "@/lib/education/LessonNarrator";
 import type { ExplainAudience, ProNextAction } from "@/types/operator-guide";
 import { terminalBus } from "@/store/eventBus";
 
@@ -241,6 +251,15 @@ export function ExplainSidePanel() {
                 trader pointing at the screen), shown above the static primer. */}
             <LiveOperatorCoach panelId={entry.id} />
             <LiveFundingCoachPanel panelId={entry.id} />
+            <LiveTradeTypesCoachPanel panelId={entry.id} />
+            <LiveLiquidationsCoachPanel panelId={entry.id} />
+            <LiveRiskManagementCoachPanel panelId={entry.id} />
+            <LiveSlippageCoachPanel panelId={entry.id} />
+            <LiveExecutionCoachPanel panelId={entry.id} />
+            <LivePortfolioRiskCoachPanel panelId={entry.id} />
+            <LiveDailyOperationsCoachPanel panelId={entry.id} />
+            <LiveOperatorJournalCoachPanel panelId={entry.id} />
+            <LiveDeskCoachPanel panelId={entry.id} />
 
             {/* PLAIN-ENGLISH PRIMER — start from zero before any pro reads. */}
             <div className="mb-2 border border-slate-800 bg-slate-900/30 px-2 py-1">
@@ -274,7 +293,10 @@ export function ExplainSidePanel() {
             {!activeLessonPanelId ? (
               <button
                 type="button"
-                onClick={() => startLesson(entry.id)}
+                onClick={() => {
+                  armLessonVoice();
+                  startLesson(entry.id);
+                }}
                 className={cn(
                   TERMINAL_TYPO.micro,
                   "mb-2 flex w-full items-center justify-center gap-1 border border-cyan-500/60 bg-cyan-950/40 py-1.5 text-cyan-200 hover:bg-cyan-900/50",

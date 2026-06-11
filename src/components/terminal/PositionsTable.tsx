@@ -118,7 +118,7 @@ export function PositionsTable() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden" data-positions-panel="positions">
       <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-terminal-border/50 bg-black/25 px-3 py-2 font-mono text-[10px]">
         <div>
           <p className="text-terminal-muted uppercase tracking-wider">Equity</p>
@@ -132,7 +132,7 @@ export function PositionsTable() {
             ${withdrawable !== null ? withdrawable.toFixed(2) : "—"}
           </p>
         </div>
-        <div className="text-right">
+        <div className="text-right" data-positions-region="position-count">
           <p className="text-terminal-muted uppercase tracking-wider">Positions</p>
           <p className="text-sm tabular-nums text-white">{positions.length}</p>
         </div>

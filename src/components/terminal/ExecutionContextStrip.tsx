@@ -19,13 +19,13 @@ export function ExecutionContextStrip() {
   const slipWarn = slippage.riskTier === "high" || slippage.riskTier === "critical";
 
   return (
-    <div className={cn(terminalSkin.borderB, "grid grid-cols-2 gap-px bg-slate-900")}>
-      <Cell label="SPREAD" value={`${spreadBps.toFixed(1)} bps`} warn={spreadWarn} />
-      <Cell label="SLIP TIER" value={slippage.riskTier.toUpperCase()} warn={slipWarn} />
-      <Cell label="REGIME" value={regime.toUpperCase()} />
-      <Cell label="STRESS" value={stress.score.toFixed(0)} warn={stress.score > 65} />
-      <Cell label="VELOCITY" value={`${stress.velocityRatio.toFixed(2)}x`} />
-      <Cell label="EXEC PIPE" value={`${execConf}%`} warn={execConf < 45} />
+    <div className={cn(terminalSkin.borderB, "grid grid-cols-2 gap-px bg-slate-900")} data-trade-region="exec-context">
+      <Cell label="SPREAD" value={`${spreadBps.toFixed(1)} bps`} warn={spreadWarn} region="exec-spread" />
+      <Cell label="SLIP TIER" value={slippage.riskTier.toUpperCase()} warn={slipWarn} region="exec-slip-tier" />
+      <Cell label="REGIME" value={regime.toUpperCase()} region="exec-regime" />
+      <Cell label="STRESS" value={stress.score.toFixed(0)} warn={stress.score > 65} region="exec-stress" />
+      <Cell label="VELOCITY" value={`${stress.velocityRatio.toFixed(2)}x`} region="exec-velocity" />
+      <Cell label="EXEC PIPE" value={`${execConf}%`} warn={execConf < 45} region="exec-pipe" />
     </div>
   );
 }
@@ -34,13 +34,15 @@ function Cell({
   label,
   value,
   warn,
+  region,
 }: {
   label: string;
   value: string;
   warn?: boolean;
+  region?: string;
 }) {
   return (
-    <div className="bg-slate-950 px-1 py-0.5">
+    <div className="bg-slate-950 px-1 py-0.5" data-trade-region={region}>
       <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{label}</span>
       <p
         className={cn(

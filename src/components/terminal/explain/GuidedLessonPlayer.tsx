@@ -18,6 +18,7 @@ import { ExplainVisualCueCard } from "@/components/terminal/explain/ExplainVisua
 import { GuidedLessonEngine } from "@/lib/operator-guide/GuidedLessonEngine";
 import { OperatorGuideOrchestrator } from "@/lib/operator-guide/OperatorGuideOrchestrator";
 import { TranslationEngine } from "@/lib/education/TranslationEngine";
+import { speakAcademyNarration } from "@/lib/education/academyVoice";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -77,10 +78,12 @@ export function GuidedLessonPlayer({ panelId }: { panelId: string }) {
   const speakStep = useCallback(
     (idx: number) => {
       clearAdvance();
-      if (!voiceOnRef.current || !voiceSupported) return;
       const s = lesson.steps[idx];
       if (!s) return;
-      speakLesson(narrationFor(s), {
+      const text = narrationFor(s);
+      speakAcademyNarration(text, {
+        voiceOn: voiceOnRef.current,
+        supported: voiceSupported,
         rate: beginnerRef.current ? 0.88 : 1.0,
         onEnd: () => {
           if (!playingRef.current) return;

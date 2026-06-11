@@ -26,10 +26,12 @@ import {
   type FundingRegion,
 } from "@/lib/education/fundingBridgeSteps";
 import { LiveFundingCoach } from "@/lib/education/liveFundingCoach";
+import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
   lessonVoiceSupported,
+  armLessonVoice,
   setLessonVoiceEnabled,
   speakLesson,
 } from "@/lib/education/LessonNarrator";
@@ -111,7 +113,9 @@ export function FundingLiveBridge() {
       const s = steps[i];
       if (!s) return;
       if (i >= steps.length - 1) markBridgeCompleted();
-      const text = s.coach(useDerivativesDeskStore.getState().snapshot?.funding ?? null);
+      const ctx = useDerivativesDeskStore.getState().snapshot?.funding ?? null;
+      const coachText = s.coach(ctx);
+      const text = buildBridgeNarration(s, coachText, ctx);
       const waits = s.mode === "recognize" || s.mode === "decide" || s.mode === "compare";
       const after = () => {
         if (tokenRef.current !== token || waits) return;
@@ -119,11 +123,13 @@ export function FundingLiveBridge() {
           if (playingRef.current && i < steps.length - 1) setIndex(i + 1);
         }, 1700);
       };
-      if (voiceOnRef.current && supported) {
-        speakLesson(text, { rate: 0.94, onEnd: after, onError: after });
-      } else if (!waits) {
-        holdTimer.current = setTimeout(after, estimateMs(text));
-      }
+      speakAcademyNarration(text, {
+        voiceOn: voiceOnRef.current,
+        supported,
+        rate: 0.94,
+        onEnd: after,
+        onError: after,
+      });
     },
     [supported, clearTimers, markBridgeCompleted],
   );
@@ -138,6 +144,7 @@ export function FundingLiveBridge() {
 
   useEffect(() => {
     if (!active) return;
+    armLessonVoice();
     setActiveTab("funding");
     setHighlightPanel(FUNDING_BRIDGE_PANEL);
     setFocusMode(true);
@@ -146,7 +153,7 @@ export function FundingLiveBridge() {
       setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, setFocusMode, setHighlightPanel, setActiveTab]);
+  }, [active, runId, setFocusMode, setHighlightPanel, setActiveTab]);
 
   useEffect(() => {
     if (!active) return;
@@ -161,7 +168,6 @@ export function FundingLiveBridge() {
     enter(index);
     return () => {
       clearTimers();
-      cancelLesson();
     };
   }, [active, runId, index, enter, setStoreStep, clearTimers]);
 

@@ -78,7 +78,7 @@ export function DailyOperatingConsole() {
   const { briefing, clock, marketState, personal } = snapshot;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div data-dailyops-panel="dailyops" className="flex h-full flex-col overflow-hidden">
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Sunrise className="h-3 w-3 text-amber-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-amber-200")}>DAILY OPERATIONS</span>
@@ -106,7 +106,7 @@ export function DailyOperatingConsole() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {activeTab === "brief" ? (
-          <section>
+          <section data-dailyops-region="brief">
             <p className={cn(TERMINAL_TYPO.dataSm, "text-slate-200")}>{briefing.headline}</p>
             <p className={cn(TERMINAL_TYPO.micro, "mb-1 text-slate-600")}>
               What matters before today&apos;s session · {briefing.macroEventsToday} macro events · alert
@@ -143,14 +143,16 @@ export function DailyOperatingConsole() {
 
         {activeTab === "state" ? (
           <section className="space-y-1">
-            <StateRow label="VOLATILITY" value={marketState.volatilityState} />
-            <StateRow label="LIQUIDITY" value={marketState.liquidityState} />
+            <StateRow region="volatility" label="VOLATILITY" value={marketState.volatilityState} />
+            <StateRow region="liquidity" label="LIQUIDITY" value={marketState.liquidityState} />
             <StateRow label="FUNDING" value={marketState.fundingEnvironment} />
             <StateRow label="SENTIMENT" value={marketState.sentimentEnvironment} />
             <StateRow label="MACRO RISK" value={marketState.macroRiskLevel} />
-            <StateRow label="RISK MODE" value={marketState.riskOnOff} />
+            <StateRow region="risk-mode" label="RISK MODE" value={marketState.riskOnOff} />
             <StateRow label="BREADTH" value={`${marketState.breadthScore}% advancers`} />
-            <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textAi)}>{marketState.compositeLabel}</p>
+            <p data-dailyops-region="composite" className={cn(TERMINAL_TYPO.micro, terminalSkin.textAi)}>
+              {marketState.compositeLabel}
+            </p>
             <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
               Regime {marketState.regime} · calm surveillance — no trade calls
             </p>
@@ -158,7 +160,7 @@ export function DailyOperatingConsole() {
         ) : null}
 
         {activeTab === "session" ? (
-          <section>
+          <section data-dailyops-region="session">
             <div className="mb-1 flex items-center gap-1">
               <Clock className="h-3 w-3 text-slate-500" />
               <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>
@@ -215,6 +217,7 @@ export function DailyOperatingConsole() {
               ))
             )}
             <span className={cn(TERMINAL_TYPO.micro, "mt-2 block text-slate-500")}>CHECKLIST</span>
+            <div data-dailyops-region="checklist">
             {checklist.map((c) => (
               <button
                 key={c.id}
@@ -230,6 +233,7 @@ export function DailyOperatingConsole() {
                 {c.label}
               </button>
             ))}
+            </div>
             <span className={cn(TERMINAL_TYPO.micro, "mt-2 block text-slate-500")}>PRIORITY ALERTS</span>
             {prioritizedAlerts.slice(0, 6).map((a) => (
               <button
@@ -250,7 +254,7 @@ export function DailyOperatingConsole() {
         ) : null}
 
         {activeTab === "routines" ? (
-          <section>
+          <section data-dailyops-region="routines">
             {OPERATIONAL_ROUTINES.map((r) => (
               <button
                 key={r.id}
@@ -272,9 +276,12 @@ export function DailyOperatingConsole() {
   );
 }
 
-function StateRow({ label, value }: { label: string; value: string }) {
+function StateRow({ label, value, region }: { label: string; value: string; region?: string }) {
   return (
-    <div className="flex justify-between gap-2 border-b border-slate-900 py-0.5">
+    <div
+      data-dailyops-region={region}
+      className="flex justify-between gap-2 border-b border-slate-900 py-0.5"
+    >
       <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{label}</span>
       <span className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>{value.replace(/_/g, " ").toUpperCase()}</span>
     </div>

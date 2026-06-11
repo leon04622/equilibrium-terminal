@@ -1,184 +1,124 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  BookOpen,
-  ChevronDown,
-  GraduationCap,
-  Radio,
-  Sparkles,
-  TrendingUp,
-} from "lucide-react";
+import { useMemo } from "react";
+import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { ACADEMY_LESSONS, buildLessonStatuses, operatorLevel } from "@/lib/education/learningAcademy";
+import { readAcademyProgress } from "@/lib/education/learningProgressSnapshot";
+import { useLearningAcademyStore } from "@/store/useLearningAcademyStore";
 import { useMarketMechanicsStore } from "@/store/useMarketMechanicsStore";
 import { useOrderBookLessonStore } from "@/store/useOrderBookLessonStore";
 import { useLessonBridgeStore } from "@/store/useLessonBridgeStore";
 import { useFundingCrowdingStore } from "@/store/useFundingCrowdingStore";
 import { useFundingBridgeStore } from "@/store/useFundingBridgeStore";
+import { useTradeTypesStore } from "@/store/useTradeTypesStore";
+import { useTradeTypesBridgeStore } from "@/store/useTradeTypesBridgeStore";
+import { useLiquidationsStore } from "@/store/useLiquidationsStore";
+import { useLiquidationsBridgeStore } from "@/store/useLiquidationsBridgeStore";
+import { useRiskManagementStore } from "@/store/useRiskManagementStore";
+import { useRiskManagementBridgeStore } from "@/store/useRiskManagementBridgeStore";
+import { useSlippageStore } from "@/store/useSlippageStore";
+import { useSlippageBridgeStore } from "@/store/useSlippageBridgeStore";
+import { useExecutionLessonStore } from "@/store/useExecutionLessonStore";
+import { useExecutionLessonBridgeStore } from "@/store/useExecutionLessonBridgeStore";
+import { usePortfolioRiskStore } from "@/store/usePortfolioRiskStore";
+import { usePortfolioRiskBridgeStore } from "@/store/usePortfolioRiskBridgeStore";
+import { useDailyOperationsLessonStore } from "@/store/useDailyOperationsLessonStore";
+import { useDailyOperationsBridgeStore } from "@/store/useDailyOperationsBridgeStore";
+import { useOperatorJournalLessonStore } from "@/store/useOperatorJournalLessonStore";
+import { useOperatorJournalBridgeStore } from "@/store/useOperatorJournalBridgeStore";
+import { armLessonVoice } from "@/lib/education/LessonNarrator";
+import { warmAcademyAssets } from "@/lib/education/warmAcademyAssets";
 
 /**
- * Single learning entry in the header — fixes launcher overlap.
- * The primary button is always "NEXT: FUNDING" so the next lesson is obvious.
+ * Opens the Learning Command Center — front door to the training program.
  */
 export function LearningHubLauncher() {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const openHub = useLearningAcademyStore((s) => s.open);
+  const hubActive = useLearningAcademyStore((s) => s.active);
 
+  const marketsActive = useMarketMechanicsStore((s) => s.active);
+  const obActive = useOrderBookLessonStore((s) => s.active);
+  const obBridgeActive = useLessonBridgeStore((s) => s.active);
   const fundingActive = useFundingCrowdingStore((s) => s.active);
   const fundingBridgeActive = useFundingBridgeStore((s) => s.active);
-  const openFunding = useFundingCrowdingStore((s) => s.open);
-  const startFundingBridge = useFundingBridgeStore((s) => s.start);
+  const tradeTypesActive = useTradeTypesStore((s) => s.active);
+  const tradeTypesBridgeActive = useTradeTypesBridgeStore((s) => s.active);
+  const liquidationsActive = useLiquidationsStore((s) => s.active);
+  const liquidationsBridgeActive = useLiquidationsBridgeStore((s) => s.active);
+  const riskManagementActive = useRiskManagementStore((s) => s.active);
+  const riskManagementBridgeActive = useRiskManagementBridgeStore((s) => s.active);
+  const slippageActive = useSlippageStore((s) => s.active);
+  const slippageBridgeActive = useSlippageBridgeStore((s) => s.active);
+  const executionActive = useExecutionLessonStore((s) => s.active);
+  const executionBridgeActive = useExecutionLessonBridgeStore((s) => s.active);
+  const portfolioRiskActive = usePortfolioRiskStore((s) => s.active);
+  const portfolioRiskBridgeActive = usePortfolioRiskBridgeStore((s) => s.active);
+  const dailyOpsActive = useDailyOperationsLessonStore((s) => s.active);
+  const dailyOpsBridgeActive = useDailyOperationsBridgeStore((s) => s.active);
+  const ojActive = useOperatorJournalLessonStore((s) => s.active);
+  const ojBridgeActive = useOperatorJournalBridgeStore((s) => s.active);
 
-  const openMarkets = useMarketMechanicsStore((s) => s.open);
-  const openOrderBook = useOrderBookLessonStore((s) => s.open);
-  const startObBridge = useLessonBridgeStore((s) => s.start);
+  const progressVersion = useLearningAcademyStore((s) => s.progressVersion);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const anyLessonActive =
+    marketsActive ||
+    obActive ||
+    obBridgeActive ||
+    fundingActive ||
+    fundingBridgeActive ||
+    tradeTypesActive ||
+    tradeTypesBridgeActive ||
+    liquidationsActive ||
+    liquidationsBridgeActive ||
+    riskManagementActive ||
+    riskManagementBridgeActive ||
+    slippageActive ||
+    slippageBridgeActive ||
+    executionActive ||
+    executionBridgeActive ||
+    portfolioRiskActive ||
+    portfolioRiskBridgeActive ||
+    dailyOpsActive ||
+    dailyOpsBridgeActive ||
+    ojActive ||
+    ojBridgeActive;
 
-  const items = [
-    {
-      id: "funding",
-      label: "Learn Funding & Crowding",
-      hint: "NEXT LESSON — start here",
-      icon: TrendingUp,
-      accent: "violet",
-      primary: true,
-      onClick: () => {
-        openFunding();
-        setOpen(false);
-      },
-    },
-    {
-      id: "funding-live",
-      label: "Funding Live Walkthrough",
-      hint: "Find funding in the real derivatives desk",
-      icon: Radio,
-      accent: "violet",
-      onClick: () => {
-        startFundingBridge();
-        setOpen(false);
-      },
-    },
-    {
-      id: "markets",
-      label: "Market Mechanics",
-      hint: "How markets work (beginner)",
-      icon: Sparkles,
-      accent: "emerald",
-      onClick: () => {
-        openMarkets();
-        setOpen(false);
-      },
-    },
-    {
-      id: "orderbook",
-      label: "Order Book Lesson",
-      hint: "Cinematic order book walkthrough",
-      icon: GraduationCap,
-      accent: "cyan",
-      onClick: () => {
-        openOrderBook();
-        setOpen(false);
-      },
-    },
-    {
-      id: "ob-live",
-      label: "Order Book Live Bridge",
-      hint: "Use the real order book",
-      icon: Radio,
-      accent: "cyan",
-      onClick: () => {
-        startObBridge();
-        setOpen(false);
-      },
-    },
-  ] as const;
-
-  const accentBorder = {
-    violet: "border-violet-500/70 bg-violet-950/40 text-violet-100 hover:bg-violet-950/60",
-    emerald: "hover:border-emerald-600/50",
-    cyan: "hover:border-cyan-600/50",
-  };
-
-  const fundingRunning = fundingActive || fundingBridgeActive;
+  const { completedCount, liveTotal, rankTitle } = useMemo(() => {
+    void progressVersion;
+    const raw = readAcademyProgress();
+    const statuses = buildLessonStatuses(raw);
+    const rank = operatorLevel(raw, statuses);
+    const live = ACADEMY_LESSONS.filter((l) => l.live);
+    const done = live.filter((l) => statuses.get(l.id) === "completed").length;
+    return { completedCount: done, liveTotal: live.length, rankTitle: rank.title };
+  }, [progressVersion]);
 
   return (
-    <div ref={rootRef} className="relative flex shrink-0 items-center gap-1">
-      {/* Primary — always visible, can't be buried under the clock strip */}
-      <button
-        type="button"
-        onClick={openFunding}
-        title="Next lesson: Funding & Market Crowding — what funding is, who pays whom, squeezes"
-        className={cn(
-          TERMINAL_TYPO.micro,
-          "flex items-center gap-1.5 border px-2.5 py-1 font-semibold transition-colors",
-          fundingRunning
-            ? "border-violet-400 bg-violet-900/60 text-violet-100"
-            : "border-violet-500/80 bg-violet-950/50 text-violet-100 shadow-[0_0_12px_rgba(139,92,246,0.25)] hover:bg-violet-900/50",
-        )}
-      >
-        <TrendingUp className="h-3.5 w-3.5" />
-        <span className="whitespace-nowrap tracking-wide">NEXT: LEARN FUNDING</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        title="All learning modules"
-        className={cn(
-          TERMINAL_TYPO.micro,
-          "flex items-center gap-0.5 border border-slate-700 bg-slate-900/60 px-1.5 py-1 text-slate-400 hover:border-slate-500 hover:text-slate-200",
-        )}
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
-        <BookOpen className="h-3 w-3" />
-        <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-[300] mt-1 w-64 border border-slate-700 bg-slate-950 py-1 shadow-xl"
-        >
-          <p className={cn(TERMINAL_TYPO.micro, "border-b border-slate-800 px-2 py-1.5 text-slate-500")}>
-            LEARNING PATH
-          </p>
-          {items.map((item) => {
-            const Icon = item.icon;
-            const isPrimary = "primary" in item && item.primary;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="menuitem"
-                onClick={item.onClick}
-                className={cn(
-                  "flex w-full items-start gap-2 border-l-2 border-transparent px-2 py-2 text-left transition-colors hover:bg-slate-900/80",
-                  isPrimary && "border-violet-500 bg-violet-950/30",
-                  accentBorder[item.accent as keyof typeof accentBorder],
-                )}
-              >
-                <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", isPrimary ? "text-violet-300" : "text-slate-500")} />
-                <span className="min-w-0">
-                  <span className={cn("block font-mono text-[11px] font-semibold", isPrimary ? "text-violet-100" : "text-slate-200")}>
-                    {item.label}
-                  </span>
-                  <span className="block font-mono text-[9px] leading-snug text-slate-500">{item.hint}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        armLessonVoice();
+        warmAcademyAssets();
+        openHub();
+      }}
+      title="Learning Command Center — training paths, progress, and next lesson"
+      className={cn(
+        TERMINAL_TYPO.micro,
+        "relative z-[10] flex shrink-0 items-center gap-1.5 border px-2.5 py-1 transition-colors",
+        hubActive || anyLessonActive
+          ? "border-cyan-500/70 bg-cyan-950/50 text-cyan-100"
+          : "border-slate-600 bg-slate-900/80 text-slate-200 hover:border-slate-500 hover:bg-slate-900",
+      )}
+    >
+      <BookOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+      <span className="whitespace-nowrap font-semibold tracking-wide">LEARNING</span>
+      <span className="rounded-sm border border-slate-700 px-1 font-mono text-[9px] text-slate-500">
+        {completedCount}/{liveTotal}
+      </span>
+      <span className="hidden font-mono text-[8px] text-slate-500 md:inline">{rankTitle}</span>
+    </button>
   );
 }

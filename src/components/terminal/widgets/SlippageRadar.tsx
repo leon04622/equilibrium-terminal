@@ -11,11 +11,13 @@ function MetricCell({
   value,
   unit,
   tone,
+  region,
 }: {
   label: string;
   value: string;
   unit?: string;
   tone?: "up" | "down" | "warn" | "ai";
+  region?: string;
 }) {
   const toneClass =
     tone === "up"
@@ -29,7 +31,10 @@ function MetricCell({
             : "text-slate-300";
 
   return (
-    <div className="flex min-w-0 flex-col gap-0 rounded-none border-[0.5px] border-slate-800 bg-slate-950 px-1 py-0">
+    <div
+      className="flex min-w-0 flex-col gap-0 rounded-none border-[0.5px] border-slate-800 bg-slate-950 px-1 py-0"
+      data-slip-region={region}
+    >
       <span className={cn(TERMINAL_TYPO.micro, "truncate text-slate-600")}>{label}</span>
       <span className={cn(TERMINAL_TYPO.dataSm, "uppercase tabular-nums tracking-tighter", toneClass)}>
         {value}
@@ -73,6 +78,7 @@ export function SlippageRadar() {
         terminalSkin.canvas,
       )}
       data-panel-id="slippageradar"
+      data-slip-panel="slippageradar"
     >
       <div
         className={cn(
@@ -97,12 +103,14 @@ export function SlippageRadar() {
           value={slippage.slippageBps.toFixed(2)}
           unit="BP"
           tone={slipTone}
+          region="slip-bps"
         />
         <MetricCell
           label="SPREAD"
           value={slippage.spreadBps.toFixed(2)}
           unit="BP"
           tone={slippage.spreadBps > 5 ? "warn" : "up"}
+          region="spread-bps"
         />
         <MetricCell
           label="VEL"
@@ -110,7 +118,7 @@ export function SlippageRadar() {
           unit="T/S"
           tone="ai"
         />
-        <MetricCell label="RISK" value={slippage.riskTier.toUpperCase()} tone={slipTone} />
+        <MetricCell label="RISK" value={slippage.riskTier.toUpperCase()} tone={slipTone} region="risk-tier" />
         <MetricCell label="ICE" value={`${icebergProbability.toFixed(0)}%`} tone="ai" />
         <MetricCell label="SPOOF" value={`${spoofingProbability.toFixed(0)}%`} tone="warn" />
         <MetricCell

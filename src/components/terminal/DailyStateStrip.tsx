@@ -41,32 +41,44 @@ export function DailyStateStrip() {
 
   return (
     <div
+      data-livedesk-panel="header-strip"
+      data-livedesk-region="panel"
       className={cn(
         "hidden min-w-0 flex-1 items-center gap-2 overflow-hidden border-l border-slate-800 pl-2 xl:flex",
         TERMINAL_TYPO.micro,
       )}
     >
-      <span className="shrink-0 text-slate-500">{clock.label}</span>
+      <span data-livedesk-region="session" className="shrink-0 text-slate-500">
+        {clock.label}
+      </span>
       <span className="shrink-0 text-slate-600">|</span>
-      <span className={cn("shrink-0 truncate", volColor)}>{marketState.volatilityState.toUpperCase()}</span>
-      <span className="shrink-0 text-slate-600">|</span>
-      <span className="shrink-0 text-slate-400">{marketState.liquidityState.toUpperCase()}</span>
-      <span className="shrink-0 text-slate-600">|</span>
-      <span
-        className={cn(
-          "shrink-0",
-          marketState.riskOnOff === "risk-on"
-            ? terminalSkin.textUp
-            : marketState.riskOnOff === "risk-off"
-              ? terminalSkin.textDown
-              : "text-slate-500",
-        )}
-      >
-        {marketState.riskOnOff.toUpperCase()}
+      <span data-livedesk-region="market-state" className="inline-flex shrink-0 items-center gap-2">
+        <span data-livedesk-region="volatility" className={cn("shrink-0 truncate", volColor)}>
+          {marketState.volatilityState.toUpperCase()}
+        </span>
+        <span className="shrink-0 text-slate-600">|</span>
+        <span data-livedesk-region="liquidity" className="shrink-0 text-slate-400">
+          {marketState.liquidityState.toUpperCase()}
+        </span>
+        <span className="shrink-0 text-slate-600">|</span>
+        <span
+          data-livedesk-region="risk"
+          className={cn(
+            "shrink-0",
+            marketState.riskOnOff === "risk-on"
+              ? terminalSkin.textUp
+              : marketState.riskOnOff === "risk-off"
+                ? terminalSkin.textDown
+                : "text-slate-500",
+          )}
+        >
+          {marketState.riskOnOff.toUpperCase()}
+        </span>
       </span>
 
       <span className="shrink-0 text-slate-600">|</span>
       <span
+        data-livedesk-region="funding"
         className={cn("shrink-0 tabular-nums", pulse.funding.urgent ? "text-amber-400" : "text-slate-500")}
         title="Time to next hourly funding window"
       >
@@ -74,6 +86,7 @@ export function DailyStateStrip() {
       </span>
       <span className="shrink-0 text-slate-600">|</span>
       <span
+        data-livedesk-region="session-countdown"
         className={cn("shrink-0 tabular-nums truncate", pulse.nextSession.urgent ? "text-cyan-400" : "text-slate-500")}
         title={`Next: ${pulse.nextSession.label}`}
       >
@@ -81,7 +94,9 @@ export function DailyStateStrip() {
       </span>
 
       <span className="shrink-0 text-slate-600">|</span>
-      <span className={cn("min-w-0 truncate", TONE_COLOR[pulse.toneColor])}>{pulse.deskTone}</span>
+      <span data-livedesk-region="desk-tone" className={cn("min-w-0 truncate", TONE_COLOR[pulse.toneColor])}>
+        {pulse.deskTone}
+      </span>
     </div>
   );
 }

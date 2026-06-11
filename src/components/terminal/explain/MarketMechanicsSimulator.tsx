@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,35 +16,12 @@ import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
 import { MarketPlayground } from "@/components/terminal/explain/market-mechanics/MarketPlayground";
 import { MARKET_MECHANICS_SCENES } from "@/lib/education/marketMechanicsScenes";
-import {
-  cancelLesson,
-  getLessonVoiceEnabled,
-  lessonVoiceSupported,
-  setLessonVoiceEnabled,
-  speakLesson,
-} from "@/lib/education/LessonNarrator";
+import { useLessonSceneDriver } from "@/lib/education/useLessonSceneDriver";
+import { primeLessonVoice } from "@/lib/education/LessonNarrator";
 import { useMarketMechanicsStore } from "@/store/useMarketMechanicsStore";
 import { useOrderBookLessonStore } from "@/store/useOrderBookLessonStore";
 
 const scenes = MARKET_MECHANICS_SCENES;
-
-/** Rough read time so muted / unsupported playback still auto-advances calmly. */
-function estimateMs(text: string): number {
-  return Math.max(2600, text.length * 60);
-}
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, []);
-  return reduced;
-}
 
 export function MarketMechanicsSimulator() {
   const active = useMarketMechanicsStore((s) => s.active);
@@ -58,164 +34,42 @@ export function MarketMechanicsSimulator() {
 
   const openOrderBook = useOrderBookLessonStore((s) => s.open);
 
-  const reduceMotion = usePrefersReducedMotion();
-  const supported = lessonVoiceSupported();
-
-  const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
-  const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-
-  const tokenRef = useRef(0);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playingRef = useRef(playing);
-  const voiceOnRef = useRef(voiceOn);
-  const reduceMotionRef = useRef(reduceMotion);
-  playingRef.current = playing;
-  voiceOnRef.current = voiceOn;
-  reduceMotionRef.current = reduceMotion;
-
-  const clearTimers = useCallback(() => {
-    if (holdTimer.current) {
-      clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
-  }, []);
-
-  const scene = scenes[Math.min(index, scenes.length - 1)];
-
-  const enter = useCallback(
-    (i: number) => {
-      const token = ++tokenRef.current;
-      clearTimers();
-      const s = scenes[i];
-      if (!s) return;
-
-      const afterNarration = () => {
-        if (tokenRef.current !== token) return;
-        if (holdTimer.current) clearTimeout(holdTimer.current);
-        const baseHold = s.holdMs ?? 1400;
-        const hold = Math.round(baseHold * (reduceMotionRef.current ? 0.5 : 1));
-        holdTimer.current = setTimeout(() => {
-          if (tokenRef.current !== token) return;
-          if (playingRef.current && i < scenes.length - 1) setIndex(i + 1);
-        }, hold);
-      };
-
-      if (voiceOnRef.current && supported) {
-        speakLesson(s.voice, {
-          rate: 0.9,
-          onEnd: afterNarration,
-          onError: () => {
-            if (tokenRef.current !== token) return;
-            holdTimer.current = setTimeout(afterNarration, estimateMs(s.voice));
-          },
-        });
-      } else {
-        holdTimer.current = setTimeout(afterNarration, estimateMs(s.voice));
-      }
-    },
-    [supported, clearTimers],
-  );
-
-  // Reset to the resume point whenever the simulator is (re)opened.
-  useEffect(() => {
-    if (!active) return;
-    const start = Math.min(Math.max(startStep, 0), scenes.length - 1);
-    setIndex(start);
-    setPlaying(true);
-    playingRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, runId]);
-
-  // Narrate + time the current scene.
-  useEffect(() => {
-    if (!active) return;
-    enter(index);
-    markStep(index);
-    if (index >= scenes.length - 1) markCompleted();
-    return () => {
-      clearTimers();
-      cancelLesson();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, runId, index]);
-
-  const exit = useCallback(() => {
-    clearTimers();
-    cancelLesson();
-    close();
-  }, [close, clearTimers]);
-
-  useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") exit();
-      else if (e.key === "ArrowRight") setIndex((i) => Math.min(i + 1, scenes.length - 1));
-      else if (e.key === "ArrowLeft") setIndex((i) => Math.max(i - 1, 0));
-      else if (e.key === " ") {
-        e.preventDefault();
-        setPlaying((p) => !p);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [active, exit]);
+  const {
+    index,
+    setIndex,
+    playing,
+    voiceOn,
+    scene,
+    reduceMotion,
+    exit,
+    togglePlay,
+    toggleVoice,
+    replayScene,
+    isLast,
+    isFirst,
+    sceneKey,
+    supported,
+  } = useLessonSceneDriver({
+    scenes,
+    active,
+    runId,
+    startStep,
+    markStep,
+    markCompleted,
+    close,
+  });
 
   if (!active || !scene) return null;
 
-  const isLast = index >= scenes.length - 1;
-  const isFirst = index <= 0;
-
-  const goto = (i: number) => {
-    clearTimers();
-    setIndex(Math.min(Math.max(i, 0), scenes.length - 1));
-  };
-
-  const togglePlay = () => {
-    if (playing) {
-      setPlaying(false);
-      playingRef.current = false;
-      cancelLesson();
-      clearTimers();
-    } else {
-      setPlaying(true);
-      playingRef.current = true;
-      enter(index);
-    }
-  };
-
-  const toggleVoice = () => {
-    const next = !voiceOn;
-    setVoiceOn(next);
-    voiceOnRef.current = next;
-    setLessonVoiceEnabled(next);
-    cancelLesson();
-    if (playingRef.current) enter(index);
-  };
-
-  const repeat = () => {
-    if (!voiceOn && supported) {
-      setVoiceOn(true);
-      voiceOnRef.current = true;
-      setLessonVoiceEnabled(true);
-    }
-    enter(index);
-  };
-
-  const doRestart = () => {
-    clearTimers();
-    cancelLesson();
-    restart();
-  };
-
   const continueToOrderBook = () => {
+    primeLessonVoice();
     exit();
     openOrderBook();
   };
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col bg-slate-950"
+      className="fixed inset-0 z-[200] flex flex-col bg-slate-950 transition-opacity duration-200"
       role="dialog"
       aria-modal="true"
       aria-label="Market mechanics simulator"
@@ -232,7 +86,7 @@ export function MarketMechanicsSimulator() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={doRestart}
+            onClick={() => restart()}
             className={cn(
               TERMINAL_TYPO.micro,
               "hidden items-center gap-1 border border-slate-700 px-1.5 py-0.5 text-slate-400 hover:text-slate-200 sm:flex",
@@ -272,7 +126,7 @@ export function MarketMechanicsSimulator() {
         <div className="grid w-full max-w-3xl grid-cols-1 items-center gap-6 md:grid-cols-2">
           {/* The animated playground */}
           <div className="order-2 md:order-1">
-            <MarketPlayground visual={scene.visual} reduceMotion={reduceMotion} />
+            <MarketPlayground visual={scene.visual} reduceMotion={reduceMotion} sceneKey={sceneKey} animate={playing} />
           </div>
 
           {/* Micro teaching card — one idea, one line */}
@@ -314,7 +168,7 @@ export function MarketMechanicsSimulator() {
         <button
           type="button"
           disabled={isFirst}
-          onClick={() => goto(index - 1)}
+          onClick={() => setIndex(index - 1)}
           className={cn(
             TERMINAL_TYPO.micro,
             "flex items-center gap-1 border border-slate-700 px-2 py-1",
@@ -341,7 +195,7 @@ export function MarketMechanicsSimulator() {
 
         <button
           type="button"
-          onClick={repeat}
+          onClick={replayScene}
           className={cn(
             TERMINAL_TYPO.micro,
             "flex items-center gap-1 border border-slate-700 px-2 py-1 text-slate-300 hover:border-slate-500",
@@ -395,7 +249,7 @@ export function MarketMechanicsSimulator() {
         ) : (
           <button
             type="button"
-            onClick={() => goto(index + 1)}
+            onClick={() => setIndex(index + 1)}
             className={cn(
               TERMINAL_TYPO.micro,
               "flex items-center gap-1 border border-emerald-700/50 bg-emerald-950/30 px-2 py-1 text-emerald-300 hover:bg-emerald-950/50",
