@@ -11,11 +11,13 @@ const EAGER_PANEL_IDS = new Set<string>([
   ...Array.from(NEVER_HIDE_PANEL_IDS),
 ]);
 
-const VISIBILITY_MARGIN_PX = 480;
+const VISIBILITY_MARGIN_PX = 640;
 
 interface DeferredPanelContentProps {
   panelId: string;
   forceMount?: boolean;
+  /** Execution desk mounts all panels immediately — small grid, no OOM risk. */
+  deskFocusMode?: boolean;
   children: ReactNode;
 }
 
@@ -43,16 +45,16 @@ function scheduleIdleMount(fn: () => void): void {
   idleScheduled = true;
 
   const drain = (deadline?: IdleDeadline) => {
-    let budget = deadline?.timeRemaining() ?? 8;
+    let budget = deadline?.timeRemaining() ?? 10;
     while (idleQueue.length > 0 && budget > 2) {
       idleQueue.shift()?.();
-      budget -= 6;
+      budget -= 5;
     }
     if (idleQueue.length > 0) {
       if (typeof requestIdleCallback === "function") {
-        requestIdleCallback(drain, { timeout: 2_000 });
+        requestIdleCallback(drain, { timeout: 1_500 });
       } else {
-        window.setTimeout(() => drain(), 200);
+        window.setTimeout(() => drain(), 100);
       }
       return;
     }
@@ -60,28 +62,35 @@ function scheduleIdleMount(fn: () => void): void {
   };
 
   if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(drain, { timeout: 4_000 });
+    requestIdleCallback(drain, { timeout: 2_500 });
   } else {
-    window.setTimeout(() => drain(), 500);
+    window.setTimeout(() => drain(), 200);
   }
+}
+
+function shouldMountImmediately(panelId: string, forceMount?: boolean, deskFocusMode?: boolean): boolean {
+  return Boolean(forceMount) || Boolean(deskFocusMode) || EAGER_PANEL_IDS.has(panelId);
 }
 
 /**
  * Defers heavy widget trees until a panel scrolls near the workspace viewport.
  * Prevents mounting 50+ consoles at once (primary OOM cause on full workspace).
  */
-export function DeferredPanelContent({ panelId, forceMount, children }: DeferredPanelContentProps) {
+export function DeferredPanelContent({
+  panelId,
+  forceMount,
+  deskFocusMode,
+  children,
+}: DeferredPanelContentProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(
-    () => Boolean(forceMount) || EAGER_PANEL_IDS.has(panelId),
-  );
+  const [mounted, setMounted] = useState(() => shouldMountImmediately(panelId, forceMount, deskFocusMode));
 
   useEffect(() => {
-    if (forceMount) {
+    if (shouldMountImmediately(panelId, forceMount, deskFocusMode)) {
       if (!mounted) setMounted(true);
       return;
     }
-    if (mounted || EAGER_PANEL_IDS.has(panelId)) return;
+    if (mounted) return;
 
     const el = ref.current;
     if (!el) return;
@@ -128,15 +137,13 @@ export function DeferredPanelContent({ panelId, forceMount, children }: Deferred
       });
     });
 
-    // IO can miss the first paint inside react-grid-layout transforms — recheck briefly.
     const recheckTimer = window.setInterval(() => {
       if (checkVisible()) window.clearInterval(recheckTimer);
-    }, 400);
-    const stopRecheck = window.setTimeout(() => window.clearInterval(recheckTimer), 4_000);
+    }, 200);
+    const stopRecheck = window.setTimeout(() => window.clearInterval(recheckTimer), 6_000);
 
-    // Far-below-fold panels hydrate slowly while the desk is idle (no scroll/drag).
     scheduleIdleMount(() => {
-      if (!cancelled && ref.current && isNearVisible(ref.current, scrollRoot, 120)) {
+      if (!cancelled && ref.current && isNearVisible(ref.current, scrollRoot, VISIBILITY_MARGIN_PX)) {
         mount();
       }
     });
@@ -150,7 +157,7 @@ export function DeferredPanelContent({ panelId, forceMount, children }: Deferred
       scrollRoot?.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [forceMount, mounted, panelId]);
+  }, [forceMount, deskFocusMode, mounted, panelId]);
 
   return (
     <div ref={ref} className="h-full min-h-0">

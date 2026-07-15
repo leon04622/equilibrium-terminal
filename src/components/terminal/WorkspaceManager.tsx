@@ -4,92 +4,21 @@ import dynamic from "next/dynamic";
 import { loadMaximizedPanelId, saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Layout } from "react-grid-layout";
-import { HyperBook } from "@/components/terminal/widgets/HyperBook";
-import { ChartWidget } from "@/components/terminal/ChartWidget";
-import { MacroMatrix } from "@/components/terminal/widgets/MacroMatrix";
-import { TacticalIntelligenceWire } from "@/components/terminal/widgets/TacticalIntelligenceWire";
-import { AiCopilot } from "@/components/terminal/AiCopilot";
 import { OmniBar } from "@/components/terminal/OmniBar";
 import { PanelShell } from "@/components/terminal/PanelShell";
 import { WalletStatus } from "@/components/terminal/WalletStatus";
-import { TradeTicket } from "@/components/terminal/TradeTicket";
-import { PositionsTable } from "@/components/terminal/PositionsTable";
-import { AlertPanel } from "@/components/terminal/widgets/AlertPanel";
-import { ProactiveMonitor } from "@/components/terminal/widgets/ProactiveMonitor";
-import { TeamDeskGrid } from "@/components/terminal/widgets/TeamDeskGrid";
-import { DiagnosticsDashboard } from "@/components/terminal/widgets/DiagnosticsDashboard";
-import { AlphaLabConsole } from "@/components/terminal/widgets/AlphaLabConsole";
-import { InfraDiagnostics } from "@/components/terminal/widgets/InfraDiagnostics";
-import { DomLadder } from "@/components/terminal/widgets/DomLadder";
-import { SlippageRadar } from "@/components/terminal/widgets/SlippageRadar";
-import { DecisionCommandCenter } from "@/components/terminal/widgets/DecisionCommandCenter";
-import { MarketSurveillanceMonitor } from "@/components/terminal/widgets/MarketSurveillanceMonitor";
-import { KnowledgeGraphConsole } from "@/components/terminal/widgets/KnowledgeGraphConsole";
-import { TraderJournalPanel } from "@/components/terminal/widgets/TraderJournalPanel";
-import { ResearchWorkspacePanel } from "@/components/terminal/widgets/ResearchWorkspacePanel";
-import { DailyOperatingConsole } from "@/components/terminal/widgets/DailyOperatingConsole";
-import { MarketStateLayerConsole } from "@/components/terminal/widgets/MarketStateLayerConsole";
-import { DailyBriefingConsole } from "@/components/terminal/widgets/DailyBriefingConsole";
-import { MarketCoverageConsole } from "@/components/terminal/widgets/MarketCoverageConsole";
-import { ReliabilityConsole } from "@/components/terminal/widgets/ReliabilityConsole";
-import { ArticleReaderOverlay } from "@/components/terminal/widgets/ArticleReaderOverlay";
-import { InformationDistributionConsole } from "@/components/terminal/widgets/InformationDistributionConsole";
-import { PaperBlotterConsole } from "@/components/terminal/widgets/PaperBlotterConsole";
-import { LiveBlotterConsole } from "@/components/terminal/widgets/LiveBlotterConsole";
-import { SettlementLedgerConsole } from "@/components/terminal/widgets/SettlementLedgerConsole";
-import { InstitutionalScreenerConsole } from "@/components/terminal/widgets/InstitutionalScreenerConsole";
-import { TradeSurveillanceConsole } from "@/components/terminal/widgets/TradeSurveillanceConsole";
-import { InstrumentMasterConsole } from "@/components/terminal/widgets/InstrumentMasterConsole";
-import { CrossVenueQuotesConsole } from "@/components/terminal/widgets/CrossVenueQuotesConsole";
-import { DataIngestionConsole } from "@/components/terminal/widgets/DataIngestionConsole";
-import { MarketIntelligenceConsole } from "@/components/terminal/widgets/MarketIntelligenceConsole";
-import { CollaborationConsole } from "@/components/terminal/widgets/CollaborationConsole";
-import { EnterpriseOperationsConsole } from "@/components/terminal/widgets/EnterpriseOperationsConsole";
-import { IndustryIntegrationsConsole } from "@/components/terminal/widgets/IndustryIntegrationsConsole";
-import { ProprietaryIntelligenceConsole } from "@/components/terminal/widgets/ProprietaryIntelligenceConsole";
-import { CryptoEcosystemConsole } from "@/components/terminal/widgets/CryptoEcosystemConsole";
-import { GlobalStrategyConsole } from "@/components/terminal/widgets/GlobalStrategyConsole";
-import { CommercialProductConsole } from "@/components/terminal/widgets/CommercialProductConsole";
-import { ExecutionIntelligenceConsole } from "@/components/terminal/widgets/ExecutionIntelligenceConsole";
-import { PortfolioDeskConsole } from "@/components/terminal/widgets/PortfolioDeskConsole";
-import { DerivativesDeskConsole } from "@/components/terminal/widgets/DerivativesDeskConsole";
-import { SystemicIntelligenceConsole } from "@/components/terminal/widgets/SystemicIntelligenceConsole";
-import { MarketMemoryConsole } from "@/components/terminal/widgets/MarketMemoryConsole";
-import { ResearchDeskConsole } from "@/components/terminal/widgets/ResearchDeskConsole";
-import { PlatformDeskConsole } from "@/components/terminal/widgets/PlatformDeskConsole";
-import { MobileDeskConsole } from "@/components/terminal/widgets/MobileDeskConsole";
-import { OpsCommandConsole } from "@/components/terminal/widgets/OpsCommandConsole";
-import { BillingDeskConsole } from "@/components/terminal/widgets/BillingDeskConsole";
-import { DeskOpsConsole } from "@/components/terminal/widgets/DeskOpsConsole";
-import { GlobalIntelConsole } from "@/components/terminal/widgets/GlobalIntelConsole";
-import { OperatorAiConsole } from "@/components/terminal/widgets/OperatorAiConsole";
-import { UnifiedOpsConsole } from "@/components/terminal/widgets/UnifiedOpsConsole";
-import { LiveExecConsole } from "@/components/terminal/widgets/LiveExecConsole";
-import { MarketCommandConsole } from "@/components/terminal/widgets/MarketCommandConsole";
-import { ProductMaturityConsole } from "@/components/terminal/widgets/ProductMaturityConsole";
-import { LiveDeploymentConsole } from "@/components/terminal/widgets/LiveDeploymentConsole";
-import { ExplainDeskConsole } from "@/components/terminal/widgets/ExplainDeskConsole";
-import { OperatorJournalConsole } from "@/components/terminal/widgets/OperatorJournalConsole";
-import { LiveMentorConsole } from "@/components/terminal/widgets/LiveMentorConsole";
-import { DecisionReplayReview } from "@/components/terminal/widgets/DecisionReplayReview";
 import { DeferredPanelContent } from "@/components/terminal/DeferredPanelContent";
 import { GuidedFocusIndicator } from "@/components/terminal/explain/GuidedFocusIndicator";
-import { AcademyOverlayHost } from "@/components/terminal/explain/AcademyOverlayHost";
-import { AcademyWorkflowGuide } from "@/components/terminal/explain/AcademyWorkflowGuide";
 import { LiveDeskBridgeStrip } from "@/components/terminal/explain/LiveDeskBridgeStrip";
 import { ExplainSidePanel } from "@/components/terminal/explain/ExplainSidePanel";
 import { LearningHubLauncher } from "@/components/terminal/explain/LearningHubLauncher";
 import { OnboardingResumeButton } from "@/components/terminal/OnboardingResumeButton";
-import { LearningCommandCenter } from "@/components/terminal/explain/LearningCommandCenter";
 import { AcademySessionGuard } from "@/components/terminal/explain/AcademySessionGuard";
 import { AcademyPerformancePanel } from "@/components/terminal/explain/AcademyPerformancePanel";
 import { AlphaInviteGate } from "@/components/terminal/AlphaInviteGate";
-import { OperatorModeConsole } from "@/components/terminal/widgets/OperatorModeConsole";
 import { OperatorModeGuidanceStrip } from "@/components/terminal/OperatorModeGuidanceStrip";
 import { MorningTradingPathStrip } from "@/components/terminal/MorningTradingPathStrip";
 import { OperatorModeController } from "@/components/terminal/OperatorModeController";
-import { OnboardingWalkthrough } from "@/components/terminal/OnboardingWalkthrough";
-import { FirstFifteenMinutesWelcome } from "@/components/beginner/FirstFifteenMinutesWelcome";
 import { DeskSessionBar } from "@/components/terminal/DeskSessionBar";
 import { beginnerPanelSubtitle, beginnerPanelTitle } from "@/lib/beginner/beginnerTranslation";
 import { DailyStateStrip } from "@/components/terminal/DailyStateStrip";
@@ -102,7 +31,11 @@ import { WatchlistStrip } from "@/components/terminal/WatchlistStrip";
 import { StreamReconnectBanner } from "@/components/terminal/StreamReconnectBanner";
 import { KeyboardShortcutOverlay } from "@/components/terminal/KeyboardShortcutOverlay";
 import { WorkspaceHeaderTelemetry } from "@/components/terminal/WorkspaceHeaderTelemetry";
-import { WorkspaceSystems } from "@/components/terminal/WorkspaceSystems";
+import {
+  LazyPositionsTable,
+  LazyTradeTicket,
+  WidgetByType,
+} from "@/components/terminal/widgetRegistry";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 import {
@@ -138,6 +71,51 @@ import { DESKS } from "@/lib/desks/DeskRegistry";
 import type { WidgetType, WorkspaceWidget } from "@/types/terminal-schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
+
+const WorkspaceSystems = dynamic(
+  () =>
+    import("@/components/terminal/WorkspaceSystems").then((m) => ({
+      default: m.WorkspaceSystems,
+    })),
+  { ssr: false },
+);
+
+const OnboardingWalkthrough = dynamic(
+  () => import("@/components/terminal/OnboardingWalkthrough").then((m) => m.OnboardingWalkthrough),
+  { ssr: false },
+);
+
+const FirstFifteenMinutesWelcome = dynamic(
+  () =>
+    import("@/components/beginner/FirstFifteenMinutesWelcome").then((m) => m.FirstFifteenMinutesWelcome),
+  { ssr: false },
+);
+
+const LearningCommandCenter = dynamic(
+  () =>
+    import("@/components/terminal/explain/LearningCommandCenter").then((m) => m.LearningCommandCenter),
+  { ssr: false },
+);
+
+const AcademyOverlayHost = dynamic(
+  () => import("@/components/terminal/explain/AcademyOverlayHost").then((m) => m.AcademyOverlayHost),
+  { ssr: false },
+);
+
+const AcademyWorkflowGuide = dynamic(
+  () => import("@/components/terminal/explain/AcademyWorkflowGuide").then((m) => m.AcademyWorkflowGuide),
+  { ssr: false },
+);
+
+const DecisionReplayReview = dynamic(
+  () => import("@/components/terminal/widgets/DecisionReplayReview").then((m) => m.DecisionReplayReview),
+  { ssr: false },
+);
+
+const ArticleReaderOverlay = dynamic(
+  () => import("@/components/terminal/widgets/ArticleReaderOverlay").then((m) => m.ArticleReaderOverlay),
+  { ssr: false },
+);
 
 const CORE_WORKSPACE_PANELS = NEVER_HIDE_PANEL_IDS;
 
@@ -231,134 +209,7 @@ const PANEL_TELEMETRY: Record<string, string> = {
 };
 
 function widgetContent(type: WidgetType) {
-  switch (type) {
-    case "hyperbook":
-      return <HyperBook />;
-    case "chart":
-      return <ChartWidget />;
-    case "intelligence":
-      return <TacticalIntelligenceWire />;
-    case "macro":
-      return <MacroMatrix />;
-    case "copilot":
-      return <AiCopilot />;
-    case "alerts":
-      return <AlertPanel />;
-    case "proactive":
-      return <ProactiveMonitor />;
-    case "teamdesk":
-      return <TeamDeskGrid />;
-    case "diagnostics":
-      return <DiagnosticsDashboard />;
-    case "alphalab":
-      return <AlphaLabConsole />;
-    case "infra":
-      return <InfraDiagnostics />;
-    case "domladder":
-      return <DomLadder />;
-    case "slippageradar":
-      return <SlippageRadar />;
-    case "decision":
-      return <DecisionCommandCenter />;
-    case "surveillance":
-      return <MarketSurveillanceMonitor />;
-    case "knowledgegraph":
-      return <KnowledgeGraphConsole />;
-    case "traderjournal":
-      return <TraderJournalPanel />;
-    case "research":
-      return <ResearchWorkspacePanel />;
-    case "dailyops":
-      return <DailyOperatingConsole />;
-    case "marketstate":
-      return <MarketStateLayerConsole />;
-    case "dailybriefing":
-      return <DailyBriefingConsole />;
-    case "marketcoverage":
-      return <MarketCoverageConsole />;
-    case "reliability":
-      return <ReliabilityConsole />;
-    case "newswire":
-      return <InformationDistributionConsole />;
-    case "paperblotter":
-      return <PaperBlotterConsole />;
-    case "liveblotter":
-      return <LiveBlotterConsole />;
-    case "settlementledger":
-      return <SettlementLedgerConsole />;
-    case "screener":
-      return <InstitutionalScreenerConsole />;
-    case "tradesurveillance":
-      return <TradeSurveillanceConsole />;
-    case "instrumentmaster":
-      return <InstrumentMasterConsole />;
-    case "crossvenue":
-      return <CrossVenueQuotesConsole />;
-    case "ingestion":
-      return <DataIngestionConsole />;
-    case "intelengine":
-      return <MarketIntelligenceConsole />;
-    case "collab":
-      return <CollaborationConsole />;
-    case "enterpriseops":
-      return <EnterpriseOperationsConsole />;
-    case "integrations":
-      return <IndustryIntegrationsConsole />;
-    case "propintel":
-      return <ProprietaryIntelligenceConsole />;
-    case "ecosystem":
-      return <CryptoEcosystemConsole />;
-    case "globalstrategy":
-      return <GlobalStrategyConsole />;
-    case "commercial":
-      return <CommercialProductConsole />;
-    case "execintel":
-      return <ExecutionIntelligenceConsole />;
-    case "portfoliodesk":
-      return <PortfolioDeskConsole />;
-    case "derivdesk":
-      return <DerivativesDeskConsole />;
-    case "systemicintel":
-      return <SystemicIntelligenceConsole />;
-    case "memorydesk":
-      return <MarketMemoryConsole />;
-    case "researchdesk":
-      return <ResearchDeskConsole />;
-    case "platformdesk":
-      return <PlatformDeskConsole />;
-    case "mobiledesk":
-      return <MobileDeskConsole />;
-    case "opscommand":
-      return <OpsCommandConsole />;
-    case "billingdesk":
-      return <BillingDeskConsole />;
-    case "deskops":
-      return <DeskOpsConsole />;
-    case "globaldesk":
-      return <GlobalIntelConsole />;
-    case "operatordesk":
-      return <OperatorAiConsole />;
-    case "unifiedops":
-      return <UnifiedOpsConsole />;
-    case "liveexec":
-      return <LiveExecConsole />;
-    case "marketcmd":
-      return <MarketCommandConsole />;
-    case "maturitydesk":
-      return <ProductMaturityConsole />;
-    case "livedeploy":
-      return <LiveDeploymentConsole />;
-    case "explaindesk":
-      return <ExplainDeskConsole />;
-    case "operatorjournal":
-      return <OperatorJournalConsole />;
-    case "livementor":
-      return <LiveMentorConsole />;
-    case "operatormode":
-      return <OperatorModeConsole />;
-    default:
-      return null;
-  }
+  return <WidgetByType type={type} />;
 }
 
 type WorkspaceGridProps = {
@@ -368,6 +219,7 @@ type WorkspaceGridProps = {
   visible: WorkspaceWidget[];
   maximizedId: string | null;
   beginnerMode: boolean;
+  deskFocusMode: boolean;
   deskTransitioning: boolean;
   reducedMotion: boolean;
   onCommitLayout: (next: Layout[]) => void;
@@ -380,6 +232,7 @@ function workspaceGridPropsEqual(prev: WorkspaceGridProps, next: WorkspaceGridPr
     prev.gridRowHeight !== next.gridRowHeight ||
     prev.maximizedId !== next.maximizedId ||
     prev.beginnerMode !== next.beginnerMode ||
+    prev.deskFocusMode !== next.deskFocusMode ||
     prev.deskTransitioning !== next.deskTransitioning ||
     prev.reducedMotion !== next.reducedMotion
   ) {
@@ -409,6 +262,7 @@ const WorkspaceGrid = memo(function WorkspaceGrid({
   visible,
   maximizedId,
   beginnerMode,
+  deskFocusMode,
   deskTransitioning,
   reducedMotion,
   onCommitLayout,
@@ -461,11 +315,12 @@ const WorkspaceGrid = memo(function WorkspaceGrid({
               <DeferredPanelContent
                 panelId={panel.id}
                 forceMount={maximizedId === panel.id}
+                deskFocusMode={deskFocusMode}
               >
                 {panel.id === "ticket" ? (
-                  <TradeTicket />
+                  <LazyTradeTicket />
                 ) : panel.id === "positions" ? (
-                  <PositionsTable />
+                  <LazyPositionsTable />
                 ) : (
                   widgetContent(panel.type)
                 )}
@@ -994,6 +849,7 @@ export function WorkspaceManager() {
           visible={visible}
           maximizedId={maximizedId}
           beginnerMode={beginnerMode}
+          deskFocusMode={deskFocusMode}
           deskTransitioning={deskTransitioning}
           reducedMotion={reducedMotion}
           onCommitLayout={commitLayout}

@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import type { Layout } from "react-grid-layout";
-import { useBootPhase } from "@/hooks/useBootGuard";
 import { useExecutionAnalytics } from "@/hooks/useExecutionAnalytics";
 import { usePortfolioDesk } from "@/hooks/usePortfolioDesk";
 import { useDerivativesDesk } from "@/hooks/useDerivativesDesk";
@@ -164,7 +163,7 @@ function WorkspaceSystemsCore({
   return null;
 }
 
-/** Background systems — phased and layout-gated to avoid OOM on full workspace. */
+/** Background systems — layout-gated to avoid OOM on full workspace. */
 export function WorkspaceSystems({
   layout,
   deskFocusMode,
@@ -174,15 +173,11 @@ export function WorkspaceSystems({
   deskFocusMode: boolean;
   onAdaptiveLayout: (next: Layout[]) => void;
 }) {
-  const phase = useBootPhase(200, 600);
-
-  if (phase < 0) return null;
-
   return (
     <WorkspaceSystemsCore
       layout={layout}
       deskFocusMode={deskFocusMode}
-      phase={phase}
+      phase={1}
       onAdaptiveLayout={onAdaptiveLayout}
     />
   );
