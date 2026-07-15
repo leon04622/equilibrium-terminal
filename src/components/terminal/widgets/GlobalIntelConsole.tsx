@@ -3,6 +3,7 @@
 import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { GlobalIntelOrchestrator } from "@/lib/global-intel-desk/GlobalIntelOrchestrator";
 import { useGlobalIntelStore, type GlobalIntelTab } from "@/store/useGlobalIntelStore";
 import type { GlobalIntelModeId } from "@/types/global-intelligence";
@@ -30,10 +31,11 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function GlobalIntelConsole() {
-  const snapshot = useGlobalIntelStore((s) => s.snapshot);
+  const storeSnapshot = useGlobalIntelStore((s) => s.snapshot);
   const activeTab = useGlobalIntelStore((s) => s.activeTab);
   const setActiveTab = useGlobalIntelStore((s) => s.setActiveTab);
   const setActiveMode = useGlobalIntelStore((s) => s.setActiveMode);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => GlobalIntelOrchestrator.snapshot());
 
   if (!snapshot) {
     return (

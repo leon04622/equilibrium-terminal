@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import type { Layout } from "react-grid-layout";
-import { useBootGuard } from "@/hooks/useBootGuard";
+import { useBootPhase } from "@/hooks/useBootGuard";
 import { useExecutionAnalytics } from "@/hooks/useExecutionAnalytics";
 import { usePortfolioDesk } from "@/hooks/usePortfolioDesk";
 import { useDerivativesDesk } from "@/hooks/useDerivativesDesk";
@@ -37,6 +38,16 @@ import { useDailyOperations } from "@/hooks/useDailyOperations";
 import { useMarketCoverage } from "@/hooks/useMarketCoverage";
 import { useReliabilityInfrastructure } from "@/hooks/useReliabilityInfrastructure";
 import { useInformationDistribution } from "@/hooks/useInformationDistribution";
+import { useExternalNewsFeed } from "@/hooks/useExternalNewsFeed";
+import { useLiveBlotter } from "@/hooks/useLiveBlotter";
+import { useSettlementLedger } from "@/hooks/useSettlementLedger";
+import { useMarketScreener } from "@/hooks/useMarketScreener";
+import { useMarketScreenerAlerts } from "@/hooks/useMarketScreenerAlerts";
+import { useTradeSurveillanceAlerts } from "@/hooks/useTradeSurveillanceAlerts";
+import { usePortfolioRiskAlerts } from "@/hooks/usePortfolioRiskAlerts";
+import { useInstrumentMaster } from "@/hooks/useInstrumentMaster";
+import { useWireSymbolRouting } from "@/hooks/useWireSymbolRouting";
+import { useOperatorBookSensors } from "@/hooks/useOperatorBookSensors";
 import { useDataIngestion } from "@/hooks/useDataIngestion";
 import { useMarketIntelligence } from "@/hooks/useMarketIntelligence";
 import { useCollaboration } from "@/hooks/useCollaboration";
@@ -52,91 +63,127 @@ import { useLaunchHardening } from "@/hooks/useLaunchHardening";
 import { useDevOpsOperations } from "@/hooks/useDevOpsOperations";
 import { useSecurityLayer } from "@/hooks/useSecurityLayer";
 import { useTerminalExperience } from "@/hooks/useTerminalExperience";
-import { useWedgeStore } from "@/store/useWedgeStore";
+import { panelHookEnabled } from "@/lib/wedge/panelHookGating";
+import { AssetWorkspaceOrchestrator } from "@/lib/workflow/AssetWorkspaceOrchestrator";
+import { terminalBus } from "@/store/eventBus";
 
 function WorkspaceSystemsCore({
   layout,
+  deskFocusMode,
+  phase,
   onAdaptiveLayout,
 }: {
   layout: Layout[];
+  deskFocusMode: boolean;
+  phase: number;
   onAdaptiveLayout: (next: Layout[]) => void;
 }) {
-  const deskFocus = useWedgeStore((s) => s.deskFocusMode);
-  const advanced = !deskFocus;
+  const hook = (panelIds: string | string[]) =>
+    phase >= 1 && panelHookEnabled(layout, deskFocusMode, panelIds);
 
-  useProductionPlatform({ layout, enabled: true });
-  useExecutionIntelligence({ enabled: true });
-  useExecutionAnalytics(true);
-  useLiveExec(true);
-  useMarketCommand(true);
-  useProductMaturity(true);
-  useLiveDeployment(true);
-  useOperatorGuide(true);
-  useOperatorJournal(true);
-  useLiveCoach(true);
-  usePortfolioDesk(true);
-  useDerivativesDesk(true);
-  useSystemicIntelligence(true);
-  useMarketMemory(true);
-  useResearchDesk(true);
-  usePlatformDesk(true);
-  useMobileDesk(true);
-  useOpsCommand(true);
-  useBillingDesk(true);
+  useProductionPlatform({ layout, enabled: phase >= 0 });
+  useSecurityLayer(phase >= 0);
+  useTerminalExperience(phase >= 0);
+  useGlobalShortcuts(phase >= 0);
+  useCommercialProduct(phase >= 0);
+  useTraderWorkflow(phase >= 0);
+  useOperatorGuide(phase >= 0);
+  useOperatorBookSensors(phase >= 0 && panelHookEnabled(layout, deskFocusMode, "hyperbook"));
+  useAdaptiveWorkspace({
+    baseLayout: layout,
+    onLayoutCommit: onAdaptiveLayout,
+  });
   useTraderTelemetry({
     baseLayout: layout,
     onAdaptiveLayout,
     autoApplyLayout: false,
   });
-  useAdaptiveWorkspace({
-    baseLayout: layout,
-    onLayoutCommit: onAdaptiveLayout,
+
+  useExecutionIntelligence({
+    enabled: hook(["domladder", "slippageradar", "execintel", "surveillance"]),
   });
-  useInformationDiscovery(true);
-  useTraderWorkflow(true);
-  useGlobalShortcuts(true);
-  useReliabilityInfrastructure(true);
-  useSecurityLayer(true);
-  useDevOpsOperations(true);
-  useCommercialProduct(true);
-  useLaunchHardening(true);
-  useAlphaLaunch(true);
-  useTerminalExperience(true);
-  useChartAnalytics(true);
-  useQuantResearch(advanced);
-  useDecisionEngine({ enabled: advanced });
-  useMarketKnowledgeGraph(advanced);
-  useDailyOperations(advanced);
-  useMarketCoverage(advanced);
-  useInformationDistribution(advanced);
-  useDataIngestion(advanced);
-  useMarketIntelligence(advanced);
-  useCollaboration(advanced, layout);
-  useDeskOps(advanced);
-  useGlobalIntel(advanced);
-  useOperatorAi(advanced);
-  useUnifiedOps(advanced);
-  useEnterpriseOperations(advanced);
-  useIndustryIntegrations(advanced);
-  useProprietaryIntelligence(advanced);
-  useCryptoEcosystem(advanced);
-  useGlobalStrategy(advanced);
+  useExecutionAnalytics(hook(["slippageradar", "execintel"]));
+  useChartAnalytics(hook("chart"));
+  useInformationDiscovery(hook("intelligence"));
+  useInformationDistribution(hook("newswire"));
+  useExternalNewsFeed(hook("newswire"));
+  useDailyOperations(hook("dailyops"));
+  useLiveBlotter(hook(["liveblotter", "paperblotter"]));
+  useLiveExec(hook(["liveexec", "liveblotter"]));
+  useOperatorJournal(hook("operatorjournal"));
+  usePortfolioRiskAlerts(hook(["positions", "portfoliodesk"]));
+  useTradeSurveillanceAlerts(hook(["surveillance", "tradesurveillance"]));
+  useMarketScreener(hook("screener"));
+  useMarketScreenerAlerts(hook("screener"));
+  useSettlementLedger(hook("settlementledger"));
+  useInstrumentMaster(hook("instrumentmaster"));
+  useWireSymbolRouting(hook(["intelligence", "newswire"]));
+  useReliabilityInfrastructure(hook("reliability"));
+  useQuantResearch(hook(["alphalab", "research"]));
+  useDecisionEngine({ enabled: hook("decision") });
+  useMarketKnowledgeGraph(hook("knowledgegraph"));
+  useMarketCoverage(hook("marketcoverage"));
+  useDataIngestion(hook("ingestion"));
+  useMarketIntelligence(hook("intelengine"));
+  useCollaboration(hook("collab"), layout);
+  useLaunchHardening(hook(["infra", "diagnostics"]));
+  useAlphaLaunch(hook("commercial"));
+  useDevOpsOperations(hook(["infra", "diagnostics"]));
+
+  usePortfolioDesk(hook("portfoliodesk"));
+  useDerivativesDesk(hook("derivdesk"));
+  useSystemicIntelligence(hook("systemicintel"));
+  useMarketMemory(hook("memorydesk"));
+  useResearchDesk(hook("researchdesk"));
+  usePlatformDesk(hook("platformdesk"));
+  useMobileDesk(hook("mobiledesk"));
+  useOpsCommand(hook("opscommand"));
+  useBillingDesk(hook("billingdesk"));
+  useDeskOps(hook("deskops"));
+  useGlobalIntel(hook("globaldesk"));
+  useOperatorAi(hook("operatordesk"));
+  useUnifiedOps(hook("unifiedops"));
+  useMarketCommand(hook("marketcmd"));
+  useProductMaturity(hook("maturitydesk"));
+  useLiveDeployment(hook("livedeploy"));
+  useLiveCoach(hook("livementor"));
+  useEnterpriseOperations(hook("enterpriseops"));
+  useIndustryIntegrations(hook("integrations"));
+  useProprietaryIntelligence(hook("propintel"));
+  useCryptoEcosystem(hook("ecosystem"));
+  useGlobalStrategy(hook("globalstrategy"));
+
+  useEffect(() => {
+    if (phase < 0) return;
+    const offAgentic = terminalBus.on("agentic:workspace-load", ({ coin }) => {
+      AssetWorkspaceOrchestrator.open(coin, { mode: "surveillance", source: "proactive-monitor" });
+    });
+    return offAgentic;
+  }, [phase]);
+
   return null;
 }
 
-/** Background systems — deferred so the workspace grid paints first. */
+/** Background systems — phased and layout-gated to avoid OOM on full workspace. */
 export function WorkspaceSystems({
   layout,
+  deskFocusMode,
   onAdaptiveLayout,
 }: {
   layout: Layout[];
+  deskFocusMode: boolean;
   onAdaptiveLayout: (next: Layout[]) => void;
 }) {
-  const systemsReady = useBootGuard(600);
+  const phase = useBootPhase(200, 600);
 
-  if (!systemsReady) return null;
+  if (phase < 0) return null;
 
   return (
-    <WorkspaceSystemsCore layout={layout} onAdaptiveLayout={onAdaptiveLayout} />
+    <WorkspaceSystemsCore
+      layout={layout}
+      deskFocusMode={deskFocusMode}
+      phase={phase}
+      onAdaptiveLayout={onAdaptiveLayout}
+    />
   );
 }

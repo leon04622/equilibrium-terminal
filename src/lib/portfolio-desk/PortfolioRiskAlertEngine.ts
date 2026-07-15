@@ -1,7 +1,10 @@
 import { CollateralLiquidityEngine } from "@/lib/portfolio-desk/CollateralLiquidityEngine";
+import { PortfolioVaREngine } from "@/lib/institutional/PortfolioVaREngine";
+import { MarginCallEngine } from "@/lib/institutional/MarginCallEngine";
 import { RiskEngine } from "@/lib/portfolio-desk/RiskEngine";
 import { TreasuryVisibilityEngine } from "@/lib/portfolio-desk/TreasuryVisibilityEngine";
 import { UnifiedPortfolioEngine } from "@/lib/portfolio-desk/UnifiedPortfolioEngine";
+import { useInstitutionalRiskStore } from "@/store/useInstitutionalRiskStore";
 import type { PortfolioRiskAlert, PortfolioRiskAlertKind } from "@/types/portfolio-risk-treasury";
 
 function alert(
@@ -27,6 +30,42 @@ export class PortfolioRiskAlertEngine {
     const treasury = TreasuryVisibilityEngine.snapshot();
     const collateral = CollateralLiquidityEngine.metrics();
     const portfolio = UnifiedPortfolioEngine.snapshot();
+    const varSnap = PortfolioVaREngine.snapshot();
+    const marginSnap = MarginCallEngine.snapshot();
+    const varLimits = useInstitutionalRiskStore.getState().varLimits;
+
+    if (marginSnap.marginCallRisk === "imminent") {
+      alerts.push(
+        alert(
+          "margin_call",
+          "critical",
+          "Margin call imminent",
+          `Buffer ${marginSnap.distanceToMarginCallPct}% · util ${marginSnap.marginUtilPct}%`,
+        ),
+      );
+    } else if (marginSnap.marginCallRisk === "watch") {
+      alerts.push(
+        alert(
+          "margin_call",
+          "watch",
+          "Margin call watch",
+          `Buffer ${marginSnap.distanceToMarginCallPct}% · util ${marginSnap.marginUtilPct}%`,
+        ),
+      );
+    }
+
+    const horizon = PortfolioVaREngine.horizonMetrics(varSnap, varLimits.alertHorizonDays);
+
+    if (varLimits.enabled && horizon.var95Pct >= varLimits.maxVar95Pct) {
+      alerts.push(
+        alert(
+          "var_breach",
+          horizon.var95Pct >= varLimits.criticalVar95Pct ? "critical" : "watch",
+          "VaR limit watch",
+          `${horizon.horizonDays}d VaR 95% ${horizon.var95Pct}% (limit ${varLimits.maxVar95Pct}%) · ES ${horizon.expectedShortfall95Pct}% · ${varSnap.method}`,
+        ),
+      );
+    }
 
     if (risk.liquidationRiskScore >= 60 || collateral.liquidationProximityPct >= 65) {
       alerts.push(

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { OperatorAiOrchestrator } from "@/lib/operator-ai-desk/OperatorAiOrchestrator";
 import { OperatorAiResponseEngine } from "@/lib/operator-ai-desk/OperatorAiResponseEngine";
 import { useOperatorAiStore, type OperatorAiTab } from "@/store/useOperatorAiStore";
@@ -33,13 +34,14 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function OperatorAiConsole() {
-  const snapshot = useOperatorAiStore((s) => s.snapshot);
+  const storeSnapshot = useOperatorAiStore((s) => s.snapshot);
   const activeTab = useOperatorAiStore((s) => s.activeTab);
   const setActiveTab = useOperatorAiStore((s) => s.setActiveTab);
   const setActiveMode = useOperatorAiStore((s) => s.setActiveMode);
   const setLastQuery = useOperatorAiStore((s) => s.setLastQuery);
   const submitAiPrompt = useTerminalStore((s) => s.submitAiPrompt);
   const [queryInput, setQueryInput] = useState("");
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => OperatorAiOrchestrator.snapshot());
 
   if (!snapshot) {
     return (
@@ -70,9 +72,12 @@ export function OperatorAiConsole() {
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Bot className="h-3 w-3 text-neon-green" />
         <span className={cn(TERMINAL_TYPO.label, "text-neon-green")}>OPERATOR AI</span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+          RULES
+        </span>
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>O{snapshot.assistantScore}</span>
         <span className={cn(TERMINAL_TYPO.micro, "ml-auto text-slate-600")}>
-          {snapshot.asset} · RAG {snapshot.telemetry.inferenceLatencyMs}ms
+          {snapshot.asset} · rules engine
         </span>
       </header>
 

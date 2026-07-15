@@ -10,6 +10,7 @@ import {
   endAcademyTransition,
 } from "@/lib/education/academyPerformance";
 import { speakAcademyNarration } from "@/lib/education/academyVoice";
+import { humanizeForSpeech } from "@/lib/education/speechHumanize";
 import {
   armLessonVoice,
   cancelLesson,
@@ -54,7 +55,7 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
   const supported = lessonVoiceSupported();
 
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
 
   const tokenRef = useRef(0);
@@ -129,15 +130,13 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
 
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     beginAcademyTransition();
     const start = Math.min(Math.max(startStep, 0), scenes.length - 1);
     skipIndexEffectRef.current = true;
-    narratedKeyRef.current = `${runId}:${start}`;
+    narratedKeyRef.current = "";
     setIndex(start);
-    setPlaying(true);
-    playingRef.current = true;
-    enterRef.current(start, true);
+    setPlaying(false);
+    playingRef.current = false;
     markStep(start);
     if (start >= scenes.length - 1) markCompleted();
     endAcademyTransition();
@@ -148,6 +147,11 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
     if (!active) return;
     if (skipIndexEffectRef.current) {
       skipIndexEffectRef.current = false;
+      return;
+    }
+    if (!playingRef.current) {
+      markStep(index);
+      if (index >= scenes.length - 1) markCompleted();
       return;
     }
     const speakKey = `${runId}:${index}`;
@@ -203,6 +207,7 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
     } else {
       setPlaying(true);
       playingRef.current = true;
+      armLessonVoice();
       enter(index);
     }
   }, [playing, index, enter, clearTimers]);
@@ -213,7 +218,10 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
     voiceOnRef.current = next;
     setLessonVoiceEnabled(next);
     cancelLesson();
-    if (playingRef.current) enter(index);
+    if (next) {
+      armLessonVoice();
+      if (playingRef.current) enter(index);
+    }
   }, [voiceOn, index, enter]);
 
   const replayScene = useCallback(() => {
@@ -232,12 +240,15 @@ export function useLessonSceneDriver<T extends LessonSceneLine>({
     [scenes.length, clearTimers],
   );
 
+  const captionVoice = scene ? humanizeForSpeech(scene.voice) : "";
+
   return {
     index,
     setIndex: goto,
     playing,
     voiceOn,
     scene,
+    captionVoice,
     reduceMotion,
     supported,
     clearTimers,

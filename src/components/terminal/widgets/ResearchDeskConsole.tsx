@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { FlaskConical } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { AnnotationInfrastructureEngine } from "@/lib/research-desk/AnnotationInfrastructureEngine";
@@ -33,9 +35,13 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function ResearchDeskConsole() {
-  const snapshot = useResearchDeskStore((s) => s.snapshot);
+  const storeSnapshot = useResearchDeskStore((s) => s.snapshot);
   const activeTab = useResearchDeskStore((s) => s.activeTab);
   const searchQuery = useResearchDeskStore((s) => s.searchQuery);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    ResearchDeskOrchestrator.snapshot(selectedCoin, searchQuery),
+  );
   const setActiveTab = useResearchDeskStore((s) => s.setActiveTab);
   const setSearchQuery = useResearchDeskStore((s) => s.setSearchQuery);
   const setActiveMode = useResearchDeskStore((s) => s.setActiveMode);
@@ -279,7 +285,15 @@ export function ResearchDeskConsole() {
         )}
 
         {activeTab === "ai" && (
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-400 leading-relaxed")}>{snapshot.aiBrief}</p>
+          <>
+            <p className={cn(TERMINAL_TYPO.micro, "mb-1 text-slate-500")}>
+              Research brief — rules engine only
+              <span className={cn(TERMINAL_TYPO.micro, "ml-1 border border-violet-500/30 px-1 text-violet-400")}>
+                NO LLM
+              </span>
+            </p>
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-400 leading-relaxed")}>{snapshot.aiBrief}</p>
+          </>
         )}
 
         {activeTab === "modes" && (

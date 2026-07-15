@@ -97,20 +97,11 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
     prerequisiteId: "trade-types",
   },
   {
-    id: "volatility",
-    path: "beginner",
-    order: 6,
-    title: "Volatility",
-    subtitle: "Why vol changes execution cost and sizing",
-    live: false,
-    prerequisiteId: "liquidations",
-  },
-  {
     id: "risk-management",
     path: "beginner",
-    order: 7,
+    order: 6,
     title: "Risk Management",
-    subtitle: "Size, stops, and when to stand aside",
+    subtitle: "Size, stops, volatility, and when to stand aside",
     live: true,
     prerequisiteId: "liquidations",
   },
@@ -120,7 +111,7 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
     order: 8,
     title: "First Trade Checklist",
     subtitle: "Pre-trade checks before your first live entry",
-    live: false,
+    live: true,
     prerequisiteId: "risk-management",
   },
   // ---- INTERMEDIATE PATH ----------------------------------------------------
@@ -130,7 +121,7 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
     order: 9,
     title: "Market Structure",
     subtitle: "Trend, range, breaks, and context",
-    live: false,
+    live: true,
     prerequisiteId: null,
     requiresPathComplete: "beginner",
   },
@@ -140,7 +131,7 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
     order: 10,
     title: "Liquidity",
     subtitle: "Depth, walls, and execution impact",
-    live: false,
+    live: true,
     prerequisiteId: "market-structure",
     requiresPathComplete: "beginner",
   },
@@ -200,38 +191,78 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
     path: "professional",
     order: 16,
     title: "Live Desk",
-    subtitle: "Real-time desk awareness — session, funding, tone, market state",
+    subtitle: "Platform mission control — session, funding, tone, and market awareness",
     live: true,
     prerequisiteId: "operator-journal",
     requiresPathComplete: "intermediate",
   },
   {
-    id: "cross-market",
+    id: "market-state",
     path: "professional",
     order: 17,
+    title: "Market State Layer",
+    subtitle: "CALM · ACTIVE · THIN · STRESS — how conditions drive behavior",
+    live: true,
+    prerequisiteId: "live-desk",
+    requiresPathComplete: "intermediate",
+  },
+  {
+    id: "daily-briefing",
+    path: "professional",
+    order: 18,
+    title: "Daily Briefing Engine",
+    subtitle: "What should I pay attention to today — before the session starts",
+    live: true,
+    prerequisiteId: "market-state",
+    requiresPathComplete: "intermediate",
+  },
+  {
+    id: "market-memory",
+    path: "professional",
+    order: 19,
+    title: "Market Memory Archive",
+    subtitle: "What happened before — and why it matters today",
+    live: true,
+    prerequisiteId: "daily-briefing",
+    requiresPathComplete: "intermediate",
+  },
+  {
+    id: "crypto-financial-os",
+    path: "professional",
+    order: 20,
+    title: "Crypto Financial OS",
+    subtitle: "The operating system that powers the terminal",
+    live: true,
+    prerequisiteId: "market-memory",
+    requiresPathComplete: "intermediate",
+  },
+  {
+    id: "cross-market",
+    path: "professional",
+    order: 21,
     title: "Cross-Market Analysis",
     subtitle: "Venues, basis, and relative value",
-    live: false,
-    prerequisiteId: "live-desk",
+    live: true,
+    prerequisiteId: "crypto-financial-os",
     requiresPathComplete: "intermediate",
   },
   {
     id: "macro-flows",
     path: "professional",
-    order: 18,
+    order: 22,
     title: "Macro Flows",
     subtitle: "Regime, flows, and positioning context",
-    live: false,
+    live: true,
     prerequisiteId: "cross-market",
     requiresPathComplete: "intermediate",
   },
   {
     id: "intelligence-desk",
     path: "professional",
-    order: 19,
+    order: 23,
     title: "Intelligence Desk",
     subtitle: "Wire, surveillance, and operator workflow",
-    live: false,
+    live: true,
     prerequisiteId: "macro-flows",
     requiresPathComplete: "intermediate",
   },
@@ -239,6 +270,7 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 
 export interface RawAcademyProgress {
   marketMechanics: { completed: boolean; lastStep: number };
+  marketMechanicsBridge: { bridgeCompleted: boolean; conceptsMastered: string[] };
   orderBook: { completed: boolean; lastStep: number; replayWatched: boolean };
   orderBookBridge: { bridgeCompleted: boolean; conceptsMastered: string[] };
   funding: { completed: boolean; lastStep: number };
@@ -261,19 +293,41 @@ export interface RawAcademyProgress {
   operatorJournalBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
   liveDesk: { completed: boolean; lastStep: number };
   liveDeskBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  marketState: { completed: boolean; lastStep: number };
+  marketStateBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  dailyBriefing: { completed: boolean; lastStep: number };
+  dailyBriefingBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  marketMemory: { completed: boolean; lastStep: number };
+  marketMemoryBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  cryptoFinancialOs: { completed: boolean; lastStep: number };
+  cryptoFinancialOsBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  firstTradeChecklist: { completed: boolean; lastStep: number };
+  firstTradeChecklistBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  marketStructure: { completed: boolean; lastStep: number };
+  marketStructureBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  liquidityDeep: { completed: boolean; lastStep: number };
+  liquidityDeepBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  crossMarket: { completed: boolean; lastStep: number };
+  crossMarketBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  macroFlows: { completed: boolean; lastStep: number };
+  macroFlowsBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
+  intelligenceDesk: { completed: boolean; lastStep: number };
+  intelligenceDeskBridge: { bridgeCompleted: boolean; certified: boolean; conceptsMastered: string[] };
 }
 
 export function lessonProgress(id: string, raw: RawAcademyProgress): LessonProgressDetail {
   switch (id) {
     case "market-mechanics":
       return {
-        completed: raw.marketMechanics.completed,
+        completed: raw.marketMechanics.completed && raw.marketMechanicsBridge.bridgeCompleted,
         simulatorCompleted: raw.marketMechanics.completed,
-        inProgress: !raw.marketMechanics.completed && raw.marketMechanics.lastStep > 0,
-        bridgeCompleted: raw.marketMechanics.completed,
-        recognitionPassed: raw.marketMechanics.completed,
+        inProgress:
+          (raw.marketMechanics.lastStep > 0 && !raw.marketMechanics.completed) ||
+          (raw.marketMechanics.completed && !raw.marketMechanicsBridge.bridgeCompleted),
+        bridgeCompleted: raw.marketMechanicsBridge.bridgeCompleted,
+        recognitionPassed: raw.marketMechanicsBridge.conceptsMastered.length >= 3,
         replayWatched: false,
-        mastery: raw.marketMechanics.completed,
+        mastery: raw.marketMechanics.completed && raw.marketMechanicsBridge.bridgeCompleted,
       };
     case "order-book":
       return {
@@ -418,10 +472,154 @@ export function lessonProgress(id: string, raw: RawAcademyProgress): LessonProgr
           (raw.liveDesk.lastStep > 0 && !raw.liveDesk.completed) ||
           (raw.liveDesk.completed && !raw.liveDeskBridge.bridgeCompleted),
         bridgeCompleted: raw.liveDeskBridge.bridgeCompleted,
-        recognitionPassed: raw.liveDeskBridge.conceptsMastered.length >= 3,
+        recognitionPassed: raw.liveDeskBridge.conceptsMastered.length >= 7,
         replayWatched: false,
         mastery:
           raw.liveDesk.completed && raw.liveDeskBridge.bridgeCompleted && raw.liveDeskBridge.certified,
+      };
+    case "market-state":
+      return {
+        completed: raw.marketState.completed && raw.marketStateBridge.bridgeCompleted,
+        simulatorCompleted: raw.marketState.completed,
+        inProgress:
+          (raw.marketState.lastStep > 0 && !raw.marketState.completed) ||
+          (raw.marketState.completed && !raw.marketStateBridge.bridgeCompleted),
+        bridgeCompleted: raw.marketStateBridge.bridgeCompleted,
+        recognitionPassed: raw.marketStateBridge.conceptsMastered.length >= 7,
+        replayWatched: false,
+        mastery:
+          raw.marketState.completed && raw.marketStateBridge.bridgeCompleted && raw.marketStateBridge.certified,
+      };
+    case "daily-briefing":
+      return {
+        completed: raw.dailyBriefing.completed && raw.dailyBriefingBridge.bridgeCompleted,
+        simulatorCompleted: raw.dailyBriefing.completed,
+        inProgress:
+          (raw.dailyBriefing.lastStep > 0 && !raw.dailyBriefing.completed) ||
+          (raw.dailyBriefing.completed && !raw.dailyBriefingBridge.bridgeCompleted),
+        bridgeCompleted: raw.dailyBriefingBridge.bridgeCompleted,
+        recognitionPassed: raw.dailyBriefingBridge.conceptsMastered.length >= 7,
+        replayWatched: false,
+        mastery:
+          raw.dailyBriefing.completed && raw.dailyBriefingBridge.bridgeCompleted && raw.dailyBriefingBridge.certified,
+      };
+    case "market-memory":
+      return {
+        completed: raw.marketMemory.completed && raw.marketMemoryBridge.bridgeCompleted,
+        simulatorCompleted: raw.marketMemory.completed,
+        inProgress:
+          (raw.marketMemory.lastStep > 0 && !raw.marketMemory.completed) ||
+          (raw.marketMemory.completed && !raw.marketMemoryBridge.bridgeCompleted),
+        bridgeCompleted: raw.marketMemoryBridge.bridgeCompleted,
+        recognitionPassed: raw.marketMemoryBridge.conceptsMastered.length >= 6,
+        replayWatched: false,
+        mastery:
+          raw.marketMemory.completed && raw.marketMemoryBridge.bridgeCompleted && raw.marketMemoryBridge.certified,
+      };
+    case "crypto-financial-os":
+      return {
+        completed: raw.cryptoFinancialOs.completed && raw.cryptoFinancialOsBridge.bridgeCompleted,
+        simulatorCompleted: raw.cryptoFinancialOs.completed,
+        inProgress:
+          (raw.cryptoFinancialOs.lastStep > 0 && !raw.cryptoFinancialOs.completed) ||
+          (raw.cryptoFinancialOs.completed && !raw.cryptoFinancialOsBridge.bridgeCompleted),
+        bridgeCompleted: raw.cryptoFinancialOsBridge.bridgeCompleted,
+        recognitionPassed: raw.cryptoFinancialOsBridge.conceptsMastered.length >= 5,
+        replayWatched: false,
+        mastery:
+          raw.cryptoFinancialOs.completed &&
+          raw.cryptoFinancialOsBridge.bridgeCompleted &&
+          raw.cryptoFinancialOsBridge.certified,
+      };
+    case "first-trade-checklist":
+      return {
+        completed: raw.firstTradeChecklist.completed && raw.firstTradeChecklistBridge.bridgeCompleted,
+        simulatorCompleted: raw.firstTradeChecklist.completed,
+        inProgress:
+          (raw.firstTradeChecklist.lastStep > 0 && !raw.firstTradeChecklist.completed) ||
+          (raw.firstTradeChecklist.completed && !raw.firstTradeChecklistBridge.bridgeCompleted),
+        bridgeCompleted: raw.firstTradeChecklistBridge.bridgeCompleted,
+        recognitionPassed: raw.firstTradeChecklistBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.firstTradeChecklist.completed &&
+          raw.firstTradeChecklistBridge.bridgeCompleted &&
+          raw.firstTradeChecklistBridge.certified,
+      };
+    case "market-structure":
+      return {
+        completed: raw.marketStructure.completed && raw.marketStructureBridge.bridgeCompleted,
+        simulatorCompleted: raw.marketStructure.completed,
+        inProgress:
+          (raw.marketStructure.lastStep > 0 && !raw.marketStructure.completed) ||
+          (raw.marketStructure.completed && !raw.marketStructureBridge.bridgeCompleted),
+        bridgeCompleted: raw.marketStructureBridge.bridgeCompleted,
+        recognitionPassed: raw.marketStructureBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.marketStructure.completed &&
+          raw.marketStructureBridge.bridgeCompleted &&
+          raw.marketStructureBridge.certified,
+      };
+    case "liquidity-deep":
+      return {
+        completed: raw.liquidityDeep.completed && raw.liquidityDeepBridge.bridgeCompleted,
+        simulatorCompleted: raw.liquidityDeep.completed,
+        inProgress:
+          (raw.liquidityDeep.lastStep > 0 && !raw.liquidityDeep.completed) ||
+          (raw.liquidityDeep.completed && !raw.liquidityDeepBridge.bridgeCompleted),
+        bridgeCompleted: raw.liquidityDeepBridge.bridgeCompleted,
+        recognitionPassed: raw.liquidityDeepBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.liquidityDeep.completed &&
+          raw.liquidityDeepBridge.bridgeCompleted &&
+          raw.liquidityDeepBridge.certified,
+      };
+    case "cross-market":
+      return {
+        completed: raw.crossMarket.completed && raw.crossMarketBridge.bridgeCompleted,
+        simulatorCompleted: raw.crossMarket.completed,
+        inProgress:
+          (raw.crossMarket.lastStep > 0 && !raw.crossMarket.completed) ||
+          (raw.crossMarket.completed && !raw.crossMarketBridge.bridgeCompleted),
+        bridgeCompleted: raw.crossMarketBridge.bridgeCompleted,
+        recognitionPassed: raw.crossMarketBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.crossMarket.completed &&
+          raw.crossMarketBridge.bridgeCompleted &&
+          raw.crossMarketBridge.certified,
+      };
+    case "macro-flows":
+      return {
+        completed: raw.macroFlows.completed && raw.macroFlowsBridge.bridgeCompleted,
+        simulatorCompleted: raw.macroFlows.completed,
+        inProgress:
+          (raw.macroFlows.lastStep > 0 && !raw.macroFlows.completed) ||
+          (raw.macroFlows.completed && !raw.macroFlowsBridge.bridgeCompleted),
+        bridgeCompleted: raw.macroFlowsBridge.bridgeCompleted,
+        recognitionPassed: raw.macroFlowsBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.macroFlows.completed &&
+          raw.macroFlowsBridge.bridgeCompleted &&
+          raw.macroFlowsBridge.certified,
+      };
+    case "intelligence-desk":
+      return {
+        completed: raw.intelligenceDesk.completed && raw.intelligenceDeskBridge.bridgeCompleted,
+        simulatorCompleted: raw.intelligenceDesk.completed,
+        inProgress:
+          (raw.intelligenceDesk.lastStep > 0 && !raw.intelligenceDesk.completed) ||
+          (raw.intelligenceDesk.completed && !raw.intelligenceDeskBridge.bridgeCompleted),
+        bridgeCompleted: raw.intelligenceDeskBridge.bridgeCompleted,
+        recognitionPassed: raw.intelligenceDeskBridge.conceptsMastered.length >= 3,
+        replayWatched: false,
+        mastery:
+          raw.intelligenceDesk.completed &&
+          raw.intelligenceDeskBridge.bridgeCompleted &&
+          raw.intelligenceDeskBridge.certified,
       };
     default:
       return {
@@ -535,7 +733,15 @@ export function recommendedNext(
                             ? "Daily Operations complete — Operator Journal is your trading memory."
                             : lesson.id === "live-desk" && statuses.get("operator-journal") === "completed"
                               ? "Operator Journal complete — Live Desk is your real-time awareness layer."
-                              : `Continue the ${lesson.path} path.`;
+                              : lesson.id === "market-state" && statuses.get("live-desk") === "completed"
+                                ? "Live Desk complete — Market State Layer teaches how to adapt to CALM, ACTIVE, THIN, and STRESS."
+                                : lesson.id === "daily-briefing" && statuses.get("market-state") === "completed"
+                                  ? "Market State complete — Daily Briefing Engine tells you what to pay attention to today."
+                                  : lesson.id === "market-memory" && statuses.get("daily-briefing") === "completed"
+                                    ? "Daily Briefing complete — Market Memory Archive teaches what happened before and why it matters today."
+                                    : lesson.id === "crypto-financial-os" && statuses.get("market-memory") === "completed"
+                                      ? "Market Memory complete — Crypto Financial OS teaches the integrated operating system that powers the terminal."
+                                      : `Continue the ${lesson.path} path.`;
       return { lesson, reason };
     }
   }

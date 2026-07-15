@@ -6,6 +6,7 @@ import { terminalBus } from "@/store/eventBus";
 import { useDecisionEngineStore } from "@/store/useDecisionEngineStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
+import { TERMINAL_TYPO } from "@/lib/theme";
 
 export function AiCopilot() {
   const ai = useTerminalStore((s) => s.ai);
@@ -30,7 +31,10 @@ export function AiCopilot() {
       <div className="flex shrink-0 items-center gap-2 border-b border-terminal-border/50 px-2 py-1.5">
         <Sparkles className="h-3.5 w-3.5 text-neon-green" />
         <span className="font-mono text-[10px] uppercase tracking-widest text-terminal-muted">
-          AI Co-pilot
+          Rules-based Co-pilot
+        </span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+          NO LLM
         </span>
         <span className="ml-auto font-mono text-[10px] text-white/60">
           {selectedAsset?.symbol ?? "—"}
@@ -56,7 +60,7 @@ export function AiCopilot() {
               </div>
             ) : null}
             <p className="font-mono text-[11px] leading-relaxed text-terminal-muted">
-              Ask about funding, open interest, whale flow, or liquidation risk. Use Omni (⌘K) with{" "}
+              Rules-based desk assistant — composes summaries from live HL surfaces. Use Omni (⌘K) with{" "}
               <span className="text-neon-green">/ai</span> prefix.
             </p>
           </div>
@@ -79,7 +83,7 @@ export function AiCopilot() {
         {ai.isThinking ? (
           <div className="flex items-center gap-2 font-mono text-[11px] text-amber-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Analyzing Hyperliquid surfaces…
+            Composing desk summary…
           </div>
         ) : null}
       </div>

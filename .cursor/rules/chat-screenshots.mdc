@@ -1,0 +1,14 @@
+---
+description: Read user screenshots saved via npm run screenshot when they mention a screenshot or UI issue
+alwaysApply: true
+---
+
+# Chat screenshots
+
+When the user mentions a screenshot, screen capture, or "look at this image":
+
+1. Check `.cursor/chat-screenshots/latest.png` first (updated by `npm run screenshot`).
+2. Read that file with the Read tool — it supports PNG/JPG/WebP.
+3. If missing, tell them: Win+Shift+S → `npm run screenshot` → in chat type `@` → select `latest.png`.
+
+Do not ask them to paste into chat if `@` attach fails — the file path workflow is the supported fallback on Windows.

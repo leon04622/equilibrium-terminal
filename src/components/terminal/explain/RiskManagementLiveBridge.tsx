@@ -19,6 +19,7 @@ import {
   ConditionComparison,
   DecisionScenario,
 } from "@/components/terminal/explain/OperatorDecisionPanels";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { LiveRiskManagementCoach } from "@/lib/education/liveRiskManagementCoach";
 import {
   RISK_MANAGEMENT_BRIDGE_PANEL,
@@ -27,7 +28,8 @@ import {
   type RiskBridgePanel,
   type RiskBridgeRegion,
 } from "@/lib/education/riskManagementBridgeSteps";
-import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { humanizeForSpeech, speakAcademyBridgeStep } from "@/lib/education/academyVoice";
+import { bridgeRecognizeRegion, useAcademyBridgeSpotlight } from "@/lib/education/useAcademyBridgeSpotlight";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -42,13 +44,6 @@ import { useRiskManagementBridgeStore } from "@/store/useRiskManagementBridgeSto
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const steps = RISK_MANAGEMENT_BRIDGE_STEPS;
-
-interface Rect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
 
 function estimateMs(text: string): number {
   return Math.max(2800, text.length * 58);
@@ -94,16 +89,14 @@ export function RiskManagementLiveBridge() {
   const recognized = useRiskManagementBridgeStore((s) => s.recognized);
   const setStoreStep = useRiskManagementBridgeStore((s) => s.setStep);
 
-  const setFocusMode = useOperatorGuideStore((s) => s.setFocusMode);
   const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
   const setPortfolioTab = usePortfolioDeskStore((s) => s.setActiveTab);
   const snapshot = usePortfolioDeskStore((s) => s.snapshot);
 
   const supported = lessonVoiceSupported();
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-  const [rect, setRect] = useState<Rect | null>(null);
   const [feedback, setFeedback] = useState<"idle" | "correct" | "wrong">("idle");
   const [interactiveDone, setInteractiveDone] = useState(false);
 
@@ -117,6 +110,14 @@ export function RiskManagementLiveBridge() {
   voiceOnRef.current = voiceOn;
 
   const step = steps[Math.min(index, steps.length - 1)];
+
+  const rect = useAcademyBridgeSpotlight({
+    active,
+    index,
+    step,
+    getTargetEl: (s) =>
+      s ? regionEl(s.bridgePanel, bridgeRecognizeRegion(s) as RiskBridgeRegion) : null,
+  });
 
   const clearTimers = useCallback(() => {
     if (holdTimer.current) {
@@ -144,7 +145,6 @@ export function RiskManagementLiveBridge() {
         s.id === "pre-risk"
           ? LiveRiskManagementCoach.preRiskChecklist().map((item) => `${item.label}: ${item.note}`)
           : [];
-      const text = buildBridgeNarration(s, coachText, snap, extras);
       const waits = s.mode === "recognize" || s.mode === "decide" || s.mode === "compare";
       const after = () => {
         if (tokenRef.current !== token || waits) return;
@@ -152,10 +152,15 @@ export function RiskManagementLiveBridge() {
           if (playingRef.current && i < steps.length - 1) setIndex(i + 1);
         }, 1700);
       };
-      speakAcademyNarration(text, {
+      speakAcademyBridgeStep(s, coachText, snap, {
+        extraParts: extras,
+        scrollTarget:
+          s.mode === "recognize"
+            ? regionEl(s.bridgePanel, bridgeRecognizeRegion(s) as RiskBridgeRegion)
+            : undefined,
+        scrollSmooth: true,
         voiceOn: voiceOnRef.current,
         supported,
-        rate: 0.94,
         onEnd: after,
         onError: after,
       });
@@ -173,50 +178,30 @@ export function RiskManagementLiveBridge() {
 
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     setPortfolioTab("risk");
     setHighlightPanel("ticket");
-    setFocusMode(true);
     terminalBus.emit("widget:focus", { widgetId: "ticket" });
     return () => {
-      setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, runId, setFocusMode, setHighlightPanel, setPortfolioTab]);
+  }, [active, runId, setHighlightPanel, setPortfolioTab]);
 
   useEffect(() => {
     if (!active) return;
     setIndex(0);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
   }, [active, runId]);
 
   useEffect(() => {
     if (!active) return;
     setStoreStep(index);
+    if (!playingRef.current) return;
     enter(index);
     return () => {
       clearTimers();
     };
   }, [active, runId, index, enter, setStoreStep, clearTimers]);
-
-  useEffect(() => {
-    if (!active || step?.mode === "recognize") {
-      setRect(null);
-      return;
-    }
-    let raf = 0;
-    const tick = () => {
-      const el = regionEl(step.bridgePanel, step?.region ?? null);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else setRect(null);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, index, step?.mode, step?.region, step?.bridgePanel]);
 
   useEffect(() => {
     if (!active) return;
@@ -236,7 +221,7 @@ export function RiskManagementLiveBridge() {
       if (!region || !cur.recognize.accept.includes(region)) {
         if (region) {
           setFeedback("wrong");
-          if (voiceOnRef.current) speakLesson(cur.recognize.nudge, { rate: 0.95 });
+          if (voiceOnRef.current) speakLesson(humanizeForSpeech(cur.recognize.nudge), { rate: 0.9, pitch: 0.97 });
           setTimeout(() => setFeedback("idle"), 1600);
         }
         return;
@@ -273,7 +258,7 @@ export function RiskManagementLiveBridge() {
         />
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-[160] flex justify-center px-3 pb-3">
+      <div data-academy-bridge-chrome className="fixed inset-x-0 top-12 z-[160] flex justify-center px-3 pt-2">
         <div
           className={cn(
             "w-full max-w-xl border bg-slate-950/95 backdrop-blur",
@@ -444,10 +429,11 @@ export function RiskManagementLiveBridge() {
             ) : (
               <button
                 type="button"
+                aria-label="Next step"
                 onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))}
                 className={cn(TERMINAL_TYPO.micro, "border border-emerald-700/50 px-2 py-1 text-emerald-300")}
               >
-                NEXT <ArrowRight className="inline h-3 w-3" />
+                <AcademyNextLabel />
               </button>
             )}
           </div>

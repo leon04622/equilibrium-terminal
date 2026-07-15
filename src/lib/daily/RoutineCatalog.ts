@@ -6,7 +6,7 @@ export const OPERATIONAL_ROUTINES: OperationalRoutine[] = [
     id: "morning_briefing",
     label: "MORNING BRIEFING",
     description: "Session context → surveillance → macro → journal",
-    panelSequence: ["dailyops", "surveillance", "macro", "traderjournal"],
+    panelSequence: ["dailyops", "surveillance", "macro", "operatorjournal"],
     checklist: ["Read overnight brief", "Check macro calendar", "Review watchlist intel"],
   },
   {
@@ -48,7 +48,7 @@ export const OPERATIONAL_ROUTINES: OperationalRoutine[] = [
     id: "post_session_review",
     label: "POST-SESSION REVIEW",
     description: "Journal → alerts → memory",
-    panelSequence: ["traderjournal", "alerts", "dailyops"],
+    panelSequence: ["operatorjournal", "alerts", "dailyops"],
     checklist: ["Log trades", "Review alerts", "Archive session note"],
   },
 ];
@@ -58,14 +58,20 @@ export class RoutineCatalog {
     return OPERATIONAL_ROUTINES.find((r) => r.id === id);
   }
 
+  /** Canonical journal panel for operator workflows. */
+  static resolvePanel(widgetId: string): string {
+    return widgetId === "traderjournal" ? "operatorjournal" : widgetId;
+  }
+
   static launch(id: RoutineId): void {
     const routine = RoutineCatalog.get(id);
     if (!routine) return;
-    routine.panelSequence.forEach((widgetId, i) => {
+    const panels = routine.panelSequence.map((w) => RoutineCatalog.resolvePanel(w));
+    panels.forEach((widgetId, i) => {
       window.setTimeout(() => {
         terminalBus.emit("widget:focus", { widgetId });
       }, i * 150);
     });
-    terminalBus.emit("widget:focus", { widgetId: routine.panelSequence[0] });
+    terminalBus.emit("widget:focus", { widgetId: panels[0] });
   }
 }

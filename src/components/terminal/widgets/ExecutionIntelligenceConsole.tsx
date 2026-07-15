@@ -1,6 +1,8 @@
 "use client";
 
 import { Activity } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { ExecutionAnalyticsOrchestrator } from "@/lib/execution-analytics/ExecutionAnalyticsOrchestrator";
@@ -27,7 +29,11 @@ function sev(s: string): string {
 }
 
 export function ExecutionIntelligenceConsole() {
-  const snapshot = useExecutionAnalyticsStore((s) => s.snapshot);
+  const storeSnapshot = useExecutionAnalyticsStore((s) => s.snapshot);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    ExecutionAnalyticsOrchestrator.snapshot(selectedCoin),
+  );
   const activeTab = useExecutionAnalyticsStore((s) => s.activeTab);
   const setActiveTab = useExecutionAnalyticsStore((s) => s.setActiveTab);
   const setActiveMode = useExecutionAnalyticsStore((s) => s.setActiveMode);

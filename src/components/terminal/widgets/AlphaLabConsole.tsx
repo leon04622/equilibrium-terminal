@@ -185,6 +185,9 @@ export function AlphaLabConsole() {
         )}
       >
         <span>ALPHA LAB</span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-amber-500/30 px-1 text-amber-400")}>
+          SYNTHETIC BT
+        </span>
         <span className={TERMINAL_TYPO.micro}>
           <span className={pipelineActive ? terminalSkin.textUp : terminalSkin.textDown}>
             {pipelineActive ? "PIPE ON" : "PIPE OFF"}

@@ -8,6 +8,12 @@ import type {
 
 export type DistributionTab = "tape" | "incidents" | "briefings" | "personal" | "delivery" | "syndication";
 
+function snapshotFingerprint(snapshot: InformationDistributionSnapshot): string {
+  const top = snapshot.newswire[0]?.id ?? "";
+  const inc = snapshot.incidents[0]?.id ?? "";
+  return `${snapshot.newswire.length}:${top}:${snapshot.incidents.length}:${inc}:${snapshot.distributionScore}`;
+}
+
 export interface InformationDistributionState {
   snapshot: InformationDistributionSnapshot | null;
   activeTab: DistributionTab;
@@ -31,11 +37,16 @@ export const useInformationDistributionStore = create<InformationDistributionSta
     pipelineActive: false,
 
     setSnapshot: (snapshot) =>
-      set((s) => ({
-        snapshot,
-        pipelineActive: true,
-        wireVersion: s.wireVersion + 1,
-      })),
+      set((s) => {
+        const fp = snapshotFingerprint(snapshot);
+        const prevFp = s.snapshot ? snapshotFingerprint(s.snapshot) : "";
+        if (fp === prevFp) return s;
+        return {
+          snapshot,
+          pipelineActive: true,
+          wireVersion: s.wireVersion + 1,
+        };
+      }),
     setActiveTab: (activeTab) => set({ activeTab }),
     bumpWireVersion: () => set((s) => ({ wireVersion: s.wireVersion + 1 })),
     setChannelPrefs: (patch) => {

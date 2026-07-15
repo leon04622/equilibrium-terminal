@@ -240,6 +240,9 @@ export function InfraDiagnostics() {
             <span className="ml-2 text-slate-500">HASH {lastSnapshotHash.slice(0, 12)}…</span>
           ) : null}
         </p>
+        <p className={cn(TERMINAL_TYPO.micro, "mb-1 text-amber-400/80")}>
+          Cloud snapshots persist to disk (/tmp on serverless) — warm-instance only until KV ships.
+        </p>
         <div className="space-y-px">
           {recentLogs.length === 0 ? (
             <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>NO PERSISTENCE EVENTS</p>

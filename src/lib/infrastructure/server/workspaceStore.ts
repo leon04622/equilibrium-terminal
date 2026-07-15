@@ -1,6 +1,19 @@
 import type { WorkspaceSnapshotRecord } from "@/types/production-platform";
+import {
+  hydrateWorkspaceSnapshotsFromDisk,
+  readWorkspaceSnapshotFromDisk,
+  writeWorkspaceSnapshotToDisk,
+  workspacePersistenceMode,
+} from "@/lib/infrastructure/server/workspaceDiskStore";
 
 const snapshots = new Map<string, WorkspaceSnapshotRecord>();
+let hydrated = false;
+
+function ensureHydrated(): void {
+  if (hydrated) return;
+  hydrated = true;
+  hydrateWorkspaceSnapshotsFromDisk(snapshots);
+}
 
 export function workspaceKey(userId: string, workspaceId: string): string {
   return `${userId}::${workspaceId}`;
@@ -11,17 +24,31 @@ export function saveWorkspaceSnapshot(
   workspaceId: string,
   record: WorkspaceSnapshotRecord,
 ): void {
-  snapshots.set(workspaceKey(userId, workspaceId), record);
+  ensureHydrated();
+  const key = workspaceKey(userId, workspaceId);
+  snapshots.set(key, record);
+  writeWorkspaceSnapshotToDisk(userId, workspaceId, record);
 }
 
 export function loadWorkspaceSnapshot(
   userId: string,
   workspaceId: string,
 ): WorkspaceSnapshotRecord | null {
-  return snapshots.get(workspaceKey(userId, workspaceId)) ?? null;
+  ensureHydrated();
+  const key = workspaceKey(userId, workspaceId);
+  const cached = snapshots.get(key);
+  if (cached) return cached;
+
+  const fromDisk = readWorkspaceSnapshotFromDisk(userId, workspaceId);
+  if (fromDisk) {
+    snapshots.set(key, fromDisk);
+    return fromDisk;
+  }
+  return null;
 }
 
 export function listWorkspaceIds(userId: string): string[] {
+  ensureHydrated();
   const prefix = `${userId}::`;
   const ids: string[] = [];
   for (const key of Array.from(snapshots.keys())) {
@@ -30,4 +57,8 @@ export function listWorkspaceIds(userId: string): string[] {
     }
   }
   return ids;
+}
+
+export function getWorkspacePersistenceMode(): "disk" | "memory" {
+  return workspacePersistenceMode();
 }

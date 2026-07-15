@@ -1,6 +1,7 @@
 "use client";
 
 import { CreditCard } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { BillingDeskOrchestrator } from "@/lib/billing-desk/BillingDeskOrchestrator";
@@ -31,7 +32,8 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function BillingDeskConsole() {
-  const snapshot = useBillingDeskStore((s) => s.snapshot);
+  const storeSnapshot = useBillingDeskStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => BillingDeskOrchestrator.snapshot());
   const activeTab = useBillingDeskStore((s) => s.activeTab);
   const setActiveTab = useBillingDeskStore((s) => s.setActiveTab);
   const setActiveMode = useBillingDeskStore((s) => s.setActiveMode);

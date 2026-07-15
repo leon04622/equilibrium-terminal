@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { TradeTypesPlayground } from "@/components/terminal/explain/trade-types/TradeTypesPlayground";
 import { TRADE_TYPES_SCENES } from "@/lib/education/tradeTypesScenes";
 import { useLessonSceneDriver } from "@/lib/education/useLessonSceneDriver";
@@ -41,6 +42,7 @@ export function TradeTypesSimulator() {
     playing,
     voiceOn,
     scene,
+    captionVoice,
     reduceMotion,
     exit,
     togglePlay,
@@ -106,7 +108,7 @@ export function TradeTypesSimulator() {
       </div>
 
       <p className="shrink-0 px-4 pb-1 text-center font-mono text-xs text-slate-300" aria-live="polite">
-        {scene.voice}
+        {captionVoice}
       </p>
 
       <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-slate-800 px-3 py-2.5">
@@ -148,7 +150,7 @@ export function TradeTypesSimulator() {
             onClick={() => setIndex(index + 1)}
             className={cn(TERMINAL_TYPO.micro, "border border-amber-700/50 px-2 py-1 text-amber-300")}
           >
-            NEXT <ArrowRight className="inline h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

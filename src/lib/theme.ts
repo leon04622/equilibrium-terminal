@@ -76,6 +76,10 @@ export {
   resolvePanelEmphasis,
 } from "@/lib/theme/equilibrium-visual";
 export {
+  BLOOMBERG,
+  isBloombergChrome,
+} from "@/lib/theme/bloomberg";
+export {
   DENSITY_PRESETS,
   INSTITUTIONAL_INTERACTION,
   MODE_CHROME,

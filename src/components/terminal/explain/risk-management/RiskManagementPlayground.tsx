@@ -256,6 +256,8 @@ export function RiskManagementPlayground({
       return <RiskPerTradeScene animate={animate} sceneKey={sceneKey} />;
     case "riskReward":
       return <RiskRewardScene animate={animate} sceneKey={sceneKey} />;
+    case "volatilityRisk":
+      return <DrawdownsScene animate={animate} sceneKey={sceneKey} />;
     case "drawdowns":
       return <DrawdownsScene animate={animate} sceneKey={sceneKey} />;
     case "accountSurvival":

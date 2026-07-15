@@ -49,6 +49,7 @@ export function OmniBar() {
   const index = useInformationDiscoveryStore((s) => s.index);
   const terminalMode = useAdaptiveWorkspaceStore((s) => s.mode);
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
+  const omniFeedback = useTerminalStore((s) => s.omniFeedback);
   const { submit, selectIndexEntry } = useOmniCommand();
 
   const [query, setQuery] = useState("");
@@ -148,10 +149,10 @@ export function OmniBar() {
           className={cn(
             "border-b border-slate-800 px-2 py-0.5",
             TERMINAL_TYPO.micro,
-            "text-slate-500",
+            omniFeedback ? "text-amber-400" : "text-slate-500",
           )}
         >
-          CTX · {contextLabel} · / · ENTER
+          {omniFeedback ?? `CTX · ${contextLabel} · / · ENTER`}
         </div>
         <CommandInput
           placeholder="BTC · /chart ETH · /depth · /exec buy BTC · /monitor funding · /desk"

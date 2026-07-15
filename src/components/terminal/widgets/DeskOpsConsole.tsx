@@ -1,10 +1,12 @@
 "use client";
 
 import { Users } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { DeskOpsOrchestrator } from "@/lib/desk-ops/DeskOpsOrchestrator";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
-import { DeskOpsOrchestrator } from "@/lib/desk-ops/DeskOpsOrchestrator";
 import { useDeskOpsStore, type DeskOpsTab } from "@/store/useDeskOpsStore";
+import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import type { DeskOpsModeId } from "@/types/desk-operations";
 
 const TABS: { id: DeskOpsTab; label: string }[] = [
@@ -30,10 +32,13 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function DeskOpsConsole() {
-  const snapshot = useDeskOpsStore((s) => s.snapshot);
+  const storeSnapshot = useDeskOpsStore((s) => s.snapshot);
   const activeTab = useDeskOpsStore((s) => s.activeTab);
   const setActiveTab = useDeskOpsStore((s) => s.setActiveTab);
   const setActiveMode = useDeskOpsStore((s) => s.setActiveMode);
+  const entitled = useProductionConfigStore((s) => s.isEntitled("teamNetEnabled"));
+
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => DeskOpsOrchestrator.snapshot());
 
   if (!snapshot) {
     return (
@@ -65,6 +70,12 @@ export function DeskOpsConsole() {
           {snapshot.asset} · {snapshot.telemetry.activeMembers} active · {snapshot.telemetry.computeLatencyMs}ms
         </span>
       </header>
+
+      {!entitled ? (
+        <p className={cn(terminalSkin.borderB, TERMINAL_TYPO.micro, "shrink-0 bg-cyan-950/30 px-2 py-1 text-cyan-400/90")}>
+          Preview mode — local desk ops demo. Team tier unlocks live coordination sync.
+        </p>
+      ) : null}
 
       <nav className={cn(terminalSkin.borderB, "flex shrink-0 flex-wrap gap-0.5 p-0.5")}>
         {TABS.map((t) => (

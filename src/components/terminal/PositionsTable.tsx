@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { X, Loader2 } from "lucide-react";
 import { cn, formatPrice, formatSize } from "@/lib/utils";
 import { useHyperliquidAuthContext } from "@/contexts/HyperliquidAuthContext";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
+import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import type { PositionRow } from "@/types/account";
+import { useBuilderFeeGate } from "@/hooks/useBuilderFeeGate";
+import { BuilderFeeApprovalModal } from "@/components/terminal/BuilderFeeApprovalModal";
+import { spotBaseSymbol } from "@/lib/hyperliquid/spotDesk";
 
 function subscribePositions(callback: () => void) {
   return useHyperliquidStore.subscribe((s) => s.positionsVersion, () => callback());
@@ -89,15 +93,101 @@ function PositionRowView({
 }
 
 export function PositionsTable() {
-  const { isConnected, closePositionMarket, connectWallet, isConnecting } =
-    useHyperliquidAuthContext();
+  const {
+    isConnected,
+    closePositionMarket,
+    executeOrder,
+    connectWallet,
+    isConnecting,
+    authError,
+  } = useHyperliquidAuthContext();
+  const deskMode = useDeskExecutionStore((s) => s.mode);
+  const paperPositions = useDeskExecutionStore((s) => s.paperPositions);
+  const {
+    modalOpen: builderModalOpen,
+    modalContext: builderModalContext,
+    builderFeeApproving,
+    authError: builderAuthError,
+    runWithBuilderFee,
+    cancelModal: cancelBuilderModal,
+    confirmApproval: confirmBuilderApproval,
+  } = useBuilderFeeGate();
   const accountValue = useHyperliquidStore((s) => s.accountValue);
   const withdrawable = useHyperliquidStore((s) => s.withdrawable);
   const orderPending = useHyperliquidStore((s) => s.orderPending);
   const walletAddress = useHyperliquidStore((s) => s.walletAddress);
+  const spotBalances = useHyperliquidStore((s) => s.spotBalances);
+  const assets = useHyperliquidStore((s) => s.assets);
+  const mids = useHyperliquidStore((s) => s.mids.mids);
 
   useSyncExternalStore(subscribePositions, getPositions, getPositions);
   const positions = useHyperliquidStore((s) => s.positions);
+
+  const spotHoldings = useMemo(() => {
+    if (deskMode === "paper") {
+      return paperPositions
+        .filter((p) => p.size > 0 && assets.some((a) => a.market === "spot" && a.coin === p.coin))
+        .map((p) => {
+          const asset = assets.find((a) => a.coin === p.coin);
+          return {
+            coin: p.coin,
+            symbol: spotBaseSymbol(p.coin),
+            size: p.size,
+            mark: mids[p.coin] ?? p.avgPx,
+            assetIndex: asset?.assetIndex ?? 0,
+            szDecimals: asset?.szDecimals ?? 4,
+          };
+        });
+    }
+    return spotBalances
+      .filter((b) => b.coin !== "USDC" && b.available > 0)
+      .map((b) => {
+        const asset = assets.find(
+          (a) => a.market === "spot" && spotBaseSymbol(a.coin) === b.coin,
+        );
+        const pairCoin = asset?.coin ?? `${b.coin}/USDC`;
+        const mark =
+          mids[pairCoin] ??
+          (b.usdcValue && b.available > 0 ? b.usdcValue / b.available : 0);
+        return {
+          coin: pairCoin,
+          symbol: b.coin,
+          size: b.available,
+          mark,
+          assetIndex: asset?.assetIndex ?? 10_000,
+          szDecimals: asset?.szDecimals ?? 4,
+        };
+      })
+      .filter((h) => h.assetIndex > 0);
+  }, [assets, deskMode, mids, paperPositions, spotBalances]);
+
+  const requestClose = (row: PositionRow) => {
+    const executeClose = () =>
+      void closePositionMarket(row.coin, row.assetIndex, row.size, row.markPrice);
+    if (deskMode !== "live") {
+      executeClose();
+      return;
+    }
+    runWithBuilderFee({ isPerp: true, context: "close", action: executeClose });
+  };
+
+  const requestSpotSell = (holding: (typeof spotHoldings)[number]) => {
+    const executeSell = () =>
+      void executeOrder({
+        coin: holding.coin,
+        asset: holding.assetIndex,
+        isBuy: false,
+        size: holding.size,
+        mode: "market",
+        markPx: holding.mark,
+        szDecimals: holding.szDecimals,
+      });
+    if (deskMode === "live") {
+      runWithBuilderFee({ isPerp: false, context: "close", action: executeSell });
+      return;
+    }
+    executeSell();
+  };
 
   if (!isConnected || !walletAddress) {
     return (
@@ -134,7 +224,10 @@ export function PositionsTable() {
         </div>
         <div className="text-right" data-positions-region="position-count">
           <p className="text-terminal-muted uppercase tracking-wider">Positions</p>
-          <p className="text-sm tabular-nums text-white">{positions.length}</p>
+          <p className="text-sm tabular-nums text-white">
+            {positions.length}
+            {spotHoldings.length > 0 ? ` + ${spotHoldings.length} spot` : ""}
+          </p>
         </div>
       </div>
 
@@ -167,20 +260,69 @@ export function PositionsTable() {
                   key={row.id}
                   row={row}
                   closing={orderPending}
-                  onClose={() =>
-                    void closePositionMarket(
-                      row.coin,
-                      row.assetIndex,
-                      row.size,
-                      row.markPrice,
-                    )
-                  }
+                  onClose={() => requestClose(row)}
                 />
               ))
             )}
           </tbody>
         </table>
+
+        {spotHoldings.length > 0 ? (
+          <table className="mt-2 w-full border-t border-terminal-border/40 font-mono text-[11px]">
+            <thead className="bg-terminal-panel/95 text-[9px] uppercase tracking-widest text-terminal-muted">
+              <tr>
+                <th className="px-2 py-1.5 text-left" colSpan={5}>
+                  Spot holdings
+                </th>
+                <th className="px-1 py-1.5 text-center">Sell</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spotHoldings.map((h) => (
+                <tr key={h.coin} className="border-b border-white/5 hover:bg-white/[0.03]">
+                  <td className="px-2 py-1.5" colSpan={2}>
+                    <span className="font-semibold text-white">{h.coin}</span>
+                    <span className="ml-1.5 text-[9px] text-cyan-400">SPOT</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-white/90">
+                    {formatSize(h.size)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-white/80">
+                    {h.mark > 0 ? formatPrice(h.mark) : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-terminal-muted">
+                    {h.mark > 0 ? `$${(h.size * h.mark).toFixed(2)}` : "—"}
+                  </td>
+                  <td className="px-1 py-1 text-center">
+                    <button
+                      type="button"
+                      onClick={() => requestSpotSell(h)}
+                      disabled={orderPending}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded border border-neon-ruby/40 text-neon-ruby transition hover:bg-neon-ruby/20 disabled:opacity-40"
+                      aria-label={`Market sell ${h.coin}`}
+                    >
+                      {orderPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </div>
+
+      <BuilderFeeApprovalModal
+        open={builderModalOpen}
+        approving={builderFeeApproving}
+        authError={builderAuthError ?? authError}
+        context={builderModalContext}
+        onApprove={() => void confirmBuilderApproval()}
+        onCancel={cancelBuilderModal}
+      />
     </div>
   );
 }

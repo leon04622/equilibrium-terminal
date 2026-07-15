@@ -3,21 +3,21 @@
 import type { MarketRegime } from "@/types/market-atmosphere";
 import type { PanelEmphasis } from "@/store/useAdaptiveWorkspaceStore";
 
-/** Proprietary Equilibrium chart palette (not default TradingView greens). */
+/** Trading-platform chart palette (TradingView-style greens/reds on dark canvas). */
 export const EQ_CHART = {
-  background: "transparent",
-  text: "rgba(148, 163, 184, 0.72)",
-  grid: "rgba(30, 41, 59, 0.85)",
-  gridAccent: "rgba(51, 65, 85, 0.45)",
-  border: "rgba(51, 65, 85, 0.6)",
-  crosshair: "rgba(0, 229, 255, 0.35)",
-  crosshairLabel: "rgba(2, 6, 23, 0.92)",
-  up: "#0d9f6e",
-  upWick: "#14b87a",
-  down: "#c42d52",
-  downWick: "#e03d66",
-  volumeUp: "rgba(13, 159, 110, 0.28)",
-  volumeDown: "rgba(196, 45, 82, 0.28)",
+  background: "#0d1117",
+  text: "rgba(180, 187, 198, 0.85)",
+  grid: "rgba(42, 46, 57, 0.65)",
+  gridAccent: "rgba(54, 58, 69, 0.45)",
+  border: "rgba(42, 46, 57, 0.9)",
+  crosshair: "rgba(120, 123, 134, 0.55)",
+  crosshairLabel: "rgba(19, 23, 34, 0.95)",
+  up: "#089981",
+  upWick: "#089981",
+  down: "#f23645",
+  downWick: "#f23645",
+  volumeUp: "rgba(8, 153, 129, 0.45)",
+  volumeDown: "rgba(242, 54, 69, 0.45)",
 } as const;
 
 export const REGIME_VISUAL: Record<

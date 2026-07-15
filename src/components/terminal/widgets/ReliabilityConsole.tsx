@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, ShieldCheck, Siren, Trash2 } from "lucide-react";
+import { Activity, Download, ShieldCheck, Siren, Trash2 } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { ReliabilityOrchestrator } from "@/lib/reliability";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { AuditLogEngine } from "@/lib/security/AuditLogEngine";
+import { downloadAuditCsv, fetchServerAudit } from "@/lib/security/serverAuditClient";
 import { useHardeningStore } from "@/store/useHardeningStore";
 import { useReliabilityStore } from "@/store/useReliabilityStore";
 import { useSecurityStore } from "@/store/useSecurityStore";
@@ -28,13 +31,21 @@ function hardeningColor(s: HardeningStatus): string {
 }
 
 export function ReliabilityConsole() {
-  const snapshot = useReliabilityStore((s) => s.snapshot);
+  const storeSnapshot = useReliabilityStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => ReliabilityOrchestrator.snapshot());
   const auditLog = useReliabilityStore((s) => s.auditLog);
   const clearAudit = useReliabilityStore((s) => s.clearAudit);
   const trust = useSecurityStore((s) => s.snapshot);
   const hardening = useHardeningStore((s) => s.snapshot);
   const securityAudit = AuditLogEngine.load();
   const [tab, setTab] = useState<ReliabilityTab>("runtime");
+  const [serverAuditCount, setServerAuditCount] = useState<number | null>(null);
+
+  const pullServerAudit = async () => {
+    const entries = await fetchServerAudit(120);
+    setServerAuditCount(entries.length);
+    if (entries.length > 0) downloadAuditCsv(entries, "equilibrium-server-audit.csv");
+  };
 
   if (!snapshot) {
     return (
@@ -199,8 +210,8 @@ export function ReliabilityConsole() {
 
         {tab === "audit" ? (
           <section>
-            <div className="mb-1 flex items-center justify-between">
-              <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>AUDIT LOG</span>
+            <div className="mb-1 flex items-center justify-between gap-1">
+              <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>RUNTIME AUDIT</span>
               <button
                 type="button"
                 onClick={clearAudit}
@@ -227,6 +238,69 @@ export function ReliabilityConsole() {
                   </div>
                   <p className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>{e.summary}</p>
                   <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{e.detail}</p>
+                </div>
+              ))
+            )}
+
+            <div className={cn(terminalSkin.borderB, "mb-1 mt-2 flex items-center justify-between pt-1")}>
+              <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+                EXECUTION AUDIT ({securityAudit.length})
+                {serverAuditCount != null ? ` · server ${serverAuditCount}` : ""}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void pullServerAudit()}
+                  className={cn(
+                    TERMINAL_TYPO.micro,
+                    "flex items-center gap-1 text-slate-500 hover:text-cyan-300",
+                  )}
+                >
+                  <Download className="h-3 w-3" /> SERVER CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => AuditLogEngine.downloadCsv()}
+                  disabled={securityAudit.length === 0}
+                  className={cn(
+                    TERMINAL_TYPO.micro,
+                    "flex items-center gap-1 text-slate-500 hover:text-cyan-300 disabled:opacity-40",
+                  )}
+                >
+                  <Download className="h-3 w-3" /> LOCAL CSV
+                </button>
+              </div>
+            </div>
+            <p className={cn(TERMINAL_TYPO.micro, "mb-1 text-slate-600")}>
+              Server audit persists across redeploys when Vercel KV is connected (KV_REST_API_*).
+            </p>
+            {securityAudit.length === 0 ? (
+              <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>No execution audit entries yet.</p>
+            ) : (
+              securityAudit.slice(0, 40).map((e) => (
+                <div key={e.id} className={cn(terminalSkin.borderB, "mb-0.5 py-0.5")}>
+                  <div className="flex items-center gap-1">
+                    <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+                      {e.category}/{e.action}
+                    </span>
+                    <span
+                      className={cn(
+                        TERMINAL_TYPO.micro,
+                        e.outcome === "ok"
+                          ? terminalSkin.textUp
+                          : e.outcome === "denied"
+                            ? terminalSkin.textWarn
+                            : terminalSkin.textDown,
+                      )}
+                    >
+                      {e.outcome.toUpperCase()}
+                    </span>
+                    <span className={cn(TERMINAL_TYPO.micro, "ml-auto text-slate-600")}>
+                      {new Date(e.at).toISOString().slice(11, 19)}
+                    </span>
+                  </div>
+                  <p className={cn(TERMINAL_TYPO.micro, "truncate text-slate-400")}>{e.detail}</p>
+                  <p className={cn(TERMINAL_TYPO.micro, "text-slate-700")}>{e.traceId}</p>
                 </div>
               ))
             )}

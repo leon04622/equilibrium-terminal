@@ -31,6 +31,13 @@ export const ACADEMY_SIMULATOR_VOICE_RATE = 0.98;
 /** Default narrator rate for live bridge coach lines. */
 export const ACADEMY_BRIDGE_VOICE_RATE = 1.0;
 
+/** Frozen platform modules — bump version when changing contracts. */
+export const LIVE_DESK_MODULE_VERSION = "v1" as const;
+export const MARKET_STATE_MODULE_VERSION = "v1" as const;
+export const DAILY_BRIEFING_MODULE_VERSION = "v1" as const;
+export const MARKET_MEMORY_MODULE_VERSION = "v1" as const;
+export const CRYPTO_FINANCIAL_OS_MODULE_VERSION = "v1" as const;
+
 export const LIVE_ACADEMY_LESSON_IDS = [
   "market-mechanics",
   "order-book",
@@ -44,6 +51,16 @@ export const LIVE_ACADEMY_LESSON_IDS = [
   "daily-operations",
   "operator-journal",
   "live-desk",
+  "market-state",
+  "daily-briefing",
+  "market-memory",
+  "crypto-financial-os",
+  "first-trade-checklist",
+  "market-structure",
+  "liquidity-deep",
+  "cross-market",
+  "macro-flows",
+  "intelligence-desk",
 ] as const;
 
 export type LiveAcademyLessonId = (typeof LIVE_ACADEMY_LESSON_IDS)[number];

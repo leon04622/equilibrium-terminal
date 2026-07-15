@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Brain, Shield, Target, Zap } from "lucide-react";
+import { TerminalSelect } from "@/components/ui/TerminalSelect";
 import { MODE_LABELS } from "@/lib/decision/DecisionModeWeights";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
@@ -115,20 +116,16 @@ export function DecisionCommandCenter() {
         >
           {pipelineActive ? "LIVE" : "—"}
         </span>
-        <select
+        <TerminalSelect
           value={traderMode}
-          onChange={(e) => setTraderMode(e.target.value as DecisionTraderMode)}
-          className={cn(
-            TERMINAL_TYPO.micro,
-            "ml-auto border-0 bg-transparent text-cyan-400 outline-none",
-          )}
-        >
-          {(Object.keys(MODE_LABELS) as DecisionTraderMode[]).map((m) => (
-            <option key={m} value={m}>
-              {MODE_LABELS[m]}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setTraderMode(v as DecisionTraderMode)}
+          className="ml-auto text-cyan-400"
+          title="Trader mode"
+          options={(Object.keys(MODE_LABELS) as DecisionTraderMode[]).map((m) => ({
+            value: m,
+            label: MODE_LABELS[m],
+          }))}
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

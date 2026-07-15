@@ -105,6 +105,16 @@ export interface NormalizedWebData {
   updatedAt: number;
 }
 
+export interface NormalizedSpotBalance {
+  coin: string;
+  token: number;
+  total: number;
+  hold: number;
+  available: number;
+  entryNtl: number;
+  usdcValue: number | null;
+}
+
 export interface IntelligenceItem {
   id: string;
   coin: string;
@@ -150,6 +160,8 @@ export type WidgetType =
   | "traderjournal"
   | "research"
   | "dailyops"
+  | "marketstate"
+  | "dailybriefing"
   | "marketcoverage"
   | "reliability"
   | "newswire"
@@ -182,13 +194,35 @@ export type WidgetType =
   | "livedeploy"
   | "explaindesk"
   | "operatorjournal"
-  | "livementor";
+  | "livementor"
+  | "operatormode"
+  | "paperblotter"
+  | "liveblotter"
+  | "screener"
+  | "instrumentmaster"
+  | "crossvenue"
+  | "settlementledger"
+  | "tradesurveillance";
 
 export interface TradeTicketDraft {
   side?: "buy" | "sell";
   size?: string;
   coin?: string;
   version: number;
+}
+
+export interface LiveExecutionEvent {
+  traceId: string;
+  at: number;
+  action: "place_order" | "close_position";
+  mode: "live" | "paper";
+  coin: string;
+  side: "buy" | "sell";
+  size: number;
+  builderAttached: boolean;
+  outcome: "ok" | "error";
+  detail: string;
+  hint: string | null;
 }
 
 export interface WorkspaceWidget {

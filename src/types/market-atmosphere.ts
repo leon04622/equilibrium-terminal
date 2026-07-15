@@ -67,6 +67,7 @@ export interface TacticalWireItem {
   notionalUsd?: number;
   timestamp: number;
   isNew: boolean;
+  articleUrl?: string | null;
 }
 
 export interface LiquidityBand {

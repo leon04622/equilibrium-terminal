@@ -25,12 +25,11 @@ export class ChartAnalyticsOrchestrator {
     overlays: ChartOverlayLayer[] = DEFAULT_OVERLAYS,
   ): ChartAnalyticsSnapshot {
     const terminal = useTerminalStore.getState();
-    const candles = ChartDataEngine.resolveCandles(
-      terminal.candles,
-      terminal.trades,
-      timeframe,
-    );
-    chartReplayEngine.setBuffer(candles);
+    const buffered = chartReplayEngine.getBuffer();
+    const candles =
+      buffered.length > 0
+        ? ChartDataEngine.viewport(buffered)
+        : ChartDataEngine.resolveCandles(terminal.candles, terminal.trades, timeframe);
 
     const book = terminal.book;
     const mid = book?.mid ?? null;

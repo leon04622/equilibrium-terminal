@@ -1,6 +1,7 @@
 "use client";
 
 import { Radar } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { MarketCommandOrchestrator } from "@/lib/market-command/MarketCommandOrchestrator";
@@ -31,7 +32,8 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function MarketCommandConsole() {
-  const snapshot = useMarketCommandStore((s) => s.snapshot);
+  const storeSnapshot = useMarketCommandStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => MarketCommandOrchestrator.snapshot());
   const activeTab = useMarketCommandStore((s) => s.activeTab);
   const setActiveTab = useMarketCommandStore((s) => s.setActiveTab);
   const setActiveMode = useMarketCommandStore((s) => s.setActiveMode);
@@ -136,7 +138,15 @@ export function MarketCommandConsole() {
           ))}
 
         {activeTab === "ai" && (
-          <p className={cn(TERMINAL_TYPO.micro, "leading-relaxed text-slate-400")}>{snapshot.aiSummary}</p>
+          <>
+            <p className={cn(TERMINAL_TYPO.micro, "mb-1 text-slate-500")}>
+              Rules-based desk summary
+              <span className={cn(TERMINAL_TYPO.micro, "ml-1 border border-violet-500/30 px-1 text-violet-400")}>
+                NO LLM
+              </span>
+            </p>
+            <p className={cn(TERMINAL_TYPO.micro, "leading-relaxed text-slate-400")}>{snapshot.aiSummary}</p>
+          </>
         )}
 
         {activeTab === "modes" && (

@@ -19,6 +19,10 @@ export class ReplayEngine {
     }
   }
 
+  getBuffer(): NormalizedCandle[] {
+    return this.buffer;
+  }
+
   setHandler(handler: ReplayTickHandler | null): void {
     this.onTick = handler;
   }

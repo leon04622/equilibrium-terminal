@@ -7,6 +7,7 @@ import {
   HL_WS_URL,
   STALE_MS,
 } from "@/lib/hyperliquid/constants";
+import { chartTimeframeToHlInterval } from "@/lib/hyperliquid/candles";
 import {
   normalizeAllMids,
   normalizeCandlesBatch,
@@ -14,8 +15,9 @@ import {
 import { streamProcessingEngine } from "@/lib/performance/StreamProcessingEngine";
 import { webSocketSecurityGate } from "@/lib/security/WebSocketSecurityGate";
 import { terminalIngress, useTerminalStore } from "@/store/terminalStore";
+import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
-import type { HlClearinghouseState } from "@/types/account";
+import type { HlClearinghouseState, HlSpotClearinghouseState } from "@/types/account";
 import type {
   HlAllMids,
   HlSubscribeMessage,
@@ -51,6 +53,10 @@ function isClearinghouse(data: unknown): data is HlClearinghouseState {
   return !!data && typeof data === "object" && "marginSummary" in data;
 }
 
+function isSpotClearinghouse(data: unknown): data is HlSpotClearinghouseState {
+  return !!data && typeof data === "object" && "balances" in data && !("marginSummary" in data);
+}
+
 function isCandleArray(
   data: unknown,
 ): data is Array<{ t: number; o: number; h: number; l: number; c: number; v: number }> {
@@ -78,6 +84,7 @@ function unsub(payload: HlSubscription): string {
 
 export function useTerminalStreams() {
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
+  const chartTimeframe = useChartAnalyticsStore((s) => s.timeframe);
   const walletAddress = useTerminalStore((s) => s.walletAddress);
   const setAssets = useTerminalStore((s) => s.setAssets);
 
@@ -87,7 +94,12 @@ export function useTerminalStreams() {
   const attemptRef = useRef(0);
   const coinRef = useRef(selectedCoin);
   const userRef = useRef(walletAddress);
-  const subsRef = useRef({ coin: null as string | null, user: null as string | null });
+  const subsRef = useRef({
+    coin: null as string | null,
+    candleInterval: null as string | null,
+    user: null as string | null,
+    spotUser: null as string | null,
+  });
   const intentionalRef = useRef(false);
 
   const clearTimers = useCallback(() => {
@@ -105,8 +117,11 @@ export function useTerminalStreams() {
     const coin = coinRef.current;
     const user = userRef.current;
     const prevCoin = subsRef.current.coin;
+    const prevCandleInterval = subsRef.current.candleInterval;
     const prevUser = subsRef.current.user;
     const claims = useProductionConfigStore.getState().claims;
+    const chartTf = useChartAnalyticsStore.getState().timeframe;
+    const candleInterval = chartTimeframeToHlInterval(chartTf) ?? "1m";
 
     if (coin) {
       const gate = webSocketSecurityGate.validateReconnect(
@@ -121,24 +136,47 @@ export function useTerminalStreams() {
       }
     }
 
-    if (prevCoin && prevCoin !== coin) {
+    const coinChanged = prevCoin != null && prevCoin !== coin;
+    const intervalChanged =
+      coin != null &&
+      prevCoin === coin &&
+      prevCandleInterval != null &&
+      prevCandleInterval !== candleInterval;
+
+    if (coinChanged) {
       send(unsub({ type: "l2Book", coin: prevCoin }));
       send(unsub({ type: "trades", coin: prevCoin }));
-      send(unsub({ type: "candle", coin: prevCoin, interval: "1m" }));
+      send(unsub({
+        type: "candle",
+        coin: prevCoin,
+        interval: prevCandleInterval ?? "1m",
+      }));
+    } else if (intervalChanged) {
+      send(unsub({ type: "candle", coin, interval: prevCandleInterval! }));
     }
+
     if (coin) {
-      send(sub({ type: "l2Book", coin }));
-      send(sub({ type: "trades", coin }));
-      send(sub({ type: "candle", coin, interval: "1m" }));
+      if (coinChanged || subsRef.current.coin == null) {
+        send(sub({ type: "l2Book", coin }));
+        send(sub({ type: "trades", coin }));
+      }
+      if (subsRef.current.coin !== coin || subsRef.current.candleInterval !== candleInterval) {
+        send(sub({ type: "candle", coin, interval: candleInterval }));
+        terminalIngress.resetLiveCandles(candleInterval);
+      }
       subsRef.current.coin = coin;
+      subsRef.current.candleInterval = candleInterval;
     }
 
     if (prevUser && prevUser !== user) {
       send(unsub({ type: "clearinghouseState", user: prevUser, dex: "" }));
+      send(unsub({ type: "spotClearinghouseState", user: prevUser }));
     }
     if (user) {
       send(sub({ type: "clearinghouseState", user, dex: "" }));
+      send(sub({ type: "spotClearinghouseState", user }));
       subsRef.current.user = user;
+      subsRef.current.spotUser = user;
     }
 
     if (!subsRef.current.coin) {
@@ -160,15 +198,19 @@ export function useTerminalStreams() {
         return;
       }
       if (msg.channel === "candle" && isCandleArray(msg.data)) {
-        terminalIngress.applyCandles(normalizeCandlesBatch(msg.data));
+        streamProcessingEngine.enqueueCandles(normalizeCandlesBatch(msg.data));
         return;
       }
       if (msg.channel === "allMids" && isAllMids(msg.data)) {
-        terminalIngress.applyMids(normalizeAllMids(msg.data.mids));
+        streamProcessingEngine.enqueueMids(normalizeAllMids(msg.data.mids));
         return;
       }
       if (msg.channel === "clearinghouseState" && isClearinghouse(msg.data)) {
         void terminalIngress.applyClearinghouse(msg.data, userRef.current);
+        return;
+      }
+      if (msg.channel === "spotClearinghouseState" && isSpotClearinghouse(msg.data)) {
+        terminalIngress.applySpotClearinghouse(msg.data);
         return;
       }
       if (msg.channel === "error") {
@@ -199,7 +241,7 @@ export function useTerminalStreams() {
     ws.onopen = () => {
       attemptRef.current = 0;
       terminalIngress.setConnectionStatus("connected");
-      subsRef.current = { coin: null, user: null };
+      subsRef.current = { coin: null, candleInterval: null, user: null, spotUser: null };
       syncSubs();
 
       heartbeatRef.current = setInterval(() => {
@@ -213,7 +255,7 @@ export function useTerminalStreams() {
     ws.onerror = () => terminalIngress.setConnectionStatus("disconnected");
     ws.onclose = () => {
       clearTimers();
-      subsRef.current = { coin: null, user: null };
+      subsRef.current = { coin: null, candleInterval: null, user: null, spotUser: null };
       if (intentionalRef.current) {
         terminalIngress.setConnectionStatus("disconnected");
         return;
@@ -229,6 +271,10 @@ export function useTerminalStreams() {
     coinRef.current = selectedCoin;
     if (wsRef.current?.readyState === WebSocket.OPEN) syncSubs();
   }, [selectedCoin, syncSubs]);
+
+  useEffect(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) syncSubs();
+  }, [chartTimeframe, syncSubs]);
 
   useEffect(() => {
     userRef.current = walletAddress;
@@ -254,6 +300,36 @@ export function useTerminalStreams() {
       wsRef.current = null;
     };
   }, [connect, clearTimers]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const status = useTerminalStore.getState().connectionStatus;
+      const last = useTerminalStore.getState().lastMessageAt;
+      if (status === "disconnected" || status === "reconnecting") {
+        attemptRef.current = 0;
+        connect();
+        return;
+      }
+      if (
+        status === "connected" &&
+        last !== null &&
+        Date.now() - last > STALE_MS
+      ) {
+        wsRef.current?.close();
+      }
+    };
+    const onOnline = () => {
+      attemptRef.current = 0;
+      connect();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [connect]);
 
   return { reconnect: connect };
 }

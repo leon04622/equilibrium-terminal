@@ -15,7 +15,12 @@ import {
 } from "@/lib/hyperliquid/agent-session";
 import { HL_EXCHANGE_URL, MARKET_SLIPPAGE } from "@/lib/hyperliquid/constants";
 import {
+  BUILDER_FEE_TENTHS_BPS,
+  EQUILIBRIUM_BUILDER_ADDRESS,
+} from "@/lib/hyperliquid/builder";
+import {
   buildApproveAgentTypedData,
+  buildApproveBuilderFeeTypedData,
   floatToWire,
   normalizeWalletSignature,
   signL1Action,
@@ -23,9 +28,11 @@ import {
   timestampMs,
 } from "@/lib/hyperliquid/signing";
 import { getSzDecimals, resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
+import { humanizeHlError } from "@/lib/hyperliquid/exchangeErrors";
 import type {
   ExecuteOrderParams,
   HlApproveAgentAction,
+  HlApproveBuilderFeeAction,
   HlExchangeRequest,
   HlExchangeResponse,
   HlL1Action,
@@ -37,7 +44,7 @@ import type {
 
 export type { ExecuteOrderParams, AgentSession };
 export { AGENT_NAME } from "@/lib/hyperliquid/agent-session";
-export { buildApproveAgentTypedData, normalizeWalletSignature, floatToWire } from "@/lib/hyperliquid/signing";
+export { buildApproveAgentTypedData, buildApproveBuilderFeeTypedData, normalizeWalletSignature, floatToWire } from "@/lib/hyperliquid/signing";
 
 export function createEphemeralAgent(masterAddress: Address): AgentSession {
   const existing = getMemoryAgentSession() ?? loadPersistedAgent(masterAddress);
@@ -79,11 +86,8 @@ export async function postExchange(
   });
   const json = (await res.json()) as HlExchangeResponse;
   if (!res.ok) {
-    throw new Error(
-      typeof json.response === "string"
-        ? json.response
-        : `Exchange HTTP ${res.status}`,
-    );
+    const { message } = humanizeHlError(json.response);
+    throw new Error(message);
   }
   return json;
 }
@@ -108,12 +112,25 @@ export function orderRequestToWire(order: OrderRequest): HlOrderWire {
   };
 }
 
-export function buildOrderAction(orders: OrderRequest[]): HlOrderAction {
-  return {
+export function buildOrderAction(
+  orders: OrderRequest[],
+  options?: { attachBuilder?: boolean },
+): HlOrderAction {
+  const action: HlOrderAction = {
     type: "order",
     orders: orders.map(orderRequestToWire),
     grouping: "na",
   };
+  if (options?.attachBuilder) {
+    const asset = orders[0]?.asset;
+    if (asset !== undefined && asset < 10_000) {
+      action.builder = {
+        b: EQUILIBRIUM_BUILDER_ADDRESS,
+        f: BUILDER_FEE_TENTHS_BPS,
+      };
+    }
+  }
+  return action;
 }
 
 async function postL1Action(
@@ -134,6 +151,14 @@ export async function postApproveAgent(
   return postExchange({ action, nonce, signature });
 }
 
+export async function postApproveBuilderFee(
+  signature: HlSignature,
+  action: HlApproveBuilderFeeAction,
+  nonce: number,
+): Promise<HlExchangeResponse> {
+  return postExchange({ action, nonce, signature });
+}
+
 export interface ExecuteOrderOptions extends ExecuteOrderParams {
   /** Attach TP trigger (reduce-only). */
   takeProfitPx?: number;
@@ -144,6 +169,7 @@ export interface ExecuteOrderOptions extends ExecuteOrderParams {
 export async function executeOrder(
   params: ExecuteOrderOptions,
   agentKey?: Hex,
+  options?: { attachBuilder?: boolean },
 ): Promise<HlExchangeResponse> {
   const pk = agentKey ?? getMemoryAgentSession()?.agentPrivateKey;
   if (!pk) throw new Error("No active agent session — approve agent first");
@@ -224,29 +250,36 @@ export async function executeOrder(
     });
   }
 
-  const action = buildOrderAction(orders);
+  const action = buildOrderAction(orders, { attachBuilder: options?.attachBuilder });
   return postL1Action(pk, action);
 }
 
-export async function executeMarketClose(params: {
-  coin: string;
-  asset?: number;
-  isBuy: boolean;
-  size: number;
-  markPx: number;
-  szDecimals?: number;
-}): Promise<HlExchangeResponse> {
+export async function executeMarketClose(
+  params: {
+    coin: string;
+    asset?: number;
+    isBuy: boolean;
+    size: number;
+    markPx: number;
+    szDecimals?: number;
+  },
+  options?: { attachBuilder?: boolean },
+): Promise<HlExchangeResponse> {
   const asset = params.asset ?? (await resolveAssetIndex(params.coin));
-  return executeOrder({
-    coin: params.coin,
-    asset,
-    isBuy: params.isBuy,
-    size: params.size,
-    mode: "market",
-    reduceOnly: true,
-    markPx: params.markPx,
-    szDecimals: params.szDecimals,
-  });
+  return executeOrder(
+    {
+      coin: params.coin,
+      asset,
+      isBuy: params.isBuy,
+      size: params.size,
+      mode: "market",
+      reduceOnly: true,
+      markPx: params.markPx,
+      szDecimals: params.szDecimals,
+    },
+    undefined,
+    options,
+  );
 }
 
 export async function updateLeverage(
@@ -262,5 +295,18 @@ export async function updateLeverage(
     asset,
     isCross,
     leverage,
+  });
+}
+
+export async function cancelOrders(
+  cancels: Array<{ asset: number; oid: number }>,
+  agentKey?: Hex,
+): Promise<HlExchangeResponse> {
+  const pk = agentKey ?? getMemoryAgentSession()?.agentPrivateKey;
+  if (!pk) throw new Error("No active agent session");
+  if (cancels.length === 0) throw new Error("No orders to cancel");
+  return postL1Action(pk, {
+    type: "cancel",
+    cancels: cancels.map((c) => ({ a: c.asset, o: c.oid })),
   });
 }

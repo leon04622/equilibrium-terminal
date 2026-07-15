@@ -31,7 +31,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local workspace snapshots
+/.data/
+
 # ide
 .idea
 .vscode
 .vercel
+.cursor/chat-screenshots/*.png
+!.cursor/chat-screenshots/.gitkeep

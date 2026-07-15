@@ -1,6 +1,7 @@
 "use client";
 
 import { Shield } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { FeatureFlagReleaseEngine } from "@/lib/ops-command/FeatureFlagReleaseEngine";
@@ -32,7 +33,8 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function OpsCommandConsole() {
-  const snapshot = useOpsCommandStore((s) => s.snapshot);
+  const storeSnapshot = useOpsCommandStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => OpsCommandOrchestrator.snapshot());
   const activeTab = useOpsCommandStore((s) => s.activeTab);
   const setActiveTab = useOpsCommandStore((s) => s.setActiveTab);
   const setActiveMode = useOpsCommandStore((s) => s.setActiveMode);

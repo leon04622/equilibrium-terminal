@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Rocket } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { InviteGateEngine } from "@/lib/alpha/InviteGateEngine";
@@ -33,7 +34,8 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function LiveDeploymentConsole() {
-  const snapshot = useLiveDeploymentStore((s) => s.snapshot);
+  const storeSnapshot = useLiveDeploymentStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => LiveDeploymentOrchestrator.snapshot());
   const activeTab = useLiveDeploymentStore((s) => s.activeTab);
   const setActiveTab = useLiveDeploymentStore((s) => s.setActiveTab);
   const setActiveMode = useLiveDeploymentStore((s) => s.setActiveMode);

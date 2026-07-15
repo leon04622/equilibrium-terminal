@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { MessageSquarePlus, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
@@ -8,6 +9,8 @@ import { DESKS, DESK_ORDER, type DeskId } from "@/lib/desks/DeskRegistry";
 import { useDeskStore } from "@/store/useDeskStore";
 import { useWedgeStore } from "@/store/useWedgeStore";
 import { useFrictionLogStore, type FrictionKind } from "@/store/useFrictionLogStore";
+import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
+import { isBloombergChrome } from "@/lib/theme/bloomberg";
 
 const KIND_LABEL: Record<FrictionKind, string> = {
   friction: "Friction",
@@ -32,6 +35,8 @@ export function DeskSwitcher() {
   const resetDeskLayout = useDeskStore((s) => s.resetDeskLayout);
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
   const setDeskFocusMode = useWedgeStore((s) => s.setDeskFocusMode);
+  const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
+  const bloomberg = isBloombergChrome(beginnerMode);
 
   const select = (id: DeskId) => {
     // Specialized desks live inside desk-focus (not the full platform dump).
@@ -40,8 +45,15 @@ export function DeskSwitcher() {
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b-[0.5px] border-slate-800 bg-slate-950/80 px-1.5 py-1">
-      <span className={cn(TERMINAL_TYPO.micro, "shrink-0 pr-1 text-slate-600")}>DESKS</span>
+    <div
+      className={cn(
+        "eq-bloomberg-desk-bar flex shrink-0 items-stretch gap-0 border-b-[0.5px] border-slate-800 bg-slate-950/80",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1.5 py-0.5">
+      <span className={cn(TERMINAL_TYPO.micro, "shrink-0 pr-1", bloomberg ? "text-[#ff9900]" : "text-slate-600")}>
+        {bloomberg ? "FUNC" : "DESKS"}
+      </span>
 
       {DESK_ORDER.map((id) => {
         const desk = DESKS[id];
@@ -53,10 +65,14 @@ export function DeskSwitcher() {
             onClick={() => select(id)}
             title={desk.tagline}
             className={cn(
-              "group flex shrink-0 items-center gap-1.5 border px-2 py-0.5 font-mono transition-colors",
+              "group flex shrink-0 items-center gap-1 border px-2 py-0.5 font-mono transition-colors",
               active
-                ? cn("bg-slate-900", desk.accent)
-                : "border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300",
+                ? bloomberg
+                  ? "eq-bloomberg-desk-active border-[#ff9900] text-[#ff9900]"
+                  : cn("bg-slate-900", desk.accent)
+                : bloomberg
+                  ? "border-[#333333] text-[#888888] hover:border-[#ff9900]/50 hover:text-[#ff9900]"
+                  : "border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300",
             )}
           >
             <span className={cn(TERMINAL_TYPO.micro, "tabular-nums opacity-70")}>{desk.glyph}</span>
@@ -73,6 +89,7 @@ export function DeskSwitcher() {
           className={cn(
             TERMINAL_TYPO.micro,
             "flex shrink-0 items-center gap-1 border border-slate-800 px-1.5 py-0.5 text-slate-500 hover:text-slate-300",
+            bloomberg && "border-[#333333] text-[#666666] hover:text-[#ff9900]",
           )}
         >
           <RotateCcw className="h-2.5 w-2.5" />
@@ -80,13 +97,15 @@ export function DeskSwitcher() {
         </button>
       ) : null}
 
-      <div className="ml-auto flex shrink-0 items-center gap-1 pl-2">
-        {activeDeskId && deskFocusMode ? (
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1 border-l border-slate-800 px-1.5 py-0.5">
+        {activeDeskId && deskFocusMode && !bloomberg ? (
           <span className={cn(TERMINAL_TYPO.micro, "hidden text-slate-600 md:inline")}>
             {DESKS[activeDeskId].tagline}
           </span>
         ) : null}
-        <FrictionCapture deskId={deskFocusMode ? activeDeskId : null} />
+        {!bloomberg && !beginnerMode ? <FrictionCapture deskId={deskFocusMode ? activeDeskId : null} /> : null}
       </div>
     </div>
   );
@@ -96,15 +115,27 @@ function FrictionCapture({ deskId }: { deskId: DeskId | null }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<FrictionKind>("friction");
   const [note, setNote] = useState("");
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({});
   const entries = useFrictionLogStore((s) => s.entries);
   const log = useFrictionLogStore((s) => s.log);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    const anchor = ref.current;
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      setDropdownStyle({
+        top: rect.bottom + 4,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    }
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -145,8 +176,13 @@ function FrictionCapture({ deskId }: { deskId: DeskId | null }) {
         ) : null}
       </button>
 
-      {open ? (
-        <div className="absolute right-0 top-full z-[120] mt-1 w-72 border border-slate-700 bg-slate-950 p-2 shadow-xl">
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-[5000] w-72 border border-slate-700 bg-slate-950 p-2 shadow-xl"
+              style={dropdownStyle}
+            >
           <div className="mb-1 flex items-center justify-between">
             <span className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>
               LOG WORKFLOW FRICTION
@@ -225,8 +261,10 @@ function FrictionCapture({ deskId }: { deskId: DeskId | null }) {
               </ul>
             </div>
           ) : null}
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

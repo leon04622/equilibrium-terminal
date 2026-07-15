@@ -9,6 +9,7 @@ import {
 import {
   loadWorkspaceSnapshot,
   saveWorkspaceSnapshot,
+  getWorkspacePersistenceMode,
 } from "@/lib/infrastructure/server/workspaceStore";
 import type { WorkspaceSnapshotRecord } from "@/types/production-platform";
 
@@ -97,6 +98,7 @@ export async function PUT(request: Request) {
       ok: true,
       contentHash: record.contentHash,
       byteLength: record.byteLength,
+      persistence: getWorkspacePersistenceMode(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "snapshot_failed";

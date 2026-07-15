@@ -17,6 +17,10 @@ import { LivePortfolioRiskCoachPanel } from "@/components/terminal/explain/LiveP
 import { LiveDailyOperationsCoachPanel } from "@/components/terminal/explain/LiveDailyOperationsCoach";
 import { LiveOperatorJournalCoachPanel } from "@/components/terminal/explain/LiveOperatorJournalCoach";
 import { LiveDeskCoachPanel } from "@/components/terminal/explain/LiveDeskCoachPanel";
+import { MarketStateCoachPanel } from "@/components/terminal/explain/MarketStateCoachPanel";
+import { DailyBriefingCoachPanel } from "@/components/terminal/explain/DailyBriefingCoachPanel";
+import { MarketMemoryCoachPanel } from "@/components/terminal/explain/MarketMemoryCoachPanel";
+import { CryptoFinancialOsCoachPanel } from "@/components/terminal/explain/CryptoFinancialOsCoachPanel";
 import { PlainEnglishPanel } from "@/components/terminal/explain/PlainEnglishPanel";
 import { ReplayLearningEngine } from "@/lib/operator-guide/ReplayLearningEngine";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
@@ -82,8 +86,7 @@ export function ExplainSidePanel() {
   const open = useOperatorGuideStore((s) => s.sidePanelOpen);
   const selectedId = useOperatorGuideStore((s) => s.selectedTargetId);
   const activeReplay = useOperatorGuideStore((s) => s.activeReplay);
-  const setSidePanelOpen = useOperatorGuideStore((s) => s.setSidePanelOpen);
-  const selectTarget = useOperatorGuideStore((s) => s.selectTarget);
+  const dismissSidePanel = useOperatorGuideStore((s) => s.dismissSidePanel);
   const selectedAudience = useOperatorGuideStore((s) => s.selectedAudience);
   const setSelectedAudience = useOperatorGuideStore((s) => s.setSelectedAudience);
   const activeLessonPanelId = useOperatorGuideStore((s) => s.activeLessonPanelId);
@@ -105,8 +108,15 @@ export function ExplainSidePanel() {
   const primer = useMemo(() => (entry ? PanelPrimers.for(entry) : null), [entry]);
 
   const [deeperOpen, setDeeperOpen] = useState(false);
+  const activeWorkflowId = useOperatorGuideStore((s) => s.activeWorkflowId);
 
-  if (!open) return null;
+  const hasContent =
+    selectedId != null ||
+    activeLessonPanelId != null ||
+    activeWorkflowId != null ||
+    activeReplay != null;
+
+  if (!open || !hasContent) return null;
 
   const startReplay = () => {
     if (!selectedId) return;
@@ -138,10 +148,7 @@ export function ExplainSidePanel() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            setSidePanelOpen(false);
-            selectTarget(null);
-          }}
+          onClick={() => dismissSidePanel()}
           className={cn(TERMINAL_TYPO.micro, "text-slate-500 hover:text-slate-300")}
           aria-label="Close guide panel"
         >
@@ -260,6 +267,10 @@ export function ExplainSidePanel() {
             <LiveDailyOperationsCoachPanel panelId={entry.id} />
             <LiveOperatorJournalCoachPanel panelId={entry.id} />
             <LiveDeskCoachPanel panelId={entry.id} />
+            <MarketStateCoachPanel panelId={entry.id} />
+            <DailyBriefingCoachPanel panelId={entry.id} />
+            <MarketMemoryCoachPanel panelId={entry.id} />
+            <CryptoFinancialOsCoachPanel panelId={entry.id} />
 
             {/* PLAIN-ENGLISH PRIMER — start from zero before any pro reads. */}
             <div className="mb-2 border border-slate-800 bg-slate-900/30 px-2 py-1">

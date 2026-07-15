@@ -22,6 +22,7 @@ import {
   ObservationalPause,
   PreTradeCheckPanel,
 } from "@/components/terminal/explain/OperatorDecisionPanels";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import {
   ORDER_BOOK_BRIDGE_PANEL,
   ORDER_BOOK_BRIDGE_STEPS,
@@ -29,7 +30,8 @@ import {
   type BookRegion,
 } from "@/lib/education/lessonBridgeSteps";
 import { LiveBookCoach } from "@/lib/education/liveBookCoach";
-import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { buildBridgeNarration, humanizeForSpeech, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { bridgeRecognizeRegion, useAcademyBridgeSpotlight } from "@/lib/education/useAcademyBridgeSpotlight";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -44,13 +46,6 @@ import { useLessonBridgeStore } from "@/store/useLessonBridgeStore";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const steps = ORDER_BOOK_BRIDGE_STEPS;
-
-interface Rect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
 
 function estimateMs(text: string): number {
   return Math.max(2800, text.length * 58);
@@ -81,16 +76,6 @@ function regionEl(region: BookRegion): HTMLElement | null {
   return panel.querySelector<HTMLElement>(`[data-book-region="${region}"]`) ?? panel;
 }
 
-function rectsDiffer(a: Rect | null, b: Rect | null): boolean {
-  if (!a || !b) return a !== b;
-  return (
-    Math.abs(a.top - b.top) > 0.5 ||
-    Math.abs(a.left - b.left) > 0.5 ||
-    Math.abs(a.width - b.width) > 0.5 ||
-    Math.abs(a.height - b.height) > 0.5
-  );
-}
-
 export function LessonLiveBridge() {
   const active = useLessonBridgeStore((s) => s.active);
   const runId = useLessonBridgeStore((s) => s.runId);
@@ -101,7 +86,6 @@ export function LessonLiveBridge() {
   const recognized = useLessonBridgeStore((s) => s.recognized);
   const setStoreStep = useLessonBridgeStore((s) => s.setStep);
 
-  const setFocusMode = useOperatorGuideStore((s) => s.setFocusMode);
   const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
 
   useHyperliquidStore((s) => s.bookVersion);
@@ -111,9 +95,8 @@ export function LessonLiveBridge() {
   const supported = lessonVoiceSupported();
 
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-  const [rect, setRect] = useState<Rect | null>(null);
   const [feedback, setFeedback] = useState<"idle" | "correct" | "wrong">("idle");
   const [interactiveDone, setInteractiveDone] = useState(false);
 
@@ -131,6 +114,13 @@ export function LessonLiveBridge() {
   indexRef.current = index;
 
   const step = steps[Math.min(index, steps.length - 1)];
+
+  const rect = useAcademyBridgeSpotlight({
+    active,
+    index,
+    step,
+    getTargetEl: (s) => regionEl(bridgeRecognizeRegion(s) as BookRegion),
+  });
 
   const clearTimers = useCallback(() => {
     if (holdTimer.current) {
@@ -176,9 +166,11 @@ export function LessonLiveBridge() {
       };
 
       speakAcademyNarration(text, {
+        scrollTarget:
+          s.mode === "recognize" ? regionEl(bridgeRecognizeRegion(s) as BookRegion) : undefined,
+        scrollSmooth: true,
         voiceOn: voiceOnRef.current,
         supported,
-        rate: 0.94,
         onEnd: afterNarration,
         onError: () => {
           if (tokenRef.current !== token) return;
@@ -192,61 +184,31 @@ export function LessonLiveBridge() {
   // Spotlight the REAL order book panel while the bridge is open.
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     setHighlightPanel(ORDER_BOOK_BRIDGE_PANEL);
-    setFocusMode(true);
     terminalBus.emit("widget:focus", { widgetId: ORDER_BOOK_BRIDGE_PANEL });
     return () => {
-      setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, runId, setFocusMode, setHighlightPanel]);
+  }, [active, runId, setHighlightPanel]);
 
   useEffect(() => {
     if (!active) return;
     setIndex(0);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId]);
 
   useEffect(() => {
     if (!active) return;
     setStoreStep(index);
+    if (!playingRef.current) return;
     enter(index);
     return () => {
       clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId, index]);
-
-  // Track the live region rect — but never during recognition (it's a test).
-  useEffect(() => {
-    if (!active || step?.mode === "recognize") {
-      setRect(null);
-      return;
-    }
-    let raf = 0;
-    let last: Rect | null = null;
-    const tick = () => {
-      const el = regionEl(step?.region ?? null);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        const next: Rect = { top: r.top, left: r.left, width: r.width, height: r.height };
-        if (rectsDiffer(last, next)) {
-          last = next;
-          setRect(next);
-        }
-      } else if (last !== null) {
-        last = null;
-        setRect(null);
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, index]);
 
   // PHASE 2/9 — recognition: validate clicks on the REAL panel regions.
   useEffect(() => {
@@ -278,7 +240,7 @@ export function LessonLiveBridge() {
         feedbackRef.current = "wrong";
         setFeedback("wrong");
         cancelLesson();
-        if (voiceOnRef.current && supported) speakLesson(cur.recognize.nudge, { rate: 0.95 });
+        if (voiceOnRef.current && supported) speakLesson(humanizeForSpeech(cur.recognize.nudge), { rate: 0.9, pitch: 0.97 });
         if (fbTimer.current) clearTimeout(fbTimer.current);
         fbTimer.current = setTimeout(() => {
           feedbackRef.current = "idle";
@@ -353,6 +315,7 @@ export function LessonLiveBridge() {
     } else {
       setPlaying(true);
       playingRef.current = true;
+      armLessonVoice();
       enter(index);
     }
   };
@@ -363,7 +326,10 @@ export function LessonLiveBridge() {
     voiceOnRef.current = next;
     setLessonVoiceEnabled(next);
     cancelLesson();
-    if (playingRef.current) enter(index);
+    if (next) {
+      armLessonVoice();
+      if (playingRef.current) enter(index);
+    }
   };
 
   const stateTone =
@@ -399,7 +365,8 @@ export function LessonLiveBridge() {
 
       {/* Coach card */}
       <div
-        className="fixed inset-x-0 bottom-0 z-[160] flex justify-center px-3 pb-3"
+        data-academy-bridge-chrome
+        className="fixed inset-x-0 top-12 z-[160] flex justify-center px-3 pt-2"
         role="dialog"
         aria-modal="false"
         aria-label="Lesson-to-live bridge coach"
@@ -407,7 +374,7 @@ export function LessonLiveBridge() {
         <div
           key={index}
           className={cn(
-            "w-full max-w-xl border bg-slate-950/95 shadow-[0_-8px_40px_rgba(0,0,0,0.6)] backdrop-blur",
+            "w-full max-w-xl border bg-slate-950/95 shadow-[0_8px_40px_rgba(0,0,0,0.6)] backdrop-blur",
             isInteractive ? "border-violet-600/60" : "border-cyan-700/50",
           )}
           style={reduceMotion ? undefined : { animation: "fadeIn 240ms ease" }}
@@ -658,13 +625,14 @@ export function LessonLiveBridge() {
             ) : (
               <button
                 type="button"
+                aria-label="Next step"
                 onClick={() => goto(index + 1)}
                 className={cn(
                   TERMINAL_TYPO.micro,
                   "flex items-center gap-1 border border-cyan-700/50 bg-cyan-950/30 px-2 py-1 text-cyan-300 hover:bg-cyan-950/50",
                 )}
               >
-                NEXT <ArrowRight className="h-3 w-3" />
+                <AcademyNextLabel />
               </button>
             )}
           </div>

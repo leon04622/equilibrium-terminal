@@ -95,4 +95,38 @@ export class AuditLogEngine {
       detail,
     });
   }
+
+  static exportCsv(entries?: AuditLogEntry[]): string {
+    const rows = entries ?? AuditLogEngine.load();
+    const header = "at,traceId,category,action,outcome,actorWallet,resource,detail";
+    const lines = rows.map((e) => {
+      const esc = (v: string | null) => {
+        const s = v ?? "";
+        return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      return [
+        new Date(e.at).toISOString(),
+        e.traceId,
+        e.category,
+        e.action,
+        e.outcome,
+        esc(e.actorWallet),
+        esc(e.resource),
+        esc(e.detail),
+      ].join(",");
+    });
+    return [header, ...lines].join("\n");
+  }
+
+  static downloadCsv(filename = "equilibrium-execution-audit.csv"): void {
+    if (typeof window === "undefined") return;
+    const csv = AuditLogEngine.exportCsv();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }

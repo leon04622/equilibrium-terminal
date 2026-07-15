@@ -1,6 +1,8 @@
 "use client";
 
 import { Blocks } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { ApiAuthorizationEngine } from "@/lib/platform-desk/ApiAuthorizationEngine";
@@ -32,7 +34,11 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function PlatformDeskConsole() {
-  const snapshot = usePlatformDeskStore((s) => s.snapshot);
+  const storeSnapshot = usePlatformDeskStore((s) => s.snapshot);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    PlatformDeskOrchestrator.snapshot(selectedCoin),
+  );
   const activeTab = usePlatformDeskStore((s) => s.activeTab);
   const setActiveTab = usePlatformDeskStore((s) => s.setActiveTab);
   const setActiveMode = usePlatformDeskStore((s) => s.setActiveMode);

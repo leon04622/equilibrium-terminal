@@ -1,12 +1,12 @@
 "use client";
 
 import { Building2 } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { EnterpriseOrchestrator } from "@/lib/enterprise";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
-import {
-  useEnterpriseOpsStore,
-  type EnterpriseOpsTab,
-} from "@/store/useEnterpriseOpsStore";
+import { useEnterpriseOpsStore, type EnterpriseOpsTab } from "@/store/useEnterpriseOpsStore";
+import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useTerminalStore } from "@/store/terminalStore";
 
 const TABS: { id: EnterpriseOpsTab; label: string }[] = [
@@ -40,10 +40,12 @@ function fmtUsd(n: number): string {
 }
 
 export function EnterpriseOperationsConsole() {
-  const snapshot = useEnterpriseOpsStore((s) => s.snapshot);
+  const storeSnapshot = useEnterpriseOpsStore((s) => s.snapshot);
   const activeTab = useEnterpriseOpsStore((s) => s.activeTab);
   const setActiveTab = useEnterpriseOpsStore((s) => s.setActiveTab);
+  const entitled = useProductionConfigStore((s) => s.isEntitled("enterpriseOpsEnabled"));
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => EnterpriseOrchestrator.snapshot());
 
   if (!snapshot) {
     return (
@@ -69,6 +71,12 @@ export function EnterpriseOperationsConsole() {
           {organization.tier.toUpperCase()} · {organization.deskCount} desks · {reliability.uptimePct.toFixed(2)}% uptime
         </span>
       </header>
+
+      {!entitled ? (
+        <p className={cn(terminalSkin.borderB, TERMINAL_TYPO.micro, "shrink-0 bg-amber-950/30 px-2 py-1 text-amber-400/90")}>
+          Preview mode — local orchestrator demo. Enterprise tier unlocks live tenant sync.
+        </p>
+      ) : null}
 
       <nav className={cn(terminalSkin.borderB, "flex shrink-0 flex-wrap gap-0.5 p-0.5")}>
         {TABS.map((t) => (

@@ -7,10 +7,14 @@ import type {
 export type PortfolioDeskTab =
   | "portfolio"
   | "risk"
+  | "var"
+  | "stress"
   | "treasury"
   | "analytics"
   | "collateral"
+  | "margin"
   | "cross"
+  | "limits"
   | "alerts"
   | "history"
   | "modes";

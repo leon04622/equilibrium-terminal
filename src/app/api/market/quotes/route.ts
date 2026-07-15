@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pollPublicVenues } from "@/lib/multi-exchange/adapters/publicRestAdapters";
 import { MarketDataInternalApi } from "@/lib/ingest/MarketDataInternalApi";
 import { buildGuardContext, enforceRateLimit } from "@/lib/security/ApiSecurityGuard";
 
@@ -10,10 +11,16 @@ export async function GET(request: Request) {
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
-  const asset = searchParams.get("asset") ?? "BTC";
+  const asset = (searchParams.get("asset") ?? "BTC").toUpperCase();
+
+  try {
+    await pollPublicVenues(asset);
+  } catch {
+    /* client workers may already have fresher data */
+  }
 
   return NextResponse.json({
-    asset: asset.toUpperCase(),
+    asset,
     quotes: MarketDataInternalApi.quotes(asset),
     updatedAt: Date.now(),
   });

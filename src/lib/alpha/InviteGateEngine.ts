@@ -60,7 +60,8 @@ export class InviteGateEngine {
   static inviteRequired(): boolean {
     if (process.env.NODE_ENV === "development") return false;
     if (process.env.NEXT_PUBLIC_EQ_OPERATOR_ACCESS === "true") return false;
-    return process.env.NEXT_PUBLIC_EQ_ALPHA_INVITE_REQUIRED !== "false";
+    const flag = process.env.NEXT_PUBLIC_EQ_ALPHA_INVITE_REQUIRED;
+    return flag === "true" || flag === "1";
   }
 
   static isValidated(): boolean {

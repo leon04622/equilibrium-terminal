@@ -19,6 +19,7 @@ import {
   ConditionComparison,
   DecisionScenario,
 } from "@/components/terminal/explain/OperatorDecisionPanels";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import {
   AlertPrioritizer,
   DailyBriefingEngine,
@@ -33,7 +34,8 @@ import {
   type DOBridgeRegion,
 } from "@/lib/education/dailyOperationsBridgeSteps";
 import { LiveDailyOperationsCoach } from "@/lib/education/liveDailyOperationsCoach";
-import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { humanizeForSpeech, speakAcademyBridgeStep } from "@/lib/education/academyVoice";
+import { bridgeRecognizeRegion, useAcademyBridgeSpotlight } from "@/lib/education/useAcademyBridgeSpotlight";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -48,13 +50,6 @@ import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const steps = DAILY_OPERATIONS_BRIDGE_STEPS;
-
-interface Rect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
 
 function doContext() {
   const store = useDailyOperationsStore.getState();
@@ -98,7 +93,6 @@ export function DailyOperationsLiveBridge() {
   const recognized = useDailyOperationsBridgeStore((s) => s.recognized);
   const setStoreStep = useDailyOperationsBridgeStore((s) => s.setStep);
 
-  const setFocusMode = useOperatorGuideStore((s) => s.setFocusMode);
   const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
   const setDailyTab = useDailyOperationsStore((s) => s.setActiveTab);
   const storeSnapshot = useDailyOperationsStore((s) => s.snapshot);
@@ -106,9 +100,8 @@ export function DailyOperationsLiveBridge() {
 
   const supported = lessonVoiceSupported();
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-  const [rect, setRect] = useState<Rect | null>(null);
   const [feedback, setFeedback] = useState<"idle" | "correct" | "wrong">("idle");
   const [interactiveDone, setInteractiveDone] = useState(false);
 
@@ -125,6 +118,13 @@ export function DailyOperationsLiveBridge() {
   voiceOnRef.current = voiceOn;
 
   const step = steps[Math.min(index, steps.length - 1)];
+
+  const rect = useAcademyBridgeSpotlight({
+    active,
+    index,
+    step,
+    getTargetEl: (s) => regionEl(bridgeRecognizeRegion(s) as DOBridgeRegion),
+  });
 
   const clearTimers = useCallback(() => {
     if (holdTimer.current) {
@@ -154,7 +154,6 @@ export function DailyOperationsLiveBridge() {
         s.id === "pre-daily"
           ? LiveDailyOperationsCoach.workflowSteps().map((w) => `${w.order}. ${w.label}: ${w.note}`)
           : [];
-      const text = buildBridgeNarration(s, coachText, snap, extras);
       const waits = s.mode === "recognize" || s.mode === "decide" || s.mode === "compare";
       const after = () => {
         if (tokenRef.current !== token || waits) return;
@@ -162,10 +161,13 @@ export function DailyOperationsLiveBridge() {
           if (playingRef.current && i < steps.length - 1) setIndex(i + 1);
         }, 1700);
       };
-      speakAcademyNarration(text, {
+      speakAcademyBridgeStep(s, coachText, snap, {
+        extraParts: extras,
+        scrollTarget:
+          s.mode === "recognize" ? regionEl(bridgeRecognizeRegion(s) as DOBridgeRegion) : undefined,
+        scrollSmooth: true,
         voiceOn: voiceOnRef.current,
         supported,
-        rate: 0.94,
         onEnd: after,
         onError: after,
       });
@@ -185,25 +187,21 @@ export function DailyOperationsLiveBridge() {
 
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     setHighlightPanel(DAILY_OPERATIONS_BRIDGE_PANEL);
-    setFocusMode(true);
     terminalBus.emit("widget:focus", { widgetId: DAILY_OPERATIONS_BRIDGE_PANEL });
     return () => {
-      setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, runId, setFocusMode, setHighlightPanel]);
+  }, [active, runId, setHighlightPanel]);
 
   useEffect(() => {
     if (!active) return;
     skipIndexEffectRef.current = true;
-    narratedKeyRef.current = `${runId}:0`;
+    narratedKeyRef.current = "";
     setIndex(0);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
     setStoreStep(0);
-    enterRef.current(0, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId]);
 
@@ -217,30 +215,13 @@ export function DailyOperationsLiveBridge() {
     if (narratedKeyRef.current === speakKey) return;
     narratedKeyRef.current = speakKey;
     setStoreStep(index);
+    if (!playingRef.current) return;
     enterRef.current(index, true);
     return () => {
       clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId, index]);
-
-  useEffect(() => {
-    if (!active || step?.mode === "recognize") {
-      setRect(null);
-      return;
-    }
-    let raf = 0;
-    const tick = () => {
-      const el = regionEl(step?.region ?? null);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else setRect(null);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, index, step?.mode, step?.region]);
 
   useEffect(() => {
     if (!active) return;
@@ -256,7 +237,7 @@ export function DailyOperationsLiveBridge() {
       if (!region || !cur.recognize.accept.includes(region)) {
         if (region) {
           setFeedback("wrong");
-          if (voiceOnRef.current) speakLesson(cur.recognize.nudge, { rate: 0.95 });
+          if (voiceOnRef.current) speakLesson(humanizeForSpeech(cur.recognize.nudge), { rate: 0.9, pitch: 0.97 });
           setTimeout(() => setFeedback("idle"), 1600);
         }
         return;
@@ -293,7 +274,7 @@ export function DailyOperationsLiveBridge() {
         />
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-[160] flex justify-center px-3 pb-3">
+      <div data-academy-bridge-chrome className="fixed inset-x-0 top-12 z-[160] flex justify-center px-3 pt-2">
         <div className={cn("w-full max-w-xl border bg-slate-950/95 backdrop-blur", isInteractive ? "border-amber-600/60" : "border-amber-700/50")}>
           <div className="flex items-center justify-between border-b border-slate-800 px-3 py-1.5">
             <span className={cn(TERMINAL_TYPO.label, "text-amber-200")}>DAILY OPS BRIDGE · {step.chapter}</span>
@@ -436,8 +417,8 @@ export function DailyOperationsLiveBridge() {
                 DONE
               </button>
             ) : (
-              <button type="button" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-amber-700/50 px-2 py-1 text-amber-300")}>
-                NEXT <ArrowRight className="inline h-3 w-3" />
+              <button type="button" aria-label="Next step" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-amber-700/50 px-2 py-1 text-amber-300")}>
+                <AcademyNextLabel />
               </button>
             )}
           </div>

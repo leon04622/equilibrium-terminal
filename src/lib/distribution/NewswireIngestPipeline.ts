@@ -1,10 +1,13 @@
 import { EventPrioritizationEngine } from "@/lib/distribution/EventPrioritizationEngine";
+import { DerivativesAlertEngine } from "@/lib/derivatives/DerivativesAlertEngine";
 import { useAlertStore } from "@/store/useAlertStore";
 import { useInformationDiscoveryStore } from "@/store/useInformationDiscoveryStore";
 import { useMarketAtmosphereStore } from "@/store/useMarketAtmosphereStore";
 import { useMarketCoverageStore } from "@/store/useMarketCoverageStore";
+import { useExternalNewsStore } from "@/store/useExternalNewsStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import type { NewswireItem } from "@/types/information-distribution";
+import type { NewsSourceTier } from "@/types/institutional-news";
 
 function item(
   source: string,
@@ -16,6 +19,7 @@ function item(
   timestamp: number,
   verified: boolean,
   sourceBoost = 0,
+  articleUrl: string | null = null,
 ): NewswireItem {
   const category = EventPrioritizationEngine.mapCategory(categoryRaw);
   const scores = EventPrioritizationEngine.score(
@@ -38,7 +42,53 @@ function item(
     verified,
     timestamp,
     ...scores,
+    articleUrl,
   };
+}
+
+function severityFromHeadline(headline: string): NewswireItem["severity"] {
+  const lower = headline.toLowerCase();
+  if (
+    lower.includes("hack") ||
+    lower.includes("exploit") ||
+    lower.includes("bankrupt") ||
+    lower.includes("outage")
+  ) {
+    return "critical";
+  }
+  if (
+    lower.includes("etf") ||
+    lower.includes("fed") ||
+    lower.includes("liquidat") ||
+    lower.includes("regulat")
+  ) {
+    return "watch";
+  }
+  return "info";
+}
+
+function tierBoost(tier: NewsSourceTier): number {
+  switch (tier) {
+    case "squawk":
+      return 18;
+    case "exchange":
+      return 17;
+    case "hl":
+      return 16;
+    case "regulatory":
+      return 15;
+    case "macro":
+      return 13;
+    default:
+      return 8;
+  }
+}
+
+function tierCategory(tier: NewsSourceTier): string {
+  if (tier === "regulatory") return "operational";
+  if (tier === "macro") return "macro";
+  if (tier === "exchange") return "exchange";
+  return "narrative";
 }
 
 export class NewswireIngestPipeline {
@@ -73,6 +123,7 @@ export class NewswireIngestPipeline {
           w.timestamp,
           true,
           8,
+          w.articleUrl ?? null,
         ),
       );
     }
@@ -138,6 +189,45 @@ export class NewswireIngestPipeline {
           sig.timestamp,
           sig.sourceVerified,
           10,
+        ),
+      );
+    }
+
+    for (const headline of useExternalNewsStore.getState().headlines.slice(0, 48)) {
+      const isPanic = headline.source.toUpperCase().includes("PANIC");
+      rows.push({
+        ...item(
+          headline.source,
+          tierCategory(headline.tier),
+          headline.headline,
+          headline.detail,
+          headline.coin,
+          severityFromHeadline(headline.headline),
+          headline.timestamp,
+          headline.verified,
+          (isPanic ? 17 : tierBoost(headline.tier)) + Math.round(headline.priority / 25),
+          headline.url,
+        ),
+        id: headline.id,
+      });
+    }
+
+    const asset =
+      useTerminalStore.getState().selectedCoin ??
+      useTerminalStore.getState().selectedAsset?.coin ??
+      "BTC";
+    for (const deriv of DerivativesAlertEngine.evaluate(asset)) {
+      rows.push(
+        item(
+          "HL-DERIV",
+          deriv.kind,
+          `${asset} · ${deriv.headline}`,
+          deriv.detail,
+          asset,
+          deriv.severity,
+          deriv.timestamp,
+          true,
+          16,
         ),
       );
     }

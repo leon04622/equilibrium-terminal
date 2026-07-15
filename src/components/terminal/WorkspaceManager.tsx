@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { loadMaximizedPanelId, saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Layout } from "react-grid-layout";
 import { HyperBook } from "@/components/terminal/widgets/HyperBook";
 import { ChartWidget } from "@/components/terminal/ChartWidget";
@@ -27,9 +28,19 @@ import { KnowledgeGraphConsole } from "@/components/terminal/widgets/KnowledgeGr
 import { TraderJournalPanel } from "@/components/terminal/widgets/TraderJournalPanel";
 import { ResearchWorkspacePanel } from "@/components/terminal/widgets/ResearchWorkspacePanel";
 import { DailyOperatingConsole } from "@/components/terminal/widgets/DailyOperatingConsole";
+import { MarketStateLayerConsole } from "@/components/terminal/widgets/MarketStateLayerConsole";
+import { DailyBriefingConsole } from "@/components/terminal/widgets/DailyBriefingConsole";
 import { MarketCoverageConsole } from "@/components/terminal/widgets/MarketCoverageConsole";
 import { ReliabilityConsole } from "@/components/terminal/widgets/ReliabilityConsole";
+import { ArticleReaderOverlay } from "@/components/terminal/widgets/ArticleReaderOverlay";
 import { InformationDistributionConsole } from "@/components/terminal/widgets/InformationDistributionConsole";
+import { PaperBlotterConsole } from "@/components/terminal/widgets/PaperBlotterConsole";
+import { LiveBlotterConsole } from "@/components/terminal/widgets/LiveBlotterConsole";
+import { SettlementLedgerConsole } from "@/components/terminal/widgets/SettlementLedgerConsole";
+import { InstitutionalScreenerConsole } from "@/components/terminal/widgets/InstitutionalScreenerConsole";
+import { TradeSurveillanceConsole } from "@/components/terminal/widgets/TradeSurveillanceConsole";
+import { InstrumentMasterConsole } from "@/components/terminal/widgets/InstrumentMasterConsole";
+import { CrossVenueQuotesConsole } from "@/components/terminal/widgets/CrossVenueQuotesConsole";
 import { DataIngestionConsole } from "@/components/terminal/widgets/DataIngestionConsole";
 import { MarketIntelligenceConsole } from "@/components/terminal/widgets/MarketIntelligenceConsole";
 import { CollaborationConsole } from "@/components/terminal/widgets/CollaborationConsole";
@@ -61,49 +72,52 @@ import { ExplainDeskConsole } from "@/components/terminal/widgets/ExplainDeskCon
 import { OperatorJournalConsole } from "@/components/terminal/widgets/OperatorJournalConsole";
 import { LiveMentorConsole } from "@/components/terminal/widgets/LiveMentorConsole";
 import { DecisionReplayReview } from "@/components/terminal/widgets/DecisionReplayReview";
-import { ExplainSidePanel } from "@/components/terminal/explain/ExplainSidePanel";
+import { DeferredPanelContent } from "@/components/terminal/DeferredPanelContent";
 import { GuidedFocusIndicator } from "@/components/terminal/explain/GuidedFocusIndicator";
-import { CinematicOrderBookLesson } from "@/components/terminal/explain/CinematicOrderBookLesson";
-import { MarketMechanicsSimulator } from "@/components/terminal/explain/MarketMechanicsSimulator";
-import { LessonLiveBridge } from "@/components/terminal/explain/LessonLiveBridge";
-import { FundingCrowdingSimulator } from "@/components/terminal/explain/FundingCrowdingSimulator";
-import { FundingLiveBridge } from "@/components/terminal/explain/FundingLiveBridge";
-import { TradeTypesSimulator } from "@/components/terminal/explain/TradeTypesSimulator";
-import { TradeTypesLiveBridge } from "@/components/terminal/explain/TradeTypesLiveBridge";
-import { LiquidationsSimulator } from "@/components/terminal/explain/LiquidationsSimulator";
-import { LiquidationsLiveBridge } from "@/components/terminal/explain/LiquidationsLiveBridge";
-import { RiskManagementSimulator } from "@/components/terminal/explain/RiskManagementSimulator";
-import { RiskManagementLiveBridge } from "@/components/terminal/explain/RiskManagementLiveBridge";
-import { SlippageSimulator } from "@/components/terminal/explain/SlippageSimulator";
-import { SlippageLiveBridge } from "@/components/terminal/explain/SlippageLiveBridge";
-import { ExecutionSimulator } from "@/components/terminal/explain/ExecutionSimulator";
-import { ExecutionLiveBridge } from "@/components/terminal/explain/ExecutionLiveBridge";
-import { PortfolioRiskSimulator } from "@/components/terminal/explain/PortfolioRiskSimulator";
-import { PortfolioRiskLiveBridge } from "@/components/terminal/explain/PortfolioRiskLiveBridge";
-import { DailyOperationsSimulator } from "@/components/terminal/explain/DailyOperationsSimulator";
-import { DailyOperationsLiveBridge } from "@/components/terminal/explain/DailyOperationsLiveBridge";
-import { OperatorJournalSimulator } from "@/components/terminal/explain/OperatorJournalSimulator";
-import { OperatorJournalLiveBridge } from "@/components/terminal/explain/OperatorJournalLiveBridge";
-import { LiveDeskSimulator } from "@/components/terminal/explain/LiveDeskSimulator";
-import { LiveDeskLiveBridge } from "@/components/terminal/explain/LiveDeskLiveBridge";
+import { AcademyOverlayHost } from "@/components/terminal/explain/AcademyOverlayHost";
+import { AcademyWorkflowGuide } from "@/components/terminal/explain/AcademyWorkflowGuide";
+import { LiveDeskBridgeStrip } from "@/components/terminal/explain/LiveDeskBridgeStrip";
+import { ExplainSidePanel } from "@/components/terminal/explain/ExplainSidePanel";
 import { LearningHubLauncher } from "@/components/terminal/explain/LearningHubLauncher";
+import { OnboardingResumeButton } from "@/components/terminal/OnboardingResumeButton";
 import { LearningCommandCenter } from "@/components/terminal/explain/LearningCommandCenter";
 import { AcademySessionGuard } from "@/components/terminal/explain/AcademySessionGuard";
 import { AcademyPerformancePanel } from "@/components/terminal/explain/AcademyPerformancePanel";
 import { AlphaInviteGate } from "@/components/terminal/AlphaInviteGate";
+import { OperatorModeConsole } from "@/components/terminal/widgets/OperatorModeConsole";
+import { OperatorModeGuidanceStrip } from "@/components/terminal/OperatorModeGuidanceStrip";
+import { MorningTradingPathStrip } from "@/components/terminal/MorningTradingPathStrip";
+import { OperatorModeController } from "@/components/terminal/OperatorModeController";
 import { OnboardingWalkthrough } from "@/components/terminal/OnboardingWalkthrough";
+import { FirstFifteenMinutesWelcome } from "@/components/beginner/FirstFifteenMinutesWelcome";
+import { DeskSessionBar } from "@/components/terminal/DeskSessionBar";
+import { beginnerPanelSubtitle, beginnerPanelTitle } from "@/lib/beginner/beginnerTranslation";
 import { DailyStateStrip } from "@/components/terminal/DailyStateStrip";
+import { MarginCallStrip } from "@/components/terminal/MarginCallStrip";
 import { AdaptiveOrchestratorBar } from "@/components/terminal/AdaptiveOrchestratorBar";
 import { TerminalExperienceBar } from "@/components/terminal/TerminalExperienceBar";
 import { WedgeMissionStrip } from "@/components/terminal/WedgeMissionStrip";
 import { DeskSwitcher } from "@/components/terminal/DeskSwitcher";
+import { WatchlistStrip } from "@/components/terminal/WatchlistStrip";
+import { StreamReconnectBanner } from "@/components/terminal/StreamReconnectBanner";
+import { KeyboardShortcutOverlay } from "@/components/terminal/KeyboardShortcutOverlay";
+import { WorkspaceHeaderTelemetry } from "@/components/terminal/WorkspaceHeaderTelemetry";
 import { WorkspaceSystems } from "@/components/terminal/WorkspaceSystems";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
+import {
+  attachWorkspaceScrollRoot,
+  isWorkspaceScrolling,
+  lastWorkspaceScrollWithin,
+  noteWorkspaceScroll,
+  restoreWorkspaceScroll,
+} from "@/lib/runtime/workspaceScroll";
+import { useWorkspaceScrollAnchor } from "@/lib/runtime/useWorkspaceScroll";
+import { academyPanelPinLayout, isAcademyHeaderTarget } from "@/lib/education/academyPanelPin";
 import { layoutFingerprint, layoutsEqual } from "@/lib/telemetry/layoutUtils";
 import { telemetryPipeline } from "@/lib/telemetry/TelemetryPipeline";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
-import { TERMINAL_LAYOUT, terminalSkin, TERMINAL_TYPO, DENSITY_PRESETS, MODE_CHROME, TRUST_SIGNAL, type PanelStatus } from "@/lib/theme";
-import { resolvePanelEmphasis } from "@/lib/theme/equilibrium-visual";
+import { TERMINAL_LAYOUT, terminalSkin, TERMINAL_TYPO, DENSITY_PRESETS, MODE_CHROME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useTerminalStore } from "@/store/terminalStore";
 import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
@@ -171,9 +185,18 @@ const PANEL_TELEMETRY: Record<string, string> = {
   traderjournal: "JOURNAL",
   research: "RESEARCH",
   dailyops: "DAILY OPS",
+  marketstate: "MARKET STATE",
+  dailybriefing: "DAILY BRIEFING",
   marketcoverage: "COVERAGE",
   reliability: "RELIABILITY",
   newswire: "NEWSWIRE",
+  paperblotter: "PAPER BLOTTER",
+  liveblotter: "LIVE BLOTTER",
+  settlementledger: "SETTLEMENT",
+  screener: "SCREENER",
+  tradesurveillance: "TRADE SURV",
+  instrumentmaster: "INSTRUMENT MASTER",
+  crossvenue: "CROSS-VENUE",
   ingestion: "INGEST",
   intelengine: "INTEL",
   collab: "COLLAB",
@@ -204,6 +227,7 @@ const PANEL_TELEMETRY: Record<string, string> = {
   explaindesk: "OPERATOR GUIDE",
   operatorjournal: "OPERATOR JOURNAL",
   livementor: "LIVE MENTOR",
+  operatormode: "OPERATOR MODE",
 };
 
 function widgetContent(type: WidgetType) {
@@ -246,12 +270,30 @@ function widgetContent(type: WidgetType) {
       return <ResearchWorkspacePanel />;
     case "dailyops":
       return <DailyOperatingConsole />;
+    case "marketstate":
+      return <MarketStateLayerConsole />;
+    case "dailybriefing":
+      return <DailyBriefingConsole />;
     case "marketcoverage":
       return <MarketCoverageConsole />;
     case "reliability":
       return <ReliabilityConsole />;
     case "newswire":
       return <InformationDistributionConsole />;
+    case "paperblotter":
+      return <PaperBlotterConsole />;
+    case "liveblotter":
+      return <LiveBlotterConsole />;
+    case "settlementledger":
+      return <SettlementLedgerConsole />;
+    case "screener":
+      return <InstitutionalScreenerConsole />;
+    case "tradesurveillance":
+      return <TradeSurveillanceConsole />;
+    case "instrumentmaster":
+      return <InstrumentMasterConsole />;
+    case "crossvenue":
+      return <CrossVenueQuotesConsole />;
     case "ingestion":
       return <DataIngestionConsole />;
     case "intelengine":
@@ -312,50 +354,151 @@ function widgetContent(type: WidgetType) {
       return <OperatorJournalConsole />;
     case "livementor":
       return <LiveMentorConsole />;
+    case "operatormode":
+      return <OperatorModeConsole />;
     default:
       return null;
   }
 }
 
-function formatLatency(lastMessageAt: number | null): string {
-  if (!lastMessageAt) return "LAT —";
-  const ms = Date.now() - lastMessageAt;
-  if (ms < 1000) return `LAT ${ms}ms`;
-  return `LAT ${(ms / 1000).toFixed(1)}s`;
+type WorkspaceGridProps = {
+  activeLayout: Layout[];
+  width: number;
+  gridRowHeight: number;
+  visible: WorkspaceWidget[];
+  maximizedId: string | null;
+  beginnerMode: boolean;
+  deskTransitioning: boolean;
+  reducedMotion: boolean;
+  onCommitLayout: (next: Layout[]) => void;
+  onToggleMaximize: (id: string) => void;
+};
+
+function workspaceGridPropsEqual(prev: WorkspaceGridProps, next: WorkspaceGridProps): boolean {
+  if (
+    prev.width !== next.width ||
+    prev.gridRowHeight !== next.gridRowHeight ||
+    prev.maximizedId !== next.maximizedId ||
+    prev.beginnerMode !== next.beginnerMode ||
+    prev.deskTransitioning !== next.deskTransitioning ||
+    prev.reducedMotion !== next.reducedMotion
+  ) {
+    return false;
+  }
+  if (layoutFingerprint(prev.activeLayout) !== layoutFingerprint(next.activeLayout)) return false;
+  if (prev.visible.length !== next.visible.length) return false;
+  for (let i = 0; i < prev.visible.length; i++) {
+    if (prev.visible[i]?.id !== next.visible[i]?.id) return false;
+  }
+  return true;
 }
 
-function panelStatus(panelId: string, connectionStatus: string): PanelStatus {
-  const streamPanels = new Set(["hyperbook", "chart", "intelligence", "ticket", "macro"]);
-  if (!streamPanels.has(panelId)) return "idle";
-  if (connectionStatus === "connected") return "live";
-  if (connectionStatus === "reconnecting") return "watch";
-  return "offline";
+function gridContainerHeight(layout: Layout[], rowHeight: number, marginY: number, padY: number): number {
+  if (!layout.length) return rowHeight * 12;
+  let rows = 0;
+  for (const item of layout) {
+    rows = Math.max(rows, item.y + item.h);
+  }
+  return rows * rowHeight + Math.max(0, rows - 1) * marginY + padY * 2;
 }
 
-function trustLabel(connectionStatus: string): string {
-  if (connectionStatus === "connected") return TRUST_SIGNAL.stable;
-  if (connectionStatus === "reconnecting") return TRUST_SIGNAL.degraded;
-  return TRUST_SIGNAL.critical;
-}
+const WorkspaceGrid = memo(function WorkspaceGrid({
+  activeLayout,
+  width,
+  gridRowHeight,
+  visible,
+  maximizedId,
+  beginnerMode,
+  deskTransitioning,
+  reducedMotion,
+  onCommitLayout,
+  onToggleMaximize,
+}: WorkspaceGridProps) {
+  const pauseLivePanels = useCallback(() => noteWorkspaceScroll(), []);
+  const marginY = TERMINAL_LAYOUT.gridMargin[1];
+  const padY = 2;
+  const containerHeight = useMemo(
+    () => gridContainerHeight(activeLayout, gridRowHeight, marginY, padY),
+    [activeLayout, gridRowHeight, marginY],
+  );
+
+  return (
+    <div
+      className={deskTransitioning && !reducedMotion ? "transition-opacity duration-200" : undefined}
+      style={{ opacity: deskTransitioning && !reducedMotion ? 0.35 : 1, minHeight: containerHeight }}
+    >
+      <GridLayout
+        className="layout"
+        layout={activeLayout}
+        cols={12}
+        rowHeight={gridRowHeight}
+        width={width}
+        margin={TERMINAL_LAYOUT.gridMargin}
+        containerPadding={[2, 2]}
+        draggableHandle=".panel-drag-handle"
+        onDragStart={pauseLivePanels}
+        onDrag={pauseLivePanels}
+        onResizeStart={pauseLivePanels}
+        onResize={pauseLivePanels}
+        onDragStop={onCommitLayout}
+        onResizeStop={onCommitLayout}
+        compactType={null}
+        isResizable={!maximizedId}
+        isDraggable={!maximizedId}
+        useCSSTransforms
+      >
+        {visible.map((panel) => (
+          <div key={panel.id} className="overflow-hidden rounded-none" data-panel-id={panel.id}>
+            <PanelShell
+              title={beginnerMode ? beginnerPanelTitle(panel.id, panel.title) : panel.title}
+              subtitle={beginnerMode ? beginnerPanelSubtitle(panel.id) : undefined}
+              panelId={panel.id}
+              telemetry={PANEL_TELEMETRY[panel.id] ?? "SYS"}
+              dragHandleClassName="panel-drag-handle"
+              maximized={maximizedId === panel.id}
+              onToggleMaximize={() => onToggleMaximize(panel.id)}
+            >
+              <DeferredPanelContent
+                panelId={panel.id}
+                forceMount={maximizedId === panel.id}
+              >
+                {panel.id === "ticket" ? (
+                  <TradeTicket />
+                ) : panel.id === "positions" ? (
+                  <PositionsTable />
+                ) : (
+                  widgetContent(panel.type)
+                )}
+              </DeferredPanelContent>
+            </PanelShell>
+          </div>
+        ))}
+      </GridLayout>
+    </div>
+  );
+}, workspaceGridPropsEqual);
 
 export function WorkspaceManager() {
   const widgets = useTerminalStore((s) => s.widgets);
   const removeWidget = useTerminalStore((s) => s.removeWidget);
-  const selectedAsset = useTerminalStore((s) => s.selectedAsset);
-  const connectionStatus = useTerminalStore((s) => s.connectionStatus);
-  const lastMessageAt = useTerminalStore((s) => s.lastMessageAt);
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
+  const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
   const activeDeskId = useDeskStore((s) => s.activeDeskId);
   const deskTransitioning = useDeskStore((s) => s.transitioning);
   const [layout, setLayout] = useState<Layout[]>(initialWorkspaceLayout);
-  const [maximizedId, setMaximizedId] = useState<string | null>(null);
+  const [maximizedId, setMaximizedId] = useState<string | null>(() => loadMaximizedPanelId());
   const [width, setWidth] = useState(1400);
-  const [clock, setClock] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const widthMeasureRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const layoutFpRef = useRef(layoutFingerprint(initialWorkspaceLayout()));
+  const { allowScrollReset } = useWorkspaceScrollAnchor(scrollRef);
   const suppressLayoutTelemetryRef = useRef(false);
   const widthRef = useRef(1400);
   const gridReadyRef = useRef(false);
+  const academyPinnedPanelRef = useRef<string | null>(null);
+  const academyMaximizedRef = useRef(false);
+
+  const highlightPanelId = useOperatorGuideStore((s) => s.highlightPanelId);
 
   const extraPanels: WorkspaceWidget[] = useMemo(
     () => [
@@ -374,9 +517,17 @@ export function WorkspaceManager() {
       { id: "traderjournal", type: "traderjournal", title: "TRADER JOURNAL" },
       { id: "research", type: "research", title: "RESEARCH" },
       { id: "dailyops", type: "dailyops", title: "DAILY OPERATIONS" },
+      { id: "marketstate", type: "marketstate", title: "MARKET STATE LAYER" },
+      { id: "dailybriefing", type: "dailybriefing", title: "DAILY BRIEFING ENGINE" },
       { id: "marketcoverage", type: "marketcoverage", title: "MARKET COVERAGE" },
       { id: "reliability", type: "reliability", title: "RELIABILITY" },
       { id: "newswire", type: "newswire", title: "MARKET NEWSWIRE" },
+      { id: "paperblotter", type: "paperblotter", title: "PAPER BLOTTER" },
+      { id: "liveblotter", type: "liveblotter", title: "LIVE BLOTTER" },
+      { id: "settlementledger", type: "settlementledger", title: "SETTLEMENT" },
+      { id: "screener", type: "screener", title: "MARKET SCREENER" },
+      { id: "instrumentmaster", type: "instrumentmaster", title: "INSTRUMENT MASTER" },
+      { id: "crossvenue", type: "crossvenue", title: "CROSS-VENUE QUOTES" },
       { id: "ingestion", type: "ingestion", title: "DATA INGEST" },
       { id: "intelengine", type: "intelengine", title: "MARKET INTELLIGENCE" },
       { id: "collab", type: "collab", title: "TEAM COLLABORATION" },
@@ -407,21 +558,28 @@ export function WorkspaceManager() {
       { id: "explaindesk", type: "explaindesk", title: "OPERATOR GUIDE" },
       { id: "operatorjournal", type: "operatorjournal", title: "OPERATOR JOURNAL" },
       { id: "livementor", type: "livementor", title: "LIVE MENTOR" },
+      { id: "operatormode", type: "operatormode", title: "OPERATOR MODE" },
     ],
     [],
   );
 
-  const applyAdaptiveLayout = useCallback((next: Layout[]) => {
-    if (layoutsEqual(next, layout)) return;
-    const fp = layoutFingerprint(next);
-    if (fp === layoutFpRef.current) return;
-    suppressLayoutTelemetryRef.current = true;
-    layoutFpRef.current = fp;
-    setLayout(next);
-    queueMicrotask(() => {
-      suppressLayoutTelemetryRef.current = false;
-    });
-  }, [layout]);
+  const applyAdaptiveLayout = useCallback(
+    (next: Layout[], options?: { resetScroll?: boolean }) => {
+      const fp = layoutFingerprint(next);
+      if (fp === layoutFpRef.current) return;
+      if (isWorkspaceScrolling() && !options?.resetScroll) return;
+      const root = scrollRef.current;
+      const savedScroll = options?.resetScroll ? 0 : (root?.scrollTop ?? 0);
+      suppressLayoutTelemetryRef.current = true;
+      layoutFpRef.current = fp;
+      setLayout(next);
+      if (root && savedScroll > 0) restoreWorkspaceScroll(root, savedScroll);
+      queueMicrotask(() => {
+        suppressLayoutTelemetryRef.current = false;
+      });
+    },
+    [],
+  );
 
   // Layout resolution priority:
   //   1. Full platform (EXPAND) always wins when desk-focus is off.
@@ -442,6 +600,30 @@ export function WorkspaceManager() {
     applyAdaptiveLayout(resolveWorkspaceLayout(true));
     setMode(WEDGE_DEFAULT_MODE);
   }, [deskFocusMode, activeDeskId, applyAdaptiveLayout]);
+
+  const prevDeskScrollKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!deskFocusMode) {
+      prevDeskScrollKeyRef.current = "full";
+      return;
+    }
+    const key = activeDeskId ?? "execution";
+    if (prevDeskScrollKeyRef.current === key) return;
+    prevDeskScrollKeyRef.current = key;
+    allowScrollReset();
+    const root = scrollRef.current;
+    if (root) root.scrollTo({ top: 0, behavior: "auto" });
+  }, [deskFocusMode, activeDeskId, allowScrollReset]);
+
+  useEffect(() => {
+    return terminalBus.on("workspace:snapshot-restore", ({ layout: restored }) => {
+      if (!restored.length) return;
+      const root = scrollRef.current;
+      const savedScroll = root?.scrollTop ?? 0;
+      applyAdaptiveLayout(restored);
+      if (root && savedScroll > 0) restoreWorkspaceScroll(root, savedScroll);
+    });
+  }, [applyAdaptiveLayout]);
 
   // PHASE 9 — clear the brief cross-fade once the new desk has mounted.
   const reducedMotion = useTerminalExperienceStore((s) => s.reducedMotion);
@@ -466,18 +648,6 @@ export function WorkspaceManager() {
   }, [widgets, extraPanels]);
 
   useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setClock(
-        d.toISOString().slice(11, 23),
-      );
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     const hidden =
       deskFocusMode
         ? Array.from(WEDGE_ADVANCED_PANEL_IDS).filter((id) => !layout.some((l) => l.i === id))
@@ -485,41 +655,126 @@ export function WorkspaceManager() {
     useAdaptiveWorkspaceStore.setState({ hiddenPanelIds: hidden, collapsedPanelIds: [] });
   }, [deskFocusMode, layout]);
 
+  // Live academy bridges pin their target panel into the workspace (wedge mode hides museum panels by default).
+  useEffect(() => {
+    if (!highlightPanelId || isAcademyHeaderTarget(highlightPanelId)) {
+      if (academyPinnedPanelRef.current) {
+        const pinned = academyPinnedPanelRef.current;
+        academyPinnedPanelRef.current = null;
+        setLayout((prev) => prev.filter((item) => item.i !== pinned));
+      }
+      if (academyMaximizedRef.current) {
+        academyMaximizedRef.current = false;
+        setMaximizedId(null);
+      }
+      return;
+    }
+
+    setLayout((prev) => {
+      if (prev.some((item) => item.i === highlightPanelId)) return prev;
+      academyPinnedPanelRef.current = highlightPanelId;
+      return [...prev, academyPanelPinLayout(highlightPanelId)];
+    });
+
+    setMaximizedId((prev) => (prev === highlightPanelId ? prev : highlightPanelId));
+    academyMaximizedRef.current = true;
+
+    useAdaptiveWorkspaceStore.setState((s) => ({
+      hiddenPanelIds: s.hiddenPanelIds.filter((id) => id !== highlightPanelId),
+    }));
+  }, [highlightPanelId]);
+
   useEffect(() => {
     const off = terminalBus.on("widget:focus", ({ widgetId }) => {
-      const root = containerRef.current;
+      if (widgetId === "header-strip") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        const headerEl =
+          document.getElementById("live-desk-bridge-target") ??
+          document.querySelector<HTMLElement>('[data-livedesk-panel="header-strip"]');
+        if (headerEl) {
+          headerEl.classList.add("ring-2", "ring-cyan-500/60");
+          window.setTimeout(() => {
+            headerEl.classList.remove("ring-2", "ring-cyan-500/60");
+          }, 1400);
+        }
+        return;
+      }
+
+      const pinAndHighlight = () => {
+        const root = scrollRef.current;
+        if (!root) return;
+        const el = root.querySelector<HTMLElement>(`[data-panel-id="${widgetId}"]`);
+        if (!el) return;
+        const bridgeChrome = document.querySelector("[data-academy-bridge-chrome]");
+        const userIsScrolling =
+          isWorkspaceScrolling() || lastWorkspaceScrollWithin(2500) || root.scrollTop > 48;
+        if (!bridgeChrome && !userIsScrolling) {
+          const rootRect = root.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          const mostlyVisible =
+            elRect.top >= rootRect.top - 32 && elRect.bottom <= rootRect.bottom + 32;
+          if (!mostlyVisible) {
+            el.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+          }
+        }
+        el.classList.add("ring-2", "ring-cyan-500/60", "ring-inset");
+        window.setTimeout(() => {
+          el.classList.remove("ring-2", "ring-cyan-500/60", "ring-inset");
+        }, 1400);
+        setMaximizedId((m) => (m && m !== widgetId ? null : m));
+      };
+
+      const root = scrollRef.current;
       if (!root) return;
       const el = root.querySelector<HTMLElement>(`[data-panel-id="${widgetId}"]`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-cyan-500/60", "ring-inset");
-      window.setTimeout(() => {
-        el.classList.remove("ring-2", "ring-cyan-500/60", "ring-inset");
-      }, 1400);
-      setMaximizedId((m) => (m && m !== widgetId ? null : m));
+      if (!el) {
+        setLayout((prev) => {
+          if (prev.some((item) => item.i === widgetId)) return prev;
+          return [...prev, academyPanelPinLayout(widgetId)];
+        });
+        useAdaptiveWorkspaceStore.setState((s) => ({
+          hiddenPanelIds: s.hiddenPanelIds.filter((id) => id !== widgetId),
+        }));
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(pinAndHighlight);
+        });
+        return;
+      }
+      pinAndHighlight();
     });
     return off;
   }, []);
 
   useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
+    const measureNode = widthMeasureRef.current;
+    const scrollNode = scrollRef.current;
+    if (!measureNode || !scrollNode) return;
+
     const applyWidth = (w: number) => {
-      if (w > 0 && w !== widthRef.current) {
-        widthRef.current = w;
-        setWidth(w);
+      const rounded = Math.round(w);
+      if (rounded <= 0) return;
+      if (Math.abs(rounded - widthRef.current) < 2) return;
+      const savedScroll = scrollNode.scrollTop;
+      widthRef.current = rounded;
+      setWidth(rounded);
+      if (savedScroll > 0 && !isWorkspaceScrolling()) {
+        restoreWorkspaceScroll(scrollNode, savedScroll);
       }
     };
+
+    const detachScroll = attachWorkspaceScrollRoot(scrollNode);
+
     const ro = new ResizeObserver((entries) => {
-      applyWidth(Math.round(entries[0]?.contentRect.width ?? 0));
+      applyWidth(entries[0]?.contentRect.width ?? 0);
     });
-    ro.observe(node);
-    applyWidth(Math.round(node.clientWidth));
-    const raf = requestAnimationFrame(() => applyWidth(Math.round(node.clientWidth)));
+    ro.observe(measureNode);
+    applyWidth(measureNode.clientWidth);
+    const raf = requestAnimationFrame(() => applyWidth(measureNode.clientWidth));
     const readyTimer = window.setTimeout(() => {
       gridReadyRef.current = true;
     }, 0);
     return () => {
+      detachScroll();
       cancelAnimationFrame(raf);
       window.clearTimeout(readyTimer);
       ro.disconnect();
@@ -527,7 +782,6 @@ export function WorkspaceManager() {
   }, []);
 
   /** Only commit layout on user drag/resize — onLayoutChange loops with width/compact. */
-  const panelEmphasis = useAdaptiveWorkspaceStore((s) => s.panelEmphasis);
   const hiddenPanelIds = useAdaptiveWorkspaceStore((s) => s.hiddenPanelIds);
   const terminalMode = useAdaptiveWorkspaceStore((s) => s.mode);
   const density = useTerminalExperienceStore((s) => s.density);
@@ -552,6 +806,9 @@ export function WorkspaceManager() {
       if (!suppressLayoutTelemetryRef.current) {
         useAdaptiveWorkspaceStore.getState().lockUserLayout();
       }
+      if (!suppressLayoutTelemetryRef.current) {
+        terminalBus.emit("workspace:layout-commit", {});
+      }
       if (suppressLayoutTelemetryRef.current) return;
       telemetryPipeline.enqueue(
         useTraderTelemetryStore.getState().trackInteraction({
@@ -565,7 +822,15 @@ export function WorkspaceManager() {
   );
 
   const toggleMaximize = useCallback((id: string) => {
-    setMaximizedId((m) => (m === id ? null : id));
+    setMaximizedId((m) => {
+      const next = m === id ? null : id;
+      saveMaximizedPanelId(next);
+      layoutFpRef.current = `${next ?? "restore"}:${id}:${Date.now()}`;
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      });
+      return next;
+    });
   }, []);
 
   const closePanel = useCallback(
@@ -578,61 +843,62 @@ export function WorkspaceManager() {
         removeWidget(id);
       }
       setLayout((l) => l.filter((item) => item.i !== id));
+      setMaximizedId((m) => {
+        if (m !== id) return m;
+        saveMaximizedPanelId(null);
+        return null;
+      });
     },
     [removeWidget],
   );
 
+  useEffect(() => {
+    if (!maximizedId) return;
+    if (!layout.some((item) => item.i === maximizedId)) {
+      setMaximizedId(null);
+      saveMaximizedPanelId(null);
+    }
+  }, [layout, maximizedId]);
+
+  const maxPanelRows = useMemo(() => {
+    const marginY = TERMINAL_LAYOUT.gridMargin[1];
+    const chromePx = 96;
+    const available =
+      typeof window !== "undefined" ? Math.max(480, window.innerHeight - chromePx) : 720;
+    return Math.max(22, Math.ceil(available / (gridRowHeight + marginY)));
+  }, [gridRowHeight, width]);
+
   const activeLayout = useMemo(() => {
     if (!maximizedId) return layout;
     const item = layout.find((l) => l.i === maximizedId);
-    return item ? [{ ...item, x: 0, y: 0, w: 12, h: 24 }] : layout;
-  }, [layout, maximizedId]);
+    return item ? [{ ...item, x: 0, y: 0, w: 12, h: maxPanelRows }] : layout;
+  }, [layout, maximizedId, maxPanelRows]);
 
   const visible = useMemo(() => {
     const ids = new Set(activeLayout.map((l) => l.i));
     const hidden = new Set(hiddenPanelIds);
+    const pinned = highlightPanelId && !isAcademyHeaderTarget(highlightPanelId) ? highlightPanelId : null;
     return allPanels.filter(
-      (p) => ids.has(p.id) && (CORE_WORKSPACE_PANELS.has(p.id) || !hidden.has(p.id)),
+      (p) =>
+        ids.has(p.id) &&
+        (CORE_WORKSPACE_PANELS.has(p.id) || !hidden.has(p.id) || p.id === pinned),
     );
-  }, [allPanels, activeLayout, hiddenPanelIds]);
-
-  const streamColor =
-    connectionStatus === "connected"
-      ? terminalSkin.textUp
-      : connectionStatus === "reconnecting"
-        ? terminalSkin.textWarn
-        : terminalSkin.textDown;
+  }, [allPanels, activeLayout, hiddenPanelIds, highlightPanelId]);
 
   return (
     <div className={cn("flex h-screen flex-col overflow-hidden", terminalSkin.canvas)}>
       <AlphaInviteGate />
+      <FirstFifteenMinutesWelcome />
       <OnboardingWalkthrough />
+      <KeyboardShortcutOverlay />
       <ExplainSidePanel />
       <GuidedFocusIndicator />
       <DecisionReplayReview />
-      <MarketMechanicsSimulator />
-      <CinematicOrderBookLesson />
-      <LessonLiveBridge />
-      <FundingCrowdingSimulator />
-      <FundingLiveBridge />
-      <TradeTypesSimulator />
-      <TradeTypesLiveBridge />
-      <LiquidationsSimulator />
-      <LiquidationsLiveBridge />
-      <RiskManagementSimulator />
-      <RiskManagementLiveBridge />
-      <SlippageSimulator />
-      <SlippageLiveBridge />
-      <ExecutionSimulator />
-      <ExecutionLiveBridge />
-      <PortfolioRiskSimulator />
-      <PortfolioRiskLiveBridge />
-      <DailyOperationsSimulator />
-      <DailyOperationsLiveBridge />
-      <OperatorJournalSimulator />
-      <OperatorJournalLiveBridge />
-      <LiveDeskSimulator />
-      <LiveDeskLiveBridge />
+      <AcademyOverlayHost />
+      <AcademyWorkflowGuide />
+      <OperatorModeController />
+      <ArticleReaderOverlay />
+      <LiveDeskBridgeStrip />
       <LearningCommandCenter />
       <AcademySessionGuard />
       <AcademyPerformancePanel />
@@ -643,41 +909,31 @@ export function WorkspaceManager() {
         )}
       >
         <div className="flex shrink-0 items-center gap-2 border-r-[0.5px] border-slate-800 pr-2">
-          <span className={cn(TERMINAL_TYPO.label, "text-slate-300")}>EQ</span>
-          <span className={cn(TERMINAL_TYPO.micro, modeChrome.accent)} title={modeChrome.label}>
+          <span className={cn(TERMINAL_TYPO.label, beginnerMode ? "text-slate-300" : "text-[#ff9900]")}>
+            {beginnerMode ? "EQ" : "EQUILIBRIUM"}
+          </span>
+          <span
+            className={cn(TERMINAL_TYPO.micro, beginnerMode ? modeChrome.accent : "text-[#888888]")}
+            title={modeChrome.label}
+          >
             {deskFocusMode ? WEDGE_PRODUCT_LABEL : FULL_WORKSPACE_LABEL}
           </span>
         </div>
 
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
           <OmniBar />
+          <DeskSessionBar />
+          {beginnerMode ? <OnboardingResumeButton /> : null}
           <LearningHubLauncher />
-          <DailyStateStrip />
+          {!beginnerMode ? <DailyStateStrip /> : null}
+          {!beginnerMode ? <MarginCallStrip /> : null}
         </div>
 
-        <div
-          className={cn(
-            "hidden shrink-0 items-center gap-2 border-l-[0.5px] border-slate-800 pl-2 font-mono sm:flex",
-            TERMINAL_TYPO.micro,
-          )}
-        >
-          <span className="text-slate-500">UTC</span>
-          <span className="tabular-nums text-slate-300">{clock}</span>
-          <span className="text-slate-600">|</span>
-          <span className={streamColor}>{connectionStatus.toUpperCase()}</span>
-          <span className="text-slate-600">|</span>
-          <span className={cn(TERMINAL_TYPO.micro, streamColor === terminalSkin.textUp ? "text-slate-500" : streamColor)}>
-            {trustLabel(connectionStatus)}
-          </span>
-          <span className="text-slate-600">|</span>
-          <span className="tabular-nums text-slate-500">{formatLatency(lastMessageAt)}</span>
-          <span className="text-slate-600">|</span>
-          <span className={terminalSkin.textUp}>
-            {selectedAsset?.symbol ?? "—"}
-          </span>
-        </div>
+        {!beginnerMode ? <WorkspaceHeaderTelemetry /> : null}
 
-        <AdaptiveOrchestratorBar baseLayout={layout} onApplyLayout={applyAdaptiveLayout} />
+        {!beginnerMode ? (
+          <AdaptiveOrchestratorBar baseLayout={layout} onApplyLayout={applyAdaptiveLayout} />
+        ) : null}
 
         <TerminalExperienceBar />
 
@@ -686,10 +942,23 @@ export function WorkspaceManager() {
 
       <DeskSwitcher />
 
+      <StreamReconnectBanner />
+
+      <WatchlistStrip />
+
+      <MorningTradingPathStrip />
+
+      <OperatorModeGuidanceStrip />
+
       <WedgeMissionStrip />
 
-      <div ref={containerRef} className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-0">
-        <WorkspaceSystems layout={layout} onAdaptiveLayout={applyAdaptiveLayout} />
+      <div ref={widthMeasureRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <WorkspaceSystems layout={layout} deskFocusMode={deskFocusMode} onAdaptiveLayout={applyAdaptiveLayout} />
+        <div
+          ref={scrollRef}
+          data-workspace-scroll
+          className="eq-workspace-scroll relative min-h-0 flex-1 p-0"
+        >
         {visible.length === 0 ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 p-4">
             <p className={cn(TERMINAL_TYPO.label, "text-slate-400")}>NO PANELS VISIBLE</p>
@@ -718,57 +987,18 @@ export function WorkspaceManager() {
             </button>
           </div>
         ) : null}
-        <div
-          className="transition-opacity duration-200"
-          style={{ opacity: deskTransitioning && !reducedMotion ? 0.35 : 1 }}
-        >
-        <GridLayout
-          className="layout"
-          layout={activeLayout}
-          cols={12}
-          rowHeight={gridRowHeight}
+        <WorkspaceGrid
+          activeLayout={activeLayout}
           width={width}
-          margin={TERMINAL_LAYOUT.gridMargin}
-          containerPadding={[2, 2]}
-          draggableHandle=".panel-drag-handle"
-          onDragStop={commitLayout}
-          onResizeStop={commitLayout}
-          compactType="vertical"
-          isResizable={!maximizedId}
-          isDraggable={!maximizedId}
-        >
-          {visible.map((panel) => (
-            <div
-              key={panel.id}
-              className="overflow-hidden rounded-none"
-              data-panel-id={panel.id}
-            >
-              <PanelShell
-                title={panel.title}
-                subtitle={selectedAsset?.symbol}
-                panelId={panel.id}
-                telemetry={PANEL_TELEMETRY[panel.id] ?? "SYS"}
-                emphasis={resolvePanelEmphasis(panel.id, panelEmphasis[panel.id])}
-                status={panelStatus(panel.id, connectionStatus)}
-                loading={
-                  connectionStatus !== "connected" &&
-                  ["hyperbook", "chart", "intelligence", "macro"].includes(panel.id)
-                }
-                dragHandleClassName="panel-drag-handle"
-                maximized={maximizedId === panel.id}
-                onToggleMaximize={() => toggleMaximize(panel.id)}
-              >
-                {panel.id === "ticket" ? (
-                  <TradeTicket />
-                ) : panel.id === "positions" ? (
-                  <PositionsTable />
-                ) : (
-                  widgetContent(panel.type)
-                )}
-              </PanelShell>
-            </div>
-          ))}
-        </GridLayout>
+          gridRowHeight={gridRowHeight}
+          visible={visible}
+          maximizedId={maximizedId}
+          beginnerMode={beginnerMode}
+          deskTransitioning={deskTransitioning}
+          reducedMotion={reducedMotion}
+          onCommitLayout={commitLayout}
+          onToggleMaximize={toggleMaximize}
+        />
         </div>
       </div>
     </div>

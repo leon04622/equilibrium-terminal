@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { FundingCrowdingPlayground } from "@/components/terminal/explain/funding-crowding/FundingCrowdingPlayground";
 import { FUNDING_CROWDING_SCENES } from "@/lib/education/fundingCrowdingScenes";
 import { useLessonSceneDriver } from "@/lib/education/useLessonSceneDriver";
@@ -41,6 +42,7 @@ export function FundingCrowdingSimulator() {
     playing,
     voiceOn,
     scene,
+    captionVoice,
     reduceMotion,
     exit,
     togglePlay,
@@ -95,7 +97,7 @@ export function FundingCrowdingSimulator() {
           </div>
         </div>
       </div>
-      <p className="shrink-0 px-4 pb-1 text-center font-mono text-xs text-slate-300" aria-live="polite">{scene.voice}</p>
+      <p className="shrink-0 px-4 pb-1 text-center font-mono text-xs text-slate-300" aria-live="polite">{captionVoice}</p>
       {!supported ? (
         <p className="shrink-0 px-4 pb-1 text-center text-[10px] text-slate-600">Voice unavailable — follow captions.</p>
       ) : null}
@@ -121,7 +123,7 @@ export function FundingCrowdingSimulator() {
           </button>
         ) : (
           <button type="button" onClick={() => setIndex(index + 1)} className={cn(TERMINAL_TYPO.micro, "border border-violet-700/50 px-2 py-1 text-violet-300")}>
-            NEXT <ArrowRight className="inline h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

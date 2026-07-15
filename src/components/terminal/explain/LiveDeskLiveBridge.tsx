@@ -19,14 +19,23 @@ import {
   ConditionComparison,
   DecisionScenario,
 } from "@/components/terminal/explain/OperatorDecisionPanels";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import {
   LIVE_DESK_BRIDGE_PANEL,
   LIVE_DESK_BRIDGE_STEPS,
   LIVE_DESK_REQUIRED_CONCEPTS,
   type LDBridgeRegion,
 } from "@/lib/education/liveDeskBridgeSteps";
+import {
+  AlertPrioritizer,
+  DailyBriefingEngine,
+  MarketStateLayer,
+  PersonalOpsEngine,
+  SessionClockEngine,
+} from "@/lib/daily";
 import { LiveDeskCoach } from "@/lib/education/liveDeskCoach";
-import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { humanizeForSpeech, speakAcademyBridgeStep } from "@/lib/education/academyVoice";
+import { useAcademyBridgeSpotlight } from "@/lib/education/useAcademyBridgeSpotlight";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -35,27 +44,40 @@ import {
   setLessonVoiceEnabled,
   speakLesson,
 } from "@/lib/education/LessonNarrator";
+import { LIVE_DESK_BRIDGE_TARGET_ID } from "@/components/terminal/explain/LiveDeskBridgeStrip";
+import { terminalBus } from "@/store/eventBus";
 import { useLiveDeskBridgeStore } from "@/store/useLiveDeskBridgeStore";
 import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const steps = LIVE_DESK_BRIDGE_STEPS;
 
-interface Rect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
 function ldContext() {
-  const snap = useDailyOperationsStore.getState().snapshot;
+  const store = useDailyOperationsStore.getState();
+  let snap = store.snapshot;
+  if (!snap) {
+    try {
+      snap = {
+        clock: SessionClockEngine.snapshot(),
+        briefing: DailyBriefingEngine.build(),
+        marketState: MarketStateLayer.build(),
+        memory: store.memory,
+        personal: PersonalOpsEngine.build(store.personalPins, store.checklist, store.favoriteCoins),
+        prioritizedAlerts: AlertPrioritizer.rank(),
+      };
+    } catch {
+      snap = null;
+    }
+  }
   return LiveDeskCoach.contextFromStore(snap);
 }
 
 function panelEl(): HTMLElement | null {
   if (typeof document === "undefined") return null;
-  return document.querySelector<HTMLElement>(`[data-livedesk-panel="${LIVE_DESK_BRIDGE_PANEL}"]`);
+  return (
+    document.getElementById(LIVE_DESK_BRIDGE_TARGET_ID) ??
+    document.querySelector<HTMLElement>(`[data-livedesk-panel="${LIVE_DESK_BRIDGE_PANEL}"]`)
+  );
 }
 
 function regionEl(region: LDBridgeRegion): HTMLElement | null {
@@ -63,6 +85,14 @@ function regionEl(region: LDBridgeRegion): HTMLElement | null {
   if (!panel) return null;
   if (!region || region === "panel") return panel;
   return panel.querySelector<HTMLElement>(`[data-livedesk-region="${region}"]`) ?? panel;
+}
+
+function spotlightRegion(step: (typeof steps)[number] | undefined): LDBridgeRegion {
+  if (!step) return null;
+  if (step.mode === "recognize" && step.recognize?.accept.length) {
+    return step.recognize.accept[0] ?? "panel";
+  }
+  return step.region ?? null;
 }
 
 export function LiveDeskLiveBridge() {
@@ -75,15 +105,13 @@ export function LiveDeskLiveBridge() {
   const recognized = useLiveDeskBridgeStore((s) => s.recognized);
   const setStoreStep = useLiveDeskBridgeStore((s) => s.setStep);
 
-  const setFocusMode = useOperatorGuideStore((s) => s.setFocusMode);
-  const storeSnapshot = useDailyOperationsStore((s) => s.snapshot);
-  const ctx = LiveDeskCoach.contextFromStore(storeSnapshot);
+  const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
+  const ctx = ldContext();
 
   const supported = lessonVoiceSupported();
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-  const [rect, setRect] = useState<Rect | null>(null);
   const [feedback, setFeedback] = useState<"idle" | "correct" | "wrong">("idle");
   const [interactiveDone, setInteractiveDone] = useState(false);
 
@@ -100,6 +128,35 @@ export function LiveDeskLiveBridge() {
   voiceOnRef.current = voiceOn;
 
   const step = steps[Math.min(index, steps.length - 1)];
+
+  const rect = useAcademyBridgeSpotlight({
+    active,
+    index,
+    step,
+    spotlightRegion,
+    regionEl: (region) => regionEl(region as LDBridgeRegion),
+    panelEl,
+  });
+
+  const displayRect = rect
+    ? {
+        top: rect.top + rect.height / 2 - Math.max(rect.height, 44) / 2,
+        left: rect.left + rect.width / 2 - Math.max(rect.width, step.mode === "recognize" ? 200 : 160) / 2,
+        width: Math.max(rect.width, step.mode === "recognize" ? 200 : 160),
+        height: Math.max(rect.height, 44),
+      }
+    : null;
+
+  const calloutLabel =
+    step.region === "funding"
+      ? "FUNDING TIMER"
+      : step.region === "session-countdown"
+        ? "SESSION TIMER"
+        : step.region === "desk-tone"
+          ? "DESK TONE"
+          : step.region === "volatility"
+            ? "VOLATILITY"
+            : null;
 
   const clearTimers = useCallback(() => {
     if (holdTimer.current) {
@@ -119,6 +176,8 @@ export function LiveDeskLiveBridge() {
       setInteractiveDone(false);
       const s = steps[i];
       if (!s) return;
+      setHighlightPanel(LIVE_DESK_BRIDGE_PANEL);
+      terminalBus.emit("widget:focus", { widgetId: "header-strip" });
       if (i >= steps.length - 1) markBridgeCompleted();
       const snap = ldContext();
       const coachText = s.coach(snap);
@@ -126,7 +185,6 @@ export function LiveDeskLiveBridge() {
         s.id === "workflow-plan"
           ? LiveDeskCoach.workflowSteps().map((w) => `${w.order}. ${w.label}: ${w.note}`)
           : [];
-      const text = buildBridgeNarration(s, coachText, snap, extras);
       const waits = s.mode === "recognize" || s.mode === "decide" || s.mode === "compare";
       const after = () => {
         if (tokenRef.current !== token || waits) return;
@@ -134,15 +192,19 @@ export function LiveDeskLiveBridge() {
           if (playingRef.current && i < steps.length - 1) setIndex(i + 1);
         }, 1700);
       };
-      speakAcademyNarration(text, {
+      const scrollTarget =
+        s.mode === "recognize" ? regionEl(spotlightRegion(s)) : undefined;
+      speakAcademyBridgeStep(s, coachText, snap, {
+        extraParts: extras,
+        scrollTarget,
+        scrollSmooth: true,
         voiceOn: voiceOnRef.current,
         supported,
-        rate: 0.94,
         onEnd: after,
         onError: after,
       });
     },
-    [supported, clearTimers, markBridgeCompleted, runId],
+    [supported, clearTimers, markBridgeCompleted, setHighlightPanel, runId],
   );
 
   enterRef.current = enter;
@@ -157,23 +219,22 @@ export function LiveDeskLiveBridge() {
 
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
-    setFocusMode(true);
+    setHighlightPanel(LIVE_DESK_BRIDGE_PANEL);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    terminalBus.emit("widget:focus", { widgetId: "header-strip" });
     return () => {
-      setFocusMode(false);
+      setHighlightPanel(null);
     };
-  }, [active, runId, setFocusMode]);
+  }, [active, runId, setHighlightPanel]);
 
   useEffect(() => {
     if (!active) return;
     skipIndexEffectRef.current = true;
-    narratedKeyRef.current = `${runId}:0`;
+    narratedKeyRef.current = "";
     setIndex(0);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
     setStoreStep(0);
-    enterRef.current(0, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId]);
 
@@ -187,30 +248,13 @@ export function LiveDeskLiveBridge() {
     if (narratedKeyRef.current === speakKey) return;
     narratedKeyRef.current = speakKey;
     setStoreStep(index);
+    if (!playingRef.current) return;
     enterRef.current(index, true);
     return () => {
       clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, runId, index]);
-
-  useEffect(() => {
-    if (!active || step?.mode === "recognize") {
-      setRect(null);
-      return;
-    }
-    let raf = 0;
-    const tick = () => {
-      const el = regionEl(step?.region ?? null);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else setRect(null);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, index, step?.mode, step?.region]);
 
   useEffect(() => {
     if (!active) return;
@@ -226,7 +270,7 @@ export function LiveDeskLiveBridge() {
       if (!region || !cur.recognize.accept.includes(region)) {
         if (region) {
           setFeedback("wrong");
-          if (voiceOnRef.current) speakLesson(cur.recognize.nudge, { rate: 0.95 });
+          if (voiceOnRef.current) speakLesson(humanizeForSpeech(cur.recognize.nudge), { rate: 0.9, pitch: 0.97 });
           setTimeout(() => setFeedback("idle"), 1600);
         }
         return;
@@ -256,14 +300,35 @@ export function LiveDeskLiveBridge() {
 
   return (
     <>
-      {rect ? (
-        <div
-          className="pointer-events-none fixed z-[150] rounded-md ring-2 ring-cyan-400/80 shadow-[0_0_30px_rgba(34,211,238,0.35)] transition-all duration-300"
-          style={{ top: rect.top - 2, left: rect.left - 2, width: rect.width + 4, height: rect.height + 4 }}
-        />
+      {displayRect ? (
+        <>
+          <div className="pointer-events-none fixed inset-0 z-[198] bg-slate-950/40" aria-hidden />
+          <div
+            className={cn(
+              "pointer-events-none fixed z-[200] rounded-md ring-2 transition-all duration-300",
+              step.mode === "recognize"
+                ? "animate-pulse ring-cyan-300 shadow-[0_0_48px_rgba(34,211,238,0.65)]"
+                : "ring-cyan-400/80 shadow-[0_0_36px_rgba(34,211,238,0.45)]",
+            )}
+            style={{
+              top: displayRect.top - 4,
+              left: displayRect.left - 4,
+              width: displayRect.width + 8,
+              height: displayRect.height + 8,
+            }}
+          />
+          {calloutLabel ? (
+            <div
+              className="pointer-events-none fixed z-[201] border border-cyan-500/70 bg-cyan-950/95 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-100"
+              style={{ top: Math.max(40, displayRect.top - 30), left: displayRect.left }}
+            >
+              {calloutLabel}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-[160] flex justify-center px-3 pb-3">
+      <div data-academy-bridge-chrome className="fixed inset-x-0 top-12 z-[160] flex justify-center px-3 pt-2">
         <div className={cn("w-full max-w-xl border bg-slate-950/95 backdrop-blur", isInteractive ? "border-cyan-600/60" : "border-cyan-700/50")}>
           <div className="flex items-center justify-between border-b border-slate-800 px-3 py-1.5">
             <span className={cn(TERMINAL_TYPO.label, "text-cyan-200")}>LIVE DESK BRIDGE · {step.chapter}</span>
@@ -346,7 +411,7 @@ export function LiveDeskLiveBridge() {
                     Live Desk Certified
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
                   {LIVE_DESK_REQUIRED_CONCEPTS.map((c) => (
                     <div
                       key={c}
@@ -406,8 +471,8 @@ export function LiveDeskLiveBridge() {
                 DONE
               </button>
             ) : (
-              <button type="button" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-cyan-700/50 px-2 py-1 text-cyan-300")}>
-                NEXT <ArrowRight className="inline h-3 w-3" />
+              <button type="button" aria-label="Next step" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-cyan-700/50 px-2 py-1 text-cyan-300")}>
+                <AcademyNextLabel />
               </button>
             )}
           </div>

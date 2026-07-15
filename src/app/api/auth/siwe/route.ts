@@ -8,6 +8,7 @@ import {
 import { appendAudit } from "@/lib/security/server/auditStore";
 import { registerDevice } from "@/lib/security/server/deviceSessionStore";
 import { recordAuthFailure, recordThreat } from "@/lib/security/server/threatStore";
+import { isJwtSecretConfigured } from "@/lib/infrastructure/jwt";
 import {
   createUserSession,
   persistSession,
@@ -127,7 +128,8 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
+  } catch (err) {
+    const jwtReady = isJwtSecretConfigured();
     appendAudit({
       category: "auth",
       action: "siwe_verify",
@@ -135,9 +137,15 @@ export async function POST(request: Request) {
       sessionId: null,
       resource: "siwe",
       outcome: "error",
-      detail: "internal_error",
+      detail: jwtReady ? "internal_error" : "jwt_not_configured",
       traceId: ctx.traceId,
     });
+    if (process.env.NODE_ENV !== "production" && !jwtReady) {
+      return NextResponse.json({ error: "jwt_not_configured" }, { status: 503 });
+    }
+    if (process.env.NODE_ENV === "production" && !jwtReady) {
+      return NextResponse.json({ error: "jwt_not_configured" }, { status: 503 });
+    }
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

@@ -72,6 +72,9 @@ export function useOmniCommand() {
           terminalBus.emit("widget:focus", { widgetId: "chart" });
           return true;
         case "COMMAND_HELP":
+          useTerminalStore.getState().setOmniFeedback(
+            "Command catalog below — type /expand for the full platform.",
+          );
           return true;
         case "EXPLAIN_MODE": {
           const store = useOperatorGuideStore.getState();
@@ -82,9 +85,14 @@ export function useOmniCommand() {
           } else if (intent.active === false) {
             store.setExplainMode(false);
           }
-          store.setSidePanelOpen(true);
+          const guide = useOperatorGuideStore.getState();
+          if (guide.explainModeActive && guide.selectedTargetId) {
+            store.setSidePanelOpen(true);
+          } else {
+            store.setSidePanelOpen(false);
+          }
           terminalBus.emit("guide:explain-toggle", {
-            active: useOperatorGuideStore.getState().explainModeActive,
+            active: guide.explainModeActive,
           });
           terminalBus.emit("widget:focus", { widgetId: "explaindesk" });
           return true;
@@ -96,6 +104,15 @@ export function useOmniCommand() {
           return true;
         case "WATCHLIST_REMOVE":
           useInformationDiscoveryStore.getState().removeFromWatchlist(intent.coin);
+          return true;
+        case "WEDGE_BLOCKED":
+          useTerminalStore.getState().setOmniFeedback(intent.message);
+          return true;
+        case "OMNI_GUIDANCE":
+          useTerminalStore.getState().setOmniFeedback(intent.message);
+          if (intent.widgetId) {
+            terminalBus.emit("widget:focus", { widgetId: intent.widgetId });
+          }
           return true;
         case "FOCUS_WIDGET":
           if (intent.coin) selectAssetByCoin(intent.coin, "omnibar");
@@ -211,7 +228,7 @@ export function useOmniCommand() {
   const submit = useCallback(
     (raw: string): OmniCommandResult => {
       const result = execute(raw);
-      if (result.handled && result.intent.type !== "COMMAND_HELP") {
+      if (result.handled && result.intent.type !== "COMMAND_HELP" && result.intent.type !== "OMNI_GUIDANCE" && result.intent.type !== "WEDGE_BLOCKED") {
         setOmniOpen(false);
       }
       return result;

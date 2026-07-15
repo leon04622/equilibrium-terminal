@@ -34,7 +34,8 @@ export type HlSubscriptionType =
   | "allMids"
   | "candle"
   | "bbo"
-  | "clearinghouseState";
+  | "clearinghouseState"
+  | "spotClearinghouseState";
 
 export interface HlSubscription {
   type: HlSubscriptionType;

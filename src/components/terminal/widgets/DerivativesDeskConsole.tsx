@@ -1,6 +1,8 @@
 "use client";
 
 import { LineChart } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { DerivativesIntelligenceOrchestrator } from "@/lib/derivatives/DerivativesIntelligenceOrchestrator";
@@ -51,7 +53,11 @@ function Row({
 }
 
 export function DerivativesDeskConsole() {
-  const snapshot = useDerivativesDeskStore((s) => s.snapshot);
+  const storeSnapshot = useDerivativesDeskStore((s) => s.snapshot);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    DerivativesIntelligenceOrchestrator.snapshot(selectedCoin),
+  );
   const activeTab = useDerivativesDeskStore((s) => s.activeTab);
   const setActiveTab = useDerivativesDeskStore((s) => s.setActiveTab);
   const setActiveMode = useDerivativesDeskStore((s) => s.setActiveMode);

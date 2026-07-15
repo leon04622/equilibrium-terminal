@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { MiniOrderBook } from "@/components/terminal/explain/MiniOrderBook";
 import {
   ORDER_BOOK_BEATS,
@@ -81,7 +82,7 @@ export function CinematicOrderBookLesson() {
   const supported = lessonVoiceSupported();
 
   const [beatIndex, setBeatIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
   const [checkState, setCheckState] = useState<"idle" | "correct" | "wrong">("idle");
   const [reveal, setReveal] = useState(false);
@@ -160,11 +161,10 @@ export function CinematicOrderBookLesson() {
   // Reset to the resume point whenever the lesson is (re)opened.
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     const start = Math.min(Math.max(startStep, 0), beats.length - 1);
     setBeatIndex(start);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
     if (audience === "advanced" || audience === "scalp" || audience === "swing") {
       setSelectedAudience("beginner");
       // Sync the ref now so the first narration uses the beginner script/rate
@@ -177,6 +177,11 @@ export function CinematicOrderBookLesson() {
   // Narrate + time the current beat. Re-runs on open (runId) and beat change.
   useEffect(() => {
     if (!active) return;
+    if (!playingRef.current) {
+      markStep(beatIndex);
+      if (beats[beatIndex]?.phase === "outro") markCompleted();
+      return;
+    }
     enter(beatIndex);
     markStep(beatIndex);
     if (beats[beatIndex]?.phase === "outro") markCompleted();
@@ -560,7 +565,7 @@ export function CinematicOrderBookLesson() {
                 "flex items-center gap-1 border border-cyan-500/70 bg-cyan-950/40 px-2 py-1 text-cyan-100 hover:bg-cyan-900/50",
               )}
             >
-              NOW FIND IT LIVE <ArrowRight className="h-3 w-3" />
+              NOW FIND IT LIVE
             </button>
             <button
               type="button"
@@ -592,7 +597,7 @@ export function CinematicOrderBookLesson() {
               "flex items-center gap-1 border border-cyan-700/50 bg-cyan-950/30 px-2 py-1 text-cyan-300 hover:bg-cyan-950/50",
             )}
           >
-            NEXT <ArrowRight className="h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

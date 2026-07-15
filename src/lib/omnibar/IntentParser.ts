@@ -1,4 +1,4 @@
-import { wedgeAllowsCommand, wedgeResolveWidget } from "@/lib/wedge/wedgeAccess";
+import { wedgeAllowsCommand, wedgeBlockedCommand, wedgeBlockedMessage, wedgeResolveWidget } from "@/lib/wedge/wedgeAccess";
 import type { OmniIntent } from "@/types/omnibar";
 
 export interface ParseResult {
@@ -13,6 +13,7 @@ const RE_DEPTH = /^\/depth(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
 const RE_EXEC = /^\/exec\s+(buy|sell)\s+([A-Za-z0-9/_-]+)(?:\s+([\d.]+))?\s*$/i;
 const RE_MONITOR = /^\/monitor(?:\s+(\w+))?\s*$/i;
 const RE_ALERTS = /^\/alerts(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
+const RE_OPERATOR = /^\/operator(?:\s+mode)?\s*$/i;
 const RE_DESK = /^\/desk\s*$/i;
 const RE_EXPAND = /^\/expand\s*$/i;
 const RE_HELP = /^\/help\s*$/i;
@@ -25,11 +26,12 @@ const RE_WATCH = /^\/watch\s+([A-Za-z0-9/_-]+)\s*$/i;
 const RE_UNWATCH = /^\/unwatch\s+([A-Za-z0-9/_-]+)\s*$/i;
 const RE_INTEL = /^\/intel(?:\s+([\s\S]*))?$/i;
 const RE_LIQ = /^\/liq(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
+const RE_PAPER = /^\/(?:paper|blotter)\s*$/i;
 const RE_MACRO = /^\/macro\s*$/i;
 const RE_VOL = /^\/vol\s*$/i;
 const RE_SUMMARIZE = /^\/summarize(?:\s+([A-Za-z0-9/_-]+))?\s*$/i;
 const RE_FOCUS =
-  /^\/focus\s+(chart|book|intel|macro|ticket|surveillance|copilot|graph|knowledge|journal|research|briefing|dailyops|coverage|markets|reliability|trust|newswire|wire|incidents|ingest|ingestion|dataplane|pipeline|intelengine|mktintel|collab|team|teamdesk|desk|enterpriseops|enterprise|orgops|integrations|integrate|embed|propintel|proprietary|eqintel|moat|ecosystem|finos|cryptoos|globalstrategy|globalinfra|infrastrategy|gtm)\s*$/i;
+  /^\/focus\s+(chart|book|intel|macro|ticket|paper|blotter|surveillance|copilot|graph|knowledge|journal|research|briefing|dailybriefing|dailyops|marketstate|coverage|markets|reliability|trust|newswire|wire|incidents|ingest|ingestion|dataplane|pipeline|intelengine|mktintel|collab|team|teamdesk|desk|enterpriseops|enterprise|orgops|integrations|integrate|embed|propintel|proprietary|eqintel|moat|ecosystem|finos|cryptoos|globalstrategy|globalinfra|infrastrategy|gtm)\s*$/i;
 const RE_TICKER = /^[A-Za-z0-9/_-]{2,16}$/;
 const RE_AI = /^(?:\/ai\s+|\/ai$)([\s\S]*)$/i;
 const RE_NET = /^(?:\/net\s+|\/net$)([\s\S]*)$/i;
@@ -77,6 +79,14 @@ export class IntentParser {
         return fast({ type: "EXPLAIN_MODE", active: false, raw: input }, t0);
       }
       return fast({ type: "EXPLAIN_MODE", toggle: true, raw: input }, t0);
+    }
+
+    if (RE_OPERATOR.test(input) && wedgeAllowsCommand("/operator")) {
+      return focusWidget("operatormode", input, t0);
+    }
+
+    if (RE_PAPER.test(input) && wedgeAllowsCommand("/paper")) {
+      return focusWidget("paperblotter", input, t0);
     }
 
     if (RE_DESK.test(input)) {
@@ -211,7 +221,7 @@ export class IntentParser {
     }
 
     if (RE_BRIEFING.test(input) && wedgeAllowsCommand("/briefing")) {
-      return focusWidget("dailyops", input, t0);
+      return focusWidget("dailybriefing", input, t0);
     }
     if (RE_COVERAGE.test(input) && wedgeAllowsCommand("/coverage")) {
       return focusWidget("marketcoverage", input, t0);
@@ -262,7 +272,7 @@ export class IntentParser {
     }
 
     if (RE_JOURNAL.test(input) && wedgeAllowsCommand("/journal")) {
-      return focusWidget("traderjournal", input, t0);
+      return focusWidget("operatorjournal", input, t0);
     }
 
     if (RE_RESEARCH.test(input) && wedgeAllowsCommand("/research")) {
@@ -290,14 +300,20 @@ export class IntentParser {
         intel: "intelligence",
         macro: "macro",
         ticket: "ticket",
+        paper: "paperblotter",
+        blotter: "paperblotter",
         surveillance: "surveillance",
         copilot: "copilot",
         graph: "knowledgegraph",
         knowledge: "knowledgegraph",
-        journal: "traderjournal",
+        journal: "operatorjournal",
+        traderjournal: "traderjournal",
+        operatorjournal: "operatorjournal",
         research: "research",
-        briefing: "dailyops",
+        briefing: "dailybriefing",
+        dailybriefing: "dailybriefing",
         dailyops: "dailyops",
+        marketstate: "marketstate",
         coverage: "marketcoverage",
         markets: "marketcoverage",
         reliability: "reliability",
@@ -338,23 +354,58 @@ export class IntentParser {
     }
 
     const graph = RE_GRAPH.exec(input);
-    if (graph && wedgeAllowsCommand("/graph")) {
+    if (graph) {
       const prompt = graph[1]?.trim() ?? "";
-      if (prompt) {
+      if (prompt && !wedgeAllowsCommand("/graph")) {
+        const blocked = "/graph";
         return {
-          intent: { type: "GRAPH_QUERY", prompt, raw: input, path: "semantic" },
+          intent: {
+            type: "WEDGE_BLOCKED",
+            command: blocked,
+            message: wedgeBlockedMessage(blocked),
+            raw: input,
+            path: "fast",
+          },
           elapsedMs: performance.now() - t0,
-          path: "semantic",
+          path: "fast",
         };
       }
+      if (!prompt) {
+        return fast(
+          {
+            type: "OMNI_GUIDANCE",
+            message: "Add a graph query — e.g. /graph BTC funding flows",
+            widgetId: "knowledgegraph",
+            raw: input,
+          },
+          t0,
+        );
+      }
+      return {
+        intent: { type: "GRAPH_QUERY", prompt, raw: input, path: "semantic" },
+        elapsedMs: performance.now() - t0,
+        path: "semantic",
+      };
     }
 
     const net = RE_NET.exec(input);
-    if (net?.[1]?.trim()) {
+    if (net) {
+      const prompt = net[1]?.trim() ?? "";
+      if (!prompt) {
+        return fast(
+          {
+            type: "OMNI_GUIDANCE",
+            message: "Add a network query — e.g. /net whale clusters",
+            widgetId: "teamdesk",
+            raw: input,
+          },
+          t0,
+        );
+      }
       return {
         intent: {
           type: "NETWORK_GRAPH_QUERY",
-          prompt: net[1].trim(),
+          prompt,
           raw: input,
           path: "semantic",
         },
@@ -364,9 +415,21 @@ export class IntentParser {
     }
 
     const ai = RE_AI.exec(input);
-    if (ai?.[1]?.trim()) {
+    if (ai) {
+      const prompt = ai[1]?.trim() ?? "";
+      if (!prompt) {
+        return fast(
+          {
+            type: "OMNI_GUIDANCE",
+            message: "Add a prompt — e.g. /ai summarize funding for BTC",
+            widgetId: "copilot",
+            raw: input,
+          },
+          t0,
+        );
+      }
       return {
-        intent: { type: "AI_SEMANTIC_QUERY", prompt: ai[1].trim(), raw: input, path: "semantic" },
+        intent: { type: "AI_SEMANTIC_QUERY", prompt, raw: input, path: "semantic" },
         elapsedMs: performance.now() - t0,
         path: "semantic",
       };
@@ -382,6 +445,21 @@ export class IntentParser {
 
     if (RE_TICKER.test(input) && !input.includes(" ")) {
       return fast({ type: "TICKER_SELECT", query: input, raw: input }, t0);
+    }
+
+    const blocked = wedgeBlockedCommand(input);
+    if (blocked) {
+      return {
+        intent: {
+          type: "WEDGE_BLOCKED",
+          command: blocked,
+          message: wedgeBlockedMessage(blocked),
+          raw: input,
+          path: "fast",
+        },
+        elapsedMs: performance.now() - t0,
+        path: "fast",
+      };
     }
 
     return {

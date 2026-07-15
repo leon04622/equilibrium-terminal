@@ -2,24 +2,29 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { TerminalDensity } from "@/lib/theme/institutional";
 
-const PREFS_KEY = "eq-terminal-experience-v1";
+const PREFS_KEY = "eq-terminal-experience-v2";
 
 interface ExperiencePrefs {
   density: TerminalDensity;
   calmMode: boolean;
   reducedMotion: boolean;
+  beginnerMode: boolean;
 }
 
 function loadPrefs(): ExperiencePrefs {
-  if (typeof window === "undefined") {
-    return { density: "standard", calmMode: true, reducedMotion: false };
-  }
+  const defaults: ExperiencePrefs = {
+    density: "compact",
+    calmMode: true,
+    reducedMotion: false,
+    beginnerMode: false,
+  };
+  if (typeof window === "undefined") return defaults;
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return { density: "standard", calmMode: true, reducedMotion: false };
-    return { density: "standard", calmMode: true, reducedMotion: false, ...JSON.parse(raw) };
+    if (!raw) return defaults;
+    return { ...defaults, ...JSON.parse(raw) };
   } catch {
-    return { density: "standard", calmMode: true, reducedMotion: false };
+    return defaults;
   }
 }
 
@@ -36,6 +41,8 @@ export interface TerminalExperienceState extends ExperiencePrefs {
   setDensity: (density: TerminalDensity) => void;
   setCalmMode: (calm: boolean) => void;
   setReducedMotion: (reduced: boolean) => void;
+  setBeginnerMode: (on: boolean) => void;
+  toggleBeginnerMode: () => void;
   hydrate: () => void;
 }
 
@@ -54,6 +61,15 @@ export const useTerminalExperienceStore = create<TerminalExperienceState>()(
     setReducedMotion: (reducedMotion) => {
       savePrefs({ ...get(), reducedMotion });
       set({ reducedMotion });
+    },
+    setBeginnerMode: (beginnerMode) => {
+      savePrefs({ ...get(), beginnerMode });
+      set({ beginnerMode });
+    },
+    toggleBeginnerMode: () => {
+      const beginnerMode = !get().beginnerMode;
+      savePrefs({ ...get(), beginnerMode });
+      set({ beginnerMode });
     },
     hydrate: () => set(loadPrefs()),
   })),

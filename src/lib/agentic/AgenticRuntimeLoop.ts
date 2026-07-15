@@ -163,7 +163,7 @@ class AgenticRuntimeLoop {
     if (!op) return;
 
     const enrichedThesis =
-      `${op.thesis} [LLM stub] Tape context for ${coin} @ ${tier} tier — ` +
+      `${op.thesis} Tape context for ${coin} @ ${tier} tier — ` +
       `monitor funding/OI divergence and whale absorption.`;
 
     useAgentOperationsStore.getState().patchFusedThesis(op.id, enrichedThesis);

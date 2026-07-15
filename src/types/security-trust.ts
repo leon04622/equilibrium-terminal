@@ -87,6 +87,10 @@ export interface ExecutionAuthInput {
   lastMessageAt: number | null;
   markPx: number | null | undefined;
   operation: "place_order" | "close_position" | "approve_agent" | "update_leverage";
+  executionMode?: "paper" | "live";
+  /** Live perp fills require an approved builder fee. */
+  builderFeeApproved?: boolean;
+  isPerp?: boolean;
 }
 
 export interface ExecutionAuthDecision {

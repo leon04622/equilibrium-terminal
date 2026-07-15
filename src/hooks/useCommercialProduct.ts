@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { CommercialOrchestrator } from "@/lib/commercial/CommercialOrchestrator";
 import { OnboardingEngine } from "@/lib/commercial/OnboardingEngine";
 import { useCommercialStore } from "@/store/useCommercialStore";
+import { useDeskStore } from "@/store/useDeskStore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import { useWedgeStore } from "@/store/useWedgeStore";
@@ -26,6 +27,7 @@ export function useCommercialProduct(enabled = true): void {
         walletConnected: useTerminalStore.getState().authStatus === "agent_ready",
         deskFocusMode: useWedgeStore.getState().deskFocusMode,
         omniUsed: snap.onboarding.some((s) => s.id === "omnibar" && s.completed),
+        executionDeskActive: useDeskStore.getState().activeDeskId === "execution",
       });
 
       if (!autoOpened && OnboardingEngine.shouldShowWalkthrough()) {
@@ -39,12 +41,14 @@ export function useCommercialProduct(enabled = true): void {
 
     const unsubSession = useProductionConfigStore.subscribe(() => refresh());
     const unsubWedge = useWedgeStore.subscribe((s) => s.deskFocusMode, () => refresh());
+    const unsubDesk = useDeskStore.subscribe((s) => s.activeDeskId, () => refresh());
     const unsubWallet = useTerminalStore.subscribe((s) => s.authStatus, () => refresh());
 
     return () => {
       window.clearInterval(id);
       unsubSession();
       unsubWedge();
+      unsubDesk();
       unsubWallet();
     };
   }, [enabled, setSnapshot, setWalkthroughOpen]);

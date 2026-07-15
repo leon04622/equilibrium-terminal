@@ -29,6 +29,7 @@ export interface AlertStoreState {
   addRule: (rule: AlertRule) => void;
   removeRule: (id: string) => void;
   toggleRule: (id: string, enabled: boolean) => void;
+  setRules: (rules: AlertRule[]) => void;
   dispatchTrigger: (alert: Omit<TriggeredAlert, "isNew" | "aiExplanation" | "aiPending">) => void;
   attachAiExplanation: (triggerId: string, text: string) => void;
   clearTriggerFlash: (id: string) => void;
@@ -79,7 +80,50 @@ export const DEFAULT_ALERT_RULES: AlertRule[] = [
     enabled: true,
     cooldownMs: 180_000,
   },
+  {
+    id: "rule-spread-wide",
+    name: "Spread widens >12 bps",
+    coins: [],
+    eventTypes: ["HL_SPREAD_WIDE"],
+    logic: "AND",
+    conditions: [{ field: "spreadBps", op: "gte", value: 12 }],
+    enabled: true,
+    cooldownMs: 90_000,
+  },
+  {
+    id: "rule-vol-spike",
+    name: "Vol spike · mid move",
+    coins: [],
+    eventTypes: ["HL_VOL_SPIKE"],
+    logic: "AND",
+    conditions: [{ field: "midMoveBps", op: "gte", value: 25 }],
+    enabled: true,
+    cooldownMs: 120_000,
+  },
 ];
+
+const RULES_STORAGE_KEY = "eq-alert-rules-v1";
+
+function loadPersistedRules(): AlertRule[] {
+  if (typeof window === "undefined") return DEFAULT_ALERT_RULES;
+  try {
+    const raw = localStorage.getItem(RULES_STORAGE_KEY);
+    if (!raw) return DEFAULT_ALERT_RULES;
+    const parsed = JSON.parse(raw) as AlertRule[];
+    return parsed.length ? parsed : DEFAULT_ALERT_RULES;
+  } catch {
+    return DEFAULT_ALERT_RULES;
+  }
+}
+
+function persistRules(rules: AlertRule[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+  } catch {
+    /* quota */
+  }
+}
 
 function explainAsync(triggerId: string, event: MarketEvent, title: string): void {
   window.setTimeout(() => {
@@ -99,6 +143,18 @@ function buildAiExplanation(event: MarketEvent, title: string): string {
       return `Tape print ~$${Math.round(m.notionalUsd ?? 0).toLocaleString()} on ${event.coin}. Monitor book absorption at mid ${m.midPx?.toFixed(2) ?? "—"}.`;
     case "LIQUIDATION_CLUSTER_HIT":
       return `${m.clusterCount ?? 0} large aggressive prints (~$${Math.round(m.clusterNotionalUsd ?? 0).toLocaleString()}) on ${event.coin} in under 60s — liquidation cascade risk elevated.`;
+    case "HL_SPREAD_WIDE":
+      return `Bid-ask spread widened to ${m.spreadBps?.toFixed(1) ?? "?"} bps on ${event.coin}. Slippage risk elevated — check book depth before size.`;
+    case "HL_VOL_SPIKE":
+      return `Mid moved ${m.midMoveBps?.toFixed(1) ?? "?"} bps on ${event.coin} in one tick window. Vol expansion — widen stops or reduce size.`;
+    case "SCREENER_HIT":
+      return `${event.meta?.symbol ?? event.coin} hit screener rule "${event.meta?.ruleLabel ?? "threshold"}" — Δ ${m.changePct?.toFixed(2) ?? "?"}%, composite ${m.compositeScore ?? "?"}. Tags: ${event.meta?.tags ?? "—"}.`;
+    case "TRADE_SURVEILLANCE_HIT":
+      return `${event.coin} triggered "${event.meta?.ruleLabel ?? "surveillance"}" (${event.meta?.signal ?? "signal"}) — score ${m.score ?? "?"} · composite risk ${m.compositeRisk ?? "?"}. Review book before adding size.`;
+    case "VAR_LIMIT_BREACH":
+      return `Portfolio ${event.meta?.horizonDays ?? m.horizonDays ?? "1"}d VaR 95% at ${m.var95Pct?.toFixed(2) ?? "?"}% (limit ${m.limitPct ?? "?"}%) · ES ${m.es95Pct?.toFixed(2) ?? "?"}%. Method: ${event.meta?.method ?? "—"}. Reduce gross or hedge before adding size.`;
+    case "MARGIN_CALL_RISK":
+      return `Margin ${event.meta?.band ?? "stress"} — free buffer ${m.bufferPct?.toFixed(1) ?? "?"}%, utilization ${m.marginUtilPct?.toFixed(1) ?? "?"}%. Top up collateral or cut exposure.`;
     default:
       return `${title} on ${event.coin}.`;
   }
@@ -106,20 +162,36 @@ function buildAiExplanation(event: MarketEvent, title: string): string {
 
 export const useAlertStore = create<AlertStoreState>()(
   subscribeWithSelector((set, get) => ({
-    rules: DEFAULT_ALERT_RULES,
+    rules: loadPersistedRules(),
     triggers: [],
     triggersVersion: 0,
     lastEventAt: null,
 
-    addRule: (rule) => set((s) => ({ rules: [...s.rules, rule] })),
+    addRule: (rule) =>
+      set((s) => {
+        const rules = [...s.rules, rule];
+        persistRules(rules);
+        return { rules };
+      }),
 
     removeRule: (id) =>
-      set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
+      set((s) => {
+        const rules = s.rules.filter((r) => r.id !== id);
+        persistRules(rules);
+        return { rules };
+      }),
 
     toggleRule: (id, enabled) =>
-      set((s) => ({
-        rules: s.rules.map((r) => (r.id === id ? { ...r, enabled } : r)),
-      })),
+      set((s) => {
+        const rules = s.rules.map((r) => (r.id === id ? { ...r, enabled } : r));
+        persistRules(rules);
+        return { rules };
+      }),
+
+    setRules: (rules) => {
+      persistRules(rules);
+      set({ rules });
+    },
 
     dispatchTrigger: (alert) => {
       const full: TriggeredAlert = {
@@ -138,6 +210,9 @@ export const useAlertStore = create<AlertStoreState>()(
         coin: full.coin,
         severity: full.severity,
       });
+      void import("@/lib/distribution/NotificationDeliveryEngine").then(({ NotificationDeliveryEngine }) =>
+        NotificationDeliveryEngine.dispatchAlert(full),
+      );
       explainAsync(full.id, full.event, full.title);
     },
 

@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { Share2 } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { SystemicIntelligenceOrchestrator } from "@/lib/systemic-intelligence/SystemicIntelligenceOrchestrator";
@@ -93,7 +95,11 @@ function NetworkMini({
 }
 
 export function SystemicIntelligenceConsole() {
-  const snapshot = useSystemicIntelligenceStore((s) => s.snapshot);
+  const storeSnapshot = useSystemicIntelligenceStore((s) => s.snapshot);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    SystemicIntelligenceOrchestrator.snapshot(selectedCoin),
+  );
   const activeTab = useSystemicIntelligenceStore((s) => s.activeTab);
   const setActiveTab = useSystemicIntelligenceStore((s) => s.setActiveTab);
   const setActiveMode = useSystemicIntelligenceStore((s) => s.setActiveMode);

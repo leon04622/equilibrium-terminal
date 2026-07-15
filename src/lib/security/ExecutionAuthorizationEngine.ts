@@ -1,5 +1,6 @@
 import { evaluateExecutionGuards } from "@/lib/wedge/executionGuards";
 import { RbacEngine } from "@/lib/security/RbacEngine";
+import { builderFeeLabel, requiresBuilderFeeForLivePerp } from "@/lib/hyperliquid/builder";
 import type { ExecutionAuthDecision, ExecutionAuthInput } from "@/types/security-trust";
 
 /**
@@ -21,6 +22,11 @@ export class ExecutionAuthorizationEngine {
       };
     }
 
+    const paper = input.executionMode === "paper";
+    if (paper && (input.operation === "place_order" || input.operation === "close_position")) {
+      return { allowed: true, reason: "ok", auditAction: input.operation };
+    }
+
     if (!input.walletAddress) {
       return {
         allowed: false,
@@ -37,6 +43,17 @@ export class ExecutionAuthorizationEngine {
       return {
         allowed: false,
         reason: "1-Click execution not authorized — approve agent first",
+        auditAction: input.operation,
+      };
+    }
+
+    const needsBuilder =
+      requiresBuilderFeeForLivePerp(input.executionMode ?? "live", Boolean(input.isPerp)) &&
+      (input.operation === "place_order" || input.operation === "close_position");
+    if (needsBuilder && !input.builderFeeApproved) {
+      return {
+        allowed: false,
+        reason: `Approve trading fee (${builderFeeLabel()} on perp fills) to continue`,
         auditAction: input.operation,
       };
     }

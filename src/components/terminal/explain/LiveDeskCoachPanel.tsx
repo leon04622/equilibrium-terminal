@@ -8,6 +8,7 @@ import { LiveDeskCoach, type CoachState } from "@/lib/education/liveDeskCoach";
 import { useLiveDeskBridgeStore } from "@/store/useLiveDeskBridgeStore";
 import { useLiveDeskLessonStore } from "@/store/useLiveDeskLessonStore";
 import { useDailyOperationsStore } from "@/store/useDailyOperationsStore";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const STATE_DOT: Record<CoachState, string> = {
   good: "bg-emerald-400",
@@ -38,6 +39,7 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
 export function LiveDeskCoachPanel({ panelId }: { panelId: string }) {
   const snapshot = useDailyOperationsStore((s) => s.snapshot);
   const startBridge = useLiveDeskBridgeStore((s) => s.start);
+  const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
   const simulatorActive = useLiveDeskLessonStore((s) => s.active);
   const bridgeActive = useLiveDeskBridgeStore((s) => s.active);
 
@@ -76,12 +78,23 @@ export function LiveDeskCoachPanel({ panelId }: { panelId: string }) {
         <button
           type="button"
           onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            setHighlightPanel("header-strip");
+            window.setTimeout(() => setHighlightPanel(null), 2000);
+          }}
+          className={cn(TERMINAL_TYPO.micro, "flex-1 border border-slate-700 py-1 text-slate-300 hover:border-slate-500")}
+        >
+          HEADER
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             armLessonVoice();
             startBridge();
           }}
-          className={cn(TERMINAL_TYPO.micro, "flex-1 border border-cyan-800/50 py-1 text-cyan-300 hover:border-cyan-600")}
+          className={cn(TERMINAL_TYPO.micro, "flex-1 border border-cyan-700/50 bg-cyan-950/30 py-1 text-cyan-300")}
         >
-          TEACH ME LIVE DESK
+          WALK ME THROUGH IT
         </button>
       </div>
     </div>

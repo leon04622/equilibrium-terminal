@@ -1,9 +1,16 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { Landmark } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { PortfolioStressEngine } from "@/lib/institutional/PortfolioStressEngine";
+import { PortfolioVaREngine } from "@/lib/institutional/PortfolioVaREngine";
+import { MarginCallEngine } from "@/lib/institutional/MarginCallEngine";
+import { RiskLimitsPanel } from "@/components/terminal/RiskLimitsPanel";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { PortfolioDeskOrchestrator } from "@/lib/portfolio-desk/PortfolioDeskOrchestrator";
+import { useInstitutionalRiskStore } from "@/store/useInstitutionalRiskStore";
 import {
   usePortfolioDeskStore,
   type PortfolioDeskTab,
@@ -13,10 +20,14 @@ import type { PortfolioDashboardModeId } from "@/types/portfolio-risk-treasury";
 const TABS: { id: PortfolioDeskTab; label: string }[] = [
   { id: "portfolio", label: "PORTFOLIO" },
   { id: "risk", label: "RISK" },
+  { id: "var", label: "VaR" },
+  { id: "stress", label: "STRESS" },
   { id: "treasury", label: "TREASURY" },
   { id: "analytics", label: "PNL" },
   { id: "collateral", label: "COLLATERAL" },
+  { id: "margin", label: "MARGIN" },
   { id: "cross", label: "VENUES" },
+  { id: "limits", label: "LIMITS" },
   { id: "alerts", label: "ALERTS" },
   { id: "history", label: "HISTORY" },
   { id: "modes", label: "MODES" },
@@ -48,10 +59,25 @@ function Row({
 }
 
 export function PortfolioDeskConsole() {
-  const snapshot = usePortfolioDeskStore((s) => s.snapshot);
+  const storeSnapshot = usePortfolioDeskStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => PortfolioDeskOrchestrator.snapshot("BTC"));
   const activeTab = usePortfolioDeskStore((s) => s.activeTab);
   const setActiveTab = usePortfolioDeskStore((s) => s.setActiveTab);
   const setActiveMode = usePortfolioDeskStore((s) => s.setActiveMode);
+
+  const stress = useMemo(() => PortfolioStressEngine.snapshot(), [storeSnapshot]);
+  const varMetrics = useMemo(() => PortfolioVaREngine.snapshot(), [storeSnapshot]);
+  const marginCall = useMemo(() => MarginCallEngine.snapshot(), [storeSnapshot]);
+  const varLimits = useInstitutionalRiskStore((s) => s.varLimits);
+  const hydrateRisk = useInstitutionalRiskStore((s) => s.hydrate);
+  const alertHorizon = useMemo(
+    () => PortfolioVaREngine.horizonMetrics(varMetrics, varLimits.alertHorizonDays),
+    [varMetrics, varLimits.alertHorizonDays],
+  );
+
+  useEffect(() => {
+    hydrateRisk();
+  }, [hydrateRisk]);
 
   if (!snapshot) {
     return (
@@ -135,6 +161,129 @@ export function PortfolioDeskConsole() {
           </section>
         )}
 
+        {activeTab === "var" && (
+          <section className="space-y-1">
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+              Aladdin/FactSet-style 1-day VaR & expected shortfall · {varMetrics.method.toUpperCase()}
+            </p>
+            <Row
+              region="var-95"
+              label="VaR 95%"
+              value={`${fmtUsd(varMetrics.var95Usd)} (${varMetrics.var95Pct}%)`}
+              tone={
+                varLimits.enabled && alertHorizon.horizonDays === 1 && varMetrics.var95Pct >= varLimits.maxVar95Pct
+                  ? varMetrics.var95Pct >= varLimits.criticalVar95Pct
+                    ? terminalSkin.textDown
+                    : terminalSkin.textWarn
+                  : undefined
+              }
+            />
+            <Row
+              region="var-99"
+              label="VaR 99%"
+              value={`${fmtUsd(varMetrics.var99Usd)} (${varMetrics.var99Pct}%)`}
+              tone={varMetrics.var99Pct >= 18 ? terminalSkin.textDown : undefined}
+            />
+            <Row
+              region="es-95"
+              label="ES 95% (CVaR)"
+              value={`${fmtUsd(varMetrics.expectedShortfall95Usd)} (${varMetrics.expectedShortfall95Pct}%)`}
+            />
+            <Row
+              region="es-99"
+              label="ES 99%"
+              value={`${fmtUsd(varMetrics.expectedShortfall99Usd)} (${varMetrics.expectedShortfall99Pct}%)`}
+            />
+            <Row label="Portfolio σ (1d)" value={`${varMetrics.portfolioDailyVolPct}%`} />
+            <Row
+              label="Correlation ρ"
+              value={varMetrics.correlationAssumption.toFixed(2)}
+            />
+            <Row
+              label="VaR limit"
+              value={
+                varLimits.enabled
+                  ? `${varLimits.alertHorizonDays}d watch ${varLimits.maxVar95Pct}% · crit ${varLimits.criticalVar95Pct}%`
+                  : "alerts off"
+              }
+            />
+            <Row label="Hist samples" value={String(varMetrics.historicalSampleSize)} />
+            <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-500")}>
+              MULTI-HORIZON (√t scaling)
+            </p>
+            {varMetrics.horizons.map((h) => (
+              <div key={h.horizonDays} className="border-b border-slate-800/80 py-0.5">
+                <div className="flex justify-between">
+                  <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>{h.horizonDays}d</span>
+                  <span
+                    className={cn(
+                      TERMINAL_TYPO.micro,
+                      "tabular-nums",
+                      varLimits.enabled &&
+                        h.horizonDays === varLimits.alertHorizonDays &&
+                        h.var95Pct >= varLimits.maxVar95Pct
+                        ? h.var95Pct >= varLimits.criticalVar95Pct
+                          ? terminalSkin.textDown
+                          : terminalSkin.textWarn
+                        : "text-slate-300",
+                    )}
+                  >
+                    VaR {h.var95Pct}% · ES {h.expectedShortfall95Pct}%
+                  </span>
+                </div>
+                <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+                  {fmtUsd(h.var95Usd)} / {fmtUsd(h.expectedShortfall95Usd)}
+                </span>
+              </div>
+            ))}
+            {varMetrics.positions.length === 0 ? (
+              <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+                Flat book — VaR driven by account history when available.
+              </p>
+            ) : (
+              <>
+                <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-500")}>POSITION CONTRIBUTIONS</p>
+                {varMetrics.positions.slice(0, 8).map((p) => (
+                  <div key={p.coin} className="border-b border-slate-800/80 py-0.5">
+                    <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>
+                      {p.coin}
+                    </span>
+                    <span className={cn(TERMINAL_TYPO.micro, "ml-1 text-slate-600")}>
+                      σ {p.dailyVolPct}% · {fmtUsd(p.notionalUsd)} · VaR {fmtUsd(p.var95Usd)} ({p.contributionPct}%)
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </section>
+        )}
+
+        {activeTab === "stress" && (
+          <section className="space-y-1">
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+              Aladdin/FactSet-style scenario shocks on live book
+            </p>
+            {stress.scenarios.map((s) => (
+              <div key={s.scenario.id} className="border border-slate-800/80 p-1">
+                <p className={cn(TERMINAL_TYPO.micro, "font-semibold text-amber-300")}>
+                  {s.scenario.label}
+                </p>
+                <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{s.scenario.description}</p>
+                <Row
+                  label="Portfolio P&L"
+                  value={`${s.portfolioPnlUsd >= 0 ? "+" : ""}${fmtUsd(s.portfolioPnlUsd)} (${s.portfolioPnlPct}%)`}
+                  tone={s.portfolioPnlUsd >= 0 ? terminalSkin.textUp : terminalSkin.textDown}
+                />
+                <Row label="Margin after" value={`${s.marginAfterPct}%`} />
+                <Row label="Liq risk after" value={String(s.liquidationRiskAfter)} />
+                {s.worstCoin ? (
+                  <Row label="Worst coin" value={`${s.worstCoin} ${s.worstCoinPnlUsd.toFixed(0)}`} />
+                ) : null}
+              </div>
+            ))}
+          </section>
+        )}
+
         {activeTab === "treasury" && (
           <section className="space-y-0.5">
             <Row label="Stablecoin balance" value={fmtUsd(snapshot.treasury.stablecoinBalanceUsd)} />
@@ -172,6 +321,75 @@ export function PortfolioDeskConsole() {
             <Row label="Cross-margin dep" value={`${snapshot.collateral.crossMarginDependency}%`} />
           </section>
         )}
+
+        {activeTab === "margin" && (
+          <section className="space-y-1">
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
+              Aladdin-style margin call proximity & collateral optimization
+            </p>
+            <Row
+              region="margin-call-risk"
+              label="Margin call risk"
+              value={marginCall.marginCallRisk.toUpperCase()}
+              tone={
+                marginCall.marginCallRisk === "imminent"
+                  ? terminalSkin.textDown
+                  : marginCall.marginCallRisk === "watch"
+                    ? terminalSkin.textWarn
+                    : terminalSkin.textUp
+              }
+            />
+            <Row label="Free buffer" value={`${marginCall.distanceToMarginCallPct}%`} />
+            <Row label="Margin util" value={`${marginCall.marginUtilPct}%`} />
+            <Row label="Free collateral" value={fmtUsd(marginCall.freeBufferUsd)} />
+            <Row label="Withdrawable" value={fmtUsd(marginCall.withdrawableUsd)} />
+
+            <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-500")}>OPTIMIZATION HINTS</p>
+            {marginCall.hints.map((h) => (
+              <div key={h.id} className="border border-slate-800/80 p-1">
+                <p
+                  className={cn(
+                    TERMINAL_TYPO.micro,
+                    h.priority === "high"
+                      ? terminalSkin.textDown
+                      : h.priority === "medium"
+                        ? terminalSkin.textWarn
+                        : "text-slate-400",
+                  )}
+                >
+                  {h.action}
+                </p>
+                <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>{h.rationale}</p>
+              </div>
+            ))}
+
+            {marginCall.positions.length > 0 ? (
+              <>
+                <p className={cn(TERMINAL_TYPO.micro, "pt-1 text-slate-500")}>POSITION BUFFERS</p>
+                {marginCall.positions.map((p) => (
+                  <div key={p.coin} className="border-b border-slate-800/80 py-0.5">
+                    <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>{p.coin}</span>
+                    <span
+                      className={cn(
+                        TERMINAL_TYPO.micro,
+                        "ml-1",
+                        p.severity === "critical"
+                          ? terminalSkin.textDown
+                          : p.severity === "watch"
+                            ? terminalSkin.textWarn
+                            : "text-slate-600",
+                      )}
+                    >
+                      {p.leverage}x · buffer {p.bufferPct}% · {fmtUsd(p.notionalUsd)}
+                    </span>
+                  </div>
+                ))}
+              </>
+            ) : null}
+          </section>
+        )}
+
+        {activeTab === "limits" && <RiskLimitsPanel />}
 
         {activeTab === "cross" && (
           <section>

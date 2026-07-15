@@ -1,15 +1,20 @@
 import type { InformationQualityReport, NewswireItem } from "@/types/information-distribution";
 import { useTerminalStore } from "@/store/terminalStore";
 
-const seenHeadlines = new Map<string, number>();
-const DEDUPE_WINDOW_MS = 45 * 60_000;
-
 function normalizeHeadline(h: string): string {
   return h.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
+function preferItem(current: NewswireItem, candidate: NewswireItem): NewswireItem {
+  const curUrl = Boolean(current.articleUrl);
+  const candUrl = Boolean(candidate.articleUrl);
+  if (candUrl && !curUrl) return candidate;
+  if (curUrl && !candUrl) return current;
+  return candidate.compositeScore > current.compositeScore ? candidate : current;
+}
+
 /**
- * Institutional trust controls: dedupe, verification ratio, timestamp integrity.
+ * Institutional trust controls: dedupe within each refresh, verification ratio, timestamp integrity.
  */
 export class InformationQualityGovernor {
   static audit(items: NewswireItem[]): {
@@ -17,25 +22,19 @@ export class InformationQualityGovernor {
     filtered: NewswireItem[];
   } {
     const now = Date.now();
-    let suppressed = 0;
-    const filtered: NewswireItem[] = [];
 
+    const batchBest = new Map<string, NewswireItem>();
     for (const item of items) {
       const key = normalizeHeadline(item.headline);
-      const last = seenHeadlines.get(key);
-      if (last != null && now - last < DEDUPE_WINDOW_MS) {
-        suppressed++;
-        continue;
-      }
-      seenHeadlines.set(key, item.timestamp);
-      filtered.push(item);
+      if (!key) continue;
+      const existing = batchBest.get(key);
+      batchBest.set(key, existing ? preferItem(existing, item) : item);
     }
 
-    if (seenHeadlines.size > 400) {
-      seenHeadlines.forEach((ts, k) => {
-        if (now - ts > DEDUPE_WINDOW_MS * 2) seenHeadlines.delete(k);
-      });
-    }
+    const filtered = Array.from(batchBest.values()).sort(
+      (a, b) => b.compositeScore - a.compositeScore || b.timestamp - a.timestamp,
+    );
+    const suppressed = Math.max(0, items.length - filtered.length);
 
     const verified = filtered.filter((i) => i.verified).length;
     const terminal = useTerminalStore.getState();
@@ -50,7 +49,7 @@ export class InformationQualityGovernor {
       ),
       duplicatesSuppressed: suppressed,
       verifiedSourceRatio: Math.round((verified / Math.max(filtered.length, 1)) * 100),
-      falsePositiveEstimate: Math.max(2, Math.round(12 - verified / Math.max(filtered.length, 1) * 8)),
+      falsePositiveEstimate: Math.max(2, Math.round(12 - (verified / Math.max(filtered.length, 1)) * 8)),
       timestampIntegrity,
       lastValidationAt: now,
     };

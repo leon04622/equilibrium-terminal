@@ -19,6 +19,7 @@ import {
   ConditionComparison,
   DecisionScenario,
 } from "@/components/terminal/explain/OperatorDecisionPanels";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import {
   FUNDING_BRIDGE_PANEL,
   FUNDING_BRIDGE_STEPS,
@@ -26,7 +27,8 @@ import {
   type FundingRegion,
 } from "@/lib/education/fundingBridgeSteps";
 import { LiveFundingCoach } from "@/lib/education/liveFundingCoach";
-import { buildBridgeNarration, speakAcademyNarration } from "@/lib/education/academyVoice";
+import { humanizeForSpeech, speakAcademyBridgeStep } from "@/lib/education/academyVoice";
+import { bridgeRecognizeRegion, useAcademyBridgeSpotlight } from "@/lib/education/useAcademyBridgeSpotlight";
 import {
   cancelLesson,
   getLessonVoiceEnabled,
@@ -41,8 +43,6 @@ import { useFundingBridgeStore } from "@/store/useFundingBridgeStore";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
 const steps = FUNDING_BRIDGE_STEPS;
-
-interface Rect { top: number; left: number; width: number; height: number }
 
 function estimateMs(text: string): number {
   return Math.max(2800, text.length * 58);
@@ -70,7 +70,6 @@ export function FundingLiveBridge() {
   const recognized = useFundingBridgeStore((s) => s.recognized);
   const setStoreStep = useFundingBridgeStore((s) => s.setStep);
 
-  const setFocusMode = useOperatorGuideStore((s) => s.setFocusMode);
   const setHighlightPanel = useOperatorGuideStore((s) => s.setHighlightPanel);
   const setActiveTab = useDerivativesDeskStore((s) => s.setActiveTab);
   const snapshot = useDerivativesDeskStore((s) => s.snapshot);
@@ -78,9 +77,8 @@ export function FundingLiveBridge() {
 
   const supported = lessonVoiceSupported();
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => getLessonVoiceEnabled());
-  const [rect, setRect] = useState<Rect | null>(null);
   const [feedback, setFeedback] = useState<"idle" | "correct" | "wrong">("idle");
   const [interactiveDone, setInteractiveDone] = useState(false);
 
@@ -95,6 +93,13 @@ export function FundingLiveBridge() {
   voiceOnRef.current = voiceOn;
 
   const step = steps[Math.min(index, steps.length - 1)];
+
+  const rect = useAcademyBridgeSpotlight({
+    active,
+    index,
+    step,
+    getTargetEl: (s) => regionEl(bridgeRecognizeRegion(s) as FundingRegion),
+  });
 
   const clearTimers = useCallback(() => {
     if (holdTimer.current) {
@@ -115,7 +120,6 @@ export function FundingLiveBridge() {
       if (i >= steps.length - 1) markBridgeCompleted();
       const ctx = useDerivativesDeskStore.getState().snapshot?.funding ?? null;
       const coachText = s.coach(ctx);
-      const text = buildBridgeNarration(s, coachText, ctx);
       const waits = s.mode === "recognize" || s.mode === "decide" || s.mode === "compare";
       const after = () => {
         if (tokenRef.current !== token || waits) return;
@@ -123,10 +127,12 @@ export function FundingLiveBridge() {
           if (playingRef.current && i < steps.length - 1) setIndex(i + 1);
         }, 1700);
       };
-      speakAcademyNarration(text, {
+      speakAcademyBridgeStep(s, coachText, ctx, {
+        scrollTarget:
+          s.mode === "recognize" ? regionEl(bridgeRecognizeRegion(s) as FundingRegion) : undefined,
+        scrollSmooth: true,
         voiceOn: voiceOnRef.current,
         supported,
-        rate: 0.94,
         onEnd: after,
         onError: after,
       });
@@ -144,50 +150,30 @@ export function FundingLiveBridge() {
 
   useEffect(() => {
     if (!active) return;
-    armLessonVoice();
     setActiveTab("funding");
     setHighlightPanel(FUNDING_BRIDGE_PANEL);
-    setFocusMode(true);
     terminalBus.emit("widget:focus", { widgetId: FUNDING_BRIDGE_PANEL });
     return () => {
-      setFocusMode(false);
       setHighlightPanel(null);
     };
-  }, [active, runId, setFocusMode, setHighlightPanel, setActiveTab]);
+  }, [active, runId, setHighlightPanel, setActiveTab]);
 
   useEffect(() => {
     if (!active) return;
     setIndex(0);
-    setPlaying(true);
-    playingRef.current = true;
+    setPlaying(false);
+    playingRef.current = false;
   }, [active, runId]);
 
   useEffect(() => {
     if (!active) return;
     setStoreStep(index);
+    if (!playingRef.current) return;
     enter(index);
     return () => {
       clearTimers();
     };
   }, [active, runId, index, enter, setStoreStep, clearTimers]);
-
-  useEffect(() => {
-    if (!active || step?.mode === "recognize") {
-      setRect(null);
-      return;
-    }
-    let raf = 0;
-    const tick = () => {
-      const el = regionEl(step?.region ?? null);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else setRect(null);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, index, step?.mode, step?.region]);
 
   useEffect(() => {
     if (!active) return;
@@ -204,7 +190,7 @@ export function FundingLiveBridge() {
         if (region) {
           setFeedback("wrong");
           feedbackRef.current = "wrong";
-          if (voiceOnRef.current) speakLesson(cur.recognize.nudge, { rate: 0.95 });
+          if (voiceOnRef.current) speakLesson(humanizeForSpeech(cur.recognize.nudge), { rate: 0.9, pitch: 0.97 });
           setTimeout(() => { setFeedback("idle"); feedbackRef.current = "idle"; }, 1600);
         }
         return;
@@ -245,7 +231,7 @@ export function FundingLiveBridge() {
         />
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-[160] flex justify-center px-3 pb-3">
+      <div data-academy-bridge-chrome className="fixed inset-x-0 top-12 z-[160] flex justify-center px-3 pt-2">
         <div className={cn("w-full max-w-xl border bg-slate-950/95 backdrop-blur", isInteractive ? "border-violet-600/60" : "border-violet-700/50")}>
           <div className="flex items-center justify-between border-b border-slate-800 px-3 py-1.5">
             <span className={cn(TERMINAL_TYPO.label, "text-violet-200")}>FUNDING BRIDGE · {step.chapter}</span>
@@ -312,7 +298,7 @@ export function FundingLiveBridge() {
             ) : isLast ? (
               <button type="button" onClick={exit} className={cn(TERMINAL_TYPO.micro, "border border-emerald-700/50 px-2 py-1 text-emerald-300")}>DONE</button>
             ) : (
-              <button type="button" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-violet-700/50 px-2 py-1 text-violet-300")}>NEXT <ArrowRight className="inline h-3 w-3" /></button>
+              <button type="button" aria-label="Next step" onClick={() => setIndex((i) => Math.min(i + 1, steps.length - 1))} className={cn(TERMINAL_TYPO.micro, "border border-violet-700/50 px-2 py-1 text-violet-300")}><AcademyNextLabel /></button>
             )}
           </div>
         </div>

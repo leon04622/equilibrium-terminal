@@ -1,14 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { History } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { MarketMemoryOrchestrator } from "@/lib/market-memory/MarketMemoryOrchestrator";
 import { MarketReplayOrchestrator } from "@/lib/market-memory/MarketReplayOrchestrator";
-import {
-  useMarketMemoryStore,
-  type MarketMemoryTab,
-} from "@/store/useMarketMemoryStore";
+import { MARKET_MEMORY_BRIDGE_STEPS } from "@/lib/education/marketMemoryBridgeSteps";
+import { useMarketMemoryStore, type MarketMemoryTab } from "@/store/useMarketMemoryStore";
+import { useMarketMemoryBridgeStore } from "@/store/useMarketMemoryBridgeStore";
+import { useMarketMemoryLessonStore } from "@/store/useMarketMemoryLessonStore";
+import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 import type { MarketMemoryDashboardModeId } from "@/types/market-memory";
 
 const TABS: { id: MarketMemoryTab; label: string }[] = [
@@ -24,6 +27,17 @@ const TABS: { id: MarketMemoryTab; label: string }[] = [
   { id: "modes", label: "MODES" },
 ];
 
+const TAB_IDS = new Set<string>(TABS.map((t) => t.id));
+
+function spotlightRegion(stepIndex: number) {
+  const step = MARKET_MEMORY_BRIDGE_STEPS[stepIndex];
+  if (!step) return null;
+  if (step.mode === "recognize" && step.recognize?.accept.length) {
+    return step.recognize.accept[0] ?? null;
+  }
+  return step.region;
+}
+
 function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="flex justify-between border-b border-slate-800/80 py-0.5">
@@ -34,16 +48,38 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function MarketMemoryConsole() {
-  const snapshot = useMarketMemoryStore((s) => s.snapshot);
+  const storeSnapshot = useMarketMemoryStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => MarketMemoryOrchestrator.snapshot("BTC"));
   const activeTab = useMarketMemoryStore((s) => s.activeTab);
   const searchQuery = useMarketMemoryStore((s) => s.searchQuery);
   const setActiveTab = useMarketMemoryStore((s) => s.setActiveTab);
   const setSearchQuery = useMarketMemoryStore((s) => s.setSearchQuery);
   const setActiveMode = useMarketMemoryStore((s) => s.setActiveMode);
 
+  const bridgeActive = useMarketMemoryBridgeStore((s) => s.active);
+  const lessonActive = useMarketMemoryLessonStore((s) => s.active);
+  const bridgeStep = useMarketMemoryBridgeStore((s) => s.step);
+  const highlighted = useOperatorGuideStore((s) => s.highlightPanelId === "memorydesk");
+  const academyActive = bridgeActive || lessonActive || highlighted;
+  const activeRegion = academyActive ? spotlightRegion(bridgeStep) : null;
+  const recognizeMode = bridgeActive && MARKET_MEMORY_BRIDGE_STEPS[bridgeStep]?.mode === "recognize";
+
+  useEffect(() => {
+    if (!bridgeActive || !activeRegion || activeRegion === "panel") return;
+    if (!TAB_IDS.has(activeRegion)) return;
+    const tab = activeRegion as MarketMemoryTab;
+    if (activeTab === tab) return;
+    setActiveTab(tab);
+  }, [bridgeActive, activeRegion, activeTab, setActiveTab]);
+
   if (!snapshot) {
     return (
-      <div className="flex h-full items-center justify-center p-2">
+      <div
+        data-memorydesk-panel="memorydesk"
+        data-memorydesk-region="panel"
+        data-panel-id="memorydesk"
+        className="flex h-full items-center justify-center p-2"
+      >
         <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Booting market memory…</p>
       </div>
     );
@@ -54,8 +90,21 @@ export function MarketMemoryConsole() {
     setActiveMode(id);
   };
 
+  const regionClass = (id: string) =>
+    cn(
+      "rounded-sm transition-all duration-300",
+      academyActive && "cursor-pointer",
+      activeRegion === id && "ring-2 ring-cyan-400/90 bg-cyan-950/40",
+      activeRegion === id && recognizeMode && "animate-pulse ring-2 ring-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.35)]",
+    );
+
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div
+      data-memorydesk-panel="memorydesk"
+      data-memorydesk-region="panel"
+      data-panel-id="memorydesk"
+      className="flex h-full flex-col overflow-hidden"
+    >
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <History className="h-3 w-3 text-cyan-400" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>MARKET MEMORY</span>
@@ -72,10 +121,12 @@ export function MarketMemoryConsole() {
           <button
             key={t.id}
             type="button"
+            data-memorydesk-tab={t.id}
             onClick={() => setActiveTab(t.id)}
             className={cn(
               INSTITUTIONAL_INTERACTION.tabButton,
               activeTab === t.id ? "text-cyan-300" : "text-slate-600",
+              regionClass(t.id),
             )}
           >
             {t.label}
@@ -85,7 +136,7 @@ export function MarketMemoryConsole() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {activeTab === "replay" && (
-          <section className="space-y-1">
+          <section data-memorydesk-region="replay" className={cn("space-y-1", regionClass("replay"))}>
             <Row label="Mode" value={snapshot.replay.mode} />
             <Row label="Progress" value={`${snapshot.replay.progressPct}%`} />
             <Row label="Candles" value={String(snapshot.replay.candleCount)} />
@@ -110,7 +161,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "archive" && (
-          <section>
+          <section data-memorydesk-region="archive" className={regionClass("archive")}>
             {snapshot.archive.map((e) => (
               <div key={e.id} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
@@ -123,7 +174,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "regime" && (
-          <section className="space-y-0.5">
+          <section data-memorydesk-region="regime" className={cn("space-y-0.5", regionClass("regime"))}>
             <Row label="Volatility" value={snapshot.currentRegime.volatility} />
             <Row label="Liquidity" value={snapshot.currentRegime.liquidity} />
             <Row label="Leverage cycle" value={snapshot.currentRegime.leverageCycle} />
@@ -138,7 +189,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "search" && (
-          <section>
+          <section data-memorydesk-region="search" className={regionClass("search")}>
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -157,7 +208,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "analogs" && (
-          <section>
+          <section data-memorydesk-region="analogs" className={regionClass("analogs")}>
             {snapshot.analogs.map((a) => (
               <div key={a.id} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-cyan-400")}>
@@ -172,7 +223,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "liquidity" && (
-          <section>
+          <section data-memorydesk-region="liquidity" className={regionClass("liquidity")}>
             {snapshot.liquidityHistory.slice(-10).map((p) => (
               <div key={p.timestamp} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
@@ -187,7 +238,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "narrative" && (
-          <section>
+          <section data-memorydesk-region="narrative" className={regionClass("narrative")}>
             {snapshot.narrativeEvolution.map((n) => (
               <div key={n.id} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-violet-400")}>{n.phase}</span>
@@ -200,7 +251,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "portfolio" && (
-          <section>
+          <section data-memorydesk-region="portfolio">
             {snapshot.portfolioMemory.map((p) => (
               <div key={p.timestamp} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
@@ -215,7 +266,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "research" && (
-          <section>
+          <section data-memorydesk-region="research">
             {snapshot.researchMemory.map((r) => (
               <div key={r.id} className="border-b border-slate-800 py-0.5">
                 <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
@@ -229,7 +280,7 @@ export function MarketMemoryConsole() {
         )}
 
         {activeTab === "modes" && (
-          <section className="space-y-1">
+          <section data-memorydesk-region="modes" className="space-y-1">
             {snapshot.dashboardModes.map((m) => (
               <button
                 key={m.id}

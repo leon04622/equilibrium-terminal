@@ -30,6 +30,7 @@ import { readAcademyProgress } from "@/lib/education/learningProgressSnapshot";
 import { useLessonLaunchers } from "@/lib/education/lessonLaunchers";
 import { useLearningAcademyStore } from "@/store/useLearningAcademyStore";
 import { useMarketMechanicsStore } from "@/store/useMarketMechanicsStore";
+import { useMarketMechanicsBridgeStore } from "@/store/useMarketMechanicsBridgeStore";
 import { useOrderBookLessonStore } from "@/store/useOrderBookLessonStore";
 import { useLessonBridgeStore } from "@/store/useLessonBridgeStore";
 import { useFundingCrowdingStore } from "@/store/useFundingCrowdingStore";
@@ -46,6 +47,13 @@ import { useExecutionLessonStore } from "@/store/useExecutionLessonStore";
 import { useExecutionLessonBridgeStore } from "@/store/useExecutionLessonBridgeStore";
 import { usePortfolioRiskStore } from "@/store/usePortfolioRiskStore";
 import { usePortfolioRiskBridgeStore } from "@/store/usePortfolioRiskBridgeStore";
+import {
+  DAY_ONE_OPERATOR_WORKFLOW,
+  GRADUATION_DAILY_WORKFLOW,
+} from "@/lib/education/academyWorkflowPaths";
+import { useAcademyWorkflowStore } from "@/store/useAcademyWorkflowStore";
+import { useOperatorModeStore } from "@/store/useOperatorModeStore";
+import { terminalBus } from "@/store/eventBus";
 
 const STATUS_STYLE: Record<LessonStatus, { label: string; className: string }> = {
   locked: { label: "Locked", className: "border-slate-700 bg-slate-900/60 text-slate-500" },
@@ -80,16 +88,39 @@ function PathProgress({ path, statuses }: { path: PathId; statuses: Map<string, 
 }
 
 function ProgressMeters({ lessonId, detail }: { lessonId: string; detail: ReturnType<typeof lessonProgress> }) {
-  if (!["market-mechanics", "order-book", "funding", "trade-types", "liquidations", "risk-management", "slippage", "execution", "portfolio-risk", "daily-operations", "operator-journal", "live-desk"].includes(lessonId)) return null;
+  if (
+    ![
+      "market-mechanics",
+      "order-book",
+      "funding",
+      "trade-types",
+      "liquidations",
+      "risk-management",
+      "slippage",
+      "execution",
+      "portfolio-risk",
+      "daily-operations",
+      "operator-journal",
+      "live-desk",
+      "market-state",
+      "daily-briefing",
+      "market-memory",
+      "crypto-financial-os",
+      "first-trade-checklist",
+      "market-structure",
+      "liquidity-deep",
+      "cross-market",
+      "macro-flows",
+      "intelligence-desk",
+    ].includes(lessonId)
+  ) {
+    return null;
+  }
 
   const rows = [
     { key: "Lesson", ok: detail.simulatorCompleted },
-    ...(lessonId !== "market-mechanics"
-      ? [
-          { key: "Bridge", ok: detail.bridgeCompleted },
-          { key: "Recognition", ok: detail.recognitionPassed },
-        ]
-      : []),
+    { key: "Bridge", ok: detail.bridgeCompleted },
+    { key: "Recognition", ok: detail.recognitionPassed },
     ...(lessonId === "order-book" ? [{ key: "Replay", ok: detail.replayWatched }] : []),
     { key: "Mastery", ok: detail.mastery },
   ];
@@ -184,7 +215,15 @@ function LessonCard({
                 Bridge only
               </button>
             </>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              onClick={() => onLaunch("bridge")}
+              className={cn(TERMINAL_TYPO.micro, "border border-cyan-800/50 px-2 py-1 text-cyan-200 hover:bg-cyan-950/40")}
+            >
+              Live bridge
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onLaunch("restart")}
@@ -215,6 +254,7 @@ export function LearningCommandCenter() {
 
   // Re-read progress when any lesson store changes.
   const mmDone = useMarketMechanicsStore((s) => s.completed);
+  const mmBridge = useMarketMechanicsBridgeStore((s) => s.memory.bridgeCompleted);
   const obDone = useOrderBookLessonStore((s) => s.completed);
   const obBridge = useLessonBridgeStore((s) => s.memory.bridgeCompleted);
   const fundDone = useFundingCrowdingStore((s) => s.completed);
@@ -232,9 +272,20 @@ export function LearningCommandCenter() {
   const prDone = usePortfolioRiskStore((s) => s.completed);
   const prBridge = usePortfolioRiskBridgeStore((s) => s.memory.bridgeCompleted);
 
+  const startWorkflow = useAcademyWorkflowStore((s) => s.start);
+
+  const openOperatorMode = () => {
+    useOperatorModeStore.getState().activateLite();
+    useOperatorModeStore.getState().startTodayWorkflow();
+    terminalBus.emit("widget:focus", { widgetId: "operatormode" });
+    close();
+  };
+  const dayOneDone = useAcademyWorkflowStore((s) => s.dayOne.completed);
+  const graduationDone = useAcademyWorkflowStore((s) => s.graduation.completed);
+
   useEffect(() => {
     bump();
-  }, [mmDone, obDone, obBridge, fundDone, fundBridge, ttDone, ttBridge, liqDone, liqBridge, rmDone, rmBridge, slipDone, slipBridge, execDone, execBridge, prDone, prBridge, bump]);
+  }, [mmDone, mmBridge, obDone, obBridge, fundDone, fundBridge, ttDone, ttBridge, liqDone, liqBridge, rmDone, rmBridge, slipDone, slipBridge, execDone, execBridge, prDone, prBridge, dayOneDone, graduationDone, bump]);
 
   useEffect(() => {
     if (!active) return;
@@ -311,11 +362,66 @@ export function LearningCommandCenter() {
               )}
             >
               Continue
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </button>
           </div>
         </div>
       ) : null}
+
+      <div className="shrink-0 border-b border-slate-800 bg-slate-900/40 px-4 py-3">
+        <div className="mx-auto max-w-6xl border border-violet-800/50 bg-violet-950/20 p-3">
+          <p className="font-mono text-[9px] uppercase tracking-wide text-violet-300">Daily operating system</p>
+          <p className="mt-1 font-mono text-[12px] font-semibold text-slate-100">Operator Mode</p>
+          <p className="mt-0.5 font-mono text-[9px] text-slate-500">
+            Start here every day — briefing, market state, ops, live desk, execution plan.
+          </p>
+          <button
+            type="button"
+            onClick={openOperatorMode}
+            className={cn(
+              TERMINAL_TYPO.micro,
+              "mt-2 flex items-center gap-1 border border-violet-700/50 bg-violet-950/40 px-2 py-1 text-violet-100",
+            )}
+          >
+            <Play className="h-3 w-3" />
+            START OPERATOR MODE
+          </button>
+        </div>
+        <div className="mx-auto mt-3 grid max-w-6xl gap-3 md:grid-cols-2">
+          <div className="border border-cyan-800/40 bg-cyan-950/15 p-3">
+            <p className="font-mono text-[9px] uppercase tracking-wide text-cyan-400">Academy support tour</p>
+            <p className="mt-1 font-mono text-[12px] font-semibold text-slate-100">{DAY_ONE_OPERATOR_WORKFLOW.title}</p>
+            <p className="mt-0.5 font-mono text-[9px] text-slate-500">{DAY_ONE_OPERATOR_WORKFLOW.subtitle}</p>
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                startWorkflow(DAY_ONE_OPERATOR_WORKFLOW);
+              }}
+              className={cn(TERMINAL_TYPO.micro, "mt-2 flex items-center gap-1 border border-cyan-700/50 bg-cyan-950/40 px-2 py-1 text-cyan-100")}
+            >
+              {dayOneDone ? <Check className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {dayOneDone ? "Replay panel tour" : "Panel tour (optional)"}
+            </button>
+          </div>
+          <div className="border border-violet-800/40 bg-violet-950/15 p-3">
+            <p className="font-mono text-[9px] uppercase tracking-wide text-violet-400">Academy support tour</p>
+            <p className="mt-1 font-mono text-[12px] font-semibold text-slate-100">{GRADUATION_DAILY_WORKFLOW.title}</p>
+            <p className="mt-0.5 font-mono text-[9px] text-slate-500">{GRADUATION_DAILY_WORKFLOW.subtitle}</p>
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                startWorkflow(GRADUATION_DAILY_WORKFLOW);
+              }}
+              className={cn(TERMINAL_TYPO.micro, "mt-2 flex items-center gap-1 border border-violet-700/50 bg-violet-950/40 px-2 py-1 text-violet-100")}
+            >
+              {graduationDone ? <Check className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {graduationDone ? "Replay panel tour" : "Graduation tour (optional)"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-3">
@@ -361,8 +467,7 @@ export function LearningCommandCenter() {
             <h2 className={cn(TERMINAL_TYPO.label, "text-slate-300")}>FUTURE MODULE ROADMAP</h2>
           </div>
           <p className="mt-1 font-mono text-[9px] text-slate-500">
-            Reserved slots for Trade Types, Liquidations, Volatility, Risk, Execution, Portfolio, and Macro — unlocked as
-            paths progress.
+            Reserved slots for advanced modules — unlocked as paths progress.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {ACADEMY_LESSONS.filter((l) => !l.live).map((l) => (

@@ -22,7 +22,7 @@ export const WORKSPACE_TEMPLATES: WorkspaceTemplate[] = [
     label: "Full Terminal",
     description: "Expanded institutional workspace with ops modules.",
     deskFocus: false,
-    panelIds: ["hyperbook", "chart", "reliability", "enterpriseops", "globalstrategy"],
+    panelIds: ["hyperbook", "chart", "reliability", "enterpriseops"],
   },
   {
     id: "research-desk",

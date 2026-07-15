@@ -4,7 +4,13 @@ export type MarketEventType =
   | "HL_FUNDING_FLIP"
   | "HL_OPEN_INTEREST_SPIKE"
   | "ON_CHAIN_WHALE_TRANSFER"
-  | "LIQUIDATION_CLUSTER_HIT";
+  | "LIQUIDATION_CLUSTER_HIT"
+  | "HL_SPREAD_WIDE"
+  | "HL_VOL_SPIKE"
+  | "SCREENER_HIT"
+  | "TRADE_SURVEILLANCE_HIT"
+  | "VAR_LIMIT_BREACH"
+  | "MARGIN_CALL_RISK";
 
 export interface MarketEvent {
   id: string;

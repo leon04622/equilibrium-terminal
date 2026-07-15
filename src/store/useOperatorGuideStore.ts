@@ -61,6 +61,7 @@ export interface OperatorGuideStoreState {
   setExplainMode: (active: boolean) => void;
   setSelectedAudience: (audience: ExplainAudience) => void;
   setSidePanelOpen: (open: boolean) => void;
+  dismissSidePanel: () => void;
   selectTarget: (targetId: string | null) => void;
   startWorkflow: (id: WorkflowId) => void;
   advanceWorkflow: () => void;
@@ -99,11 +100,12 @@ export const useOperatorGuideStore = create<OperatorGuideStoreState>()(
     hydrate: () => set(loadPrefs()),
 
     toggleExplainMode: () => {
-      const next = !get().explainModeActive;
-      savePrefs({ explainModeActive: next, selectedAudience: get().selectedAudience });
+      const state = get();
+      const next = !state.explainModeActive;
+      savePrefs({ explainModeActive: next, selectedAudience: state.selectedAudience });
       set({
         explainModeActive: next,
-        sidePanelOpen: next ? get().sidePanelOpen : get().sidePanelOpen,
+        sidePanelOpen: next && state.selectedTargetId != null,
       });
     },
 
@@ -117,6 +119,18 @@ export const useOperatorGuideStore = create<OperatorGuideStoreState>()(
     },
 
     setSidePanelOpen: (sidePanelOpen) => set({ sidePanelOpen }),
+
+    dismissSidePanel: () => {
+      savePrefs({ explainModeActive: false, selectedAudience: get().selectedAudience });
+      set({
+        sidePanelOpen: false,
+        selectedTargetId: null,
+        explainModeActive: false,
+        focusModeActive: false,
+        focusLabels: [],
+        highlightPanelId: null,
+      });
+    },
 
     selectTarget: (selectedTargetId) =>
       set({

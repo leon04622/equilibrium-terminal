@@ -14,6 +14,8 @@ export type OnboardingStepId =
   | "welcome"
   | "workspace_template"
   | "exchange_connect"
+  | "start_operator_mode"
+  | "start_learning"
   | "keyboard_shortcuts"
   | "omnibar"
   | "intel_feed"

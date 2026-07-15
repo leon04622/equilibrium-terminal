@@ -49,4 +49,12 @@ export type OmniIntent =
       active?: boolean;
       raw: string;
       path: "fast";
+    }
+  | { type: "WEDGE_BLOCKED"; command: string; message: string; raw: string; path: "fast" }
+  | {
+      type: "OMNI_GUIDANCE";
+      message: string;
+      widgetId?: string;
+      raw: string;
+      path: "fast";
     };

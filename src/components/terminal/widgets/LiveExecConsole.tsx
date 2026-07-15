@@ -1,12 +1,14 @@
 "use client";
 
 import { Zap } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { LiveExecOrchestrator } from "@/lib/live-exec-desk/LiveExecOrchestrator";
 import { terminalBus } from "@/store/eventBus";
 import { useLiveExecStore, type LiveExecTab } from "@/store/useLiveExecStore";
 import type { LiveExecDeskId, LiveExecModeId } from "@/types/live-execution";
+import { BuilderRevenuePanel } from "@/components/terminal/BuilderRevenuePanel";
 
 const TABS: { id: LiveExecTab; label: string }[] = [
   { id: "desks", label: "DESKS" },
@@ -19,6 +21,7 @@ const TABS: { id: LiveExecTab; label: string }[] = [
   { id: "continuity", label: "MEM" },
   { id: "keys", label: "KEYS" },
   { id: "modes", label: "MODES" },
+  { id: "builder", label: "BLDR" },
 ];
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -31,7 +34,8 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function LiveExecConsole() {
-  const snapshot = useLiveExecStore((s) => s.snapshot);
+  const storeSnapshot = useLiveExecStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => LiveExecOrchestrator.snapshot());
   const activeTab = useLiveExecStore((s) => s.activeTab);
   const setActiveTab = useLiveExecStore((s) => s.setActiveTab);
   const setActiveMode = useLiveExecStore((s) => s.setActiveMode);
@@ -188,6 +192,8 @@ export function LiveExecConsole() {
             ))}
           </div>
         )}
+
+        {activeTab === "builder" && <BuilderRevenuePanel />}
       </div>
     </div>
   );

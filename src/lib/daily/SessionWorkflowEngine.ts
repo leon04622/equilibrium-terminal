@@ -16,7 +16,7 @@ const PRESETS: Record<
     panels: ["dailyops", "surveillance", "domladder", "ticket", "chart"],
   },
   weekend_crypto: {
-    panels: ["surveillance", "alerts", "chart", "traderjournal"],
+    panels: ["surveillance", "alerts", "chart", "operatorjournal"],
   },
   post_fomc: {
     panels: ["macro", "intelligence", "decision", "slippageradar", "ticket"],

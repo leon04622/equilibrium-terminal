@@ -3,6 +3,7 @@
 import { Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { UnifiedOpsOrchestrator } from "@/lib/unified-ops/UnifiedOpsOrchestrator";
 import { useUnifiedOpsStore, type UnifiedOpsTab } from "@/store/useUnifiedOpsStore";
 import type { UnifiedOpsModeId } from "@/types/unified-operations";
@@ -30,10 +31,11 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function UnifiedOpsConsole() {
-  const snapshot = useUnifiedOpsStore((s) => s.snapshot);
+  const storeSnapshot = useUnifiedOpsStore((s) => s.snapshot);
   const activeTab = useUnifiedOpsStore((s) => s.activeTab);
   const setActiveTab = useUnifiedOpsStore((s) => s.setActiveTab);
   const setActiveMode = useUnifiedOpsStore((s) => s.setActiveMode);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => UnifiedOpsOrchestrator.snapshot());
 
   if (!snapshot) {
     return (

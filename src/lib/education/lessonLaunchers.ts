@@ -3,6 +3,7 @@
  */
 
 import { useMarketMechanicsStore } from "@/store/useMarketMechanicsStore";
+import { useMarketMechanicsBridgeStore } from "@/store/useMarketMechanicsBridgeStore";
 import { useOrderBookLessonStore } from "@/store/useOrderBookLessonStore";
 import { useLessonBridgeStore } from "@/store/useLessonBridgeStore";
 import { useFundingCrowdingStore } from "@/store/useFundingCrowdingStore";
@@ -25,6 +26,26 @@ import { useOperatorJournalLessonStore } from "@/store/useOperatorJournalLessonS
 import { useOperatorJournalBridgeStore } from "@/store/useOperatorJournalBridgeStore";
 import { useLiveDeskLessonStore } from "@/store/useLiveDeskLessonStore";
 import { useLiveDeskBridgeStore } from "@/store/useLiveDeskBridgeStore";
+import { useMarketStateLessonStore } from "@/store/useMarketStateLessonStore";
+import { useMarketStateBridgeStore } from "@/store/useMarketStateBridgeStore";
+import { useDailyBriefingLessonStore } from "@/store/useDailyBriefingLessonStore";
+import { useDailyBriefingBridgeStore } from "@/store/useDailyBriefingBridgeStore";
+import { useMarketMemoryLessonStore } from "@/store/useMarketMemoryLessonStore";
+import { useMarketMemoryBridgeStore } from "@/store/useMarketMemoryBridgeStore";
+import { useCryptoFinancialOsLessonStore } from "@/store/useCryptoFinancialOsLessonStore";
+import { useCryptoFinancialOsBridgeStore } from "@/store/useCryptoFinancialOsBridgeStore";
+import { useFirstTradeLessonStore } from "@/store/useFirstTradeLessonStore";
+import { useFirstTradeBridgeStore } from "@/store/useFirstTradeBridgeStore";
+import { useMarketStructureLessonStore } from "@/store/useMarketStructureLessonStore";
+import { useMarketStructureBridgeStore } from "@/store/useMarketStructureBridgeStore";
+import { useLiquidityDeepLessonStore } from "@/store/useLiquidityDeepLessonStore";
+import { useLiquidityDeepBridgeStore } from "@/store/useLiquidityDeepBridgeStore";
+import { useCrossMarketLessonStore } from "@/store/useCrossMarketLessonStore";
+import { useCrossMarketBridgeStore } from "@/store/useCrossMarketBridgeStore";
+import { useMacroFlowsLessonStore } from "@/store/useMacroFlowsLessonStore";
+import { useMacroFlowsBridgeStore } from "@/store/useMacroFlowsBridgeStore";
+import { useIntelligenceDeskLessonStore } from "@/store/useIntelligenceDeskLessonStore";
+import { useIntelligenceDeskBridgeStore } from "@/store/useIntelligenceDeskBridgeStore";
 import { useLearningAcademyStore } from "@/store/useLearningAcademyStore";
 import { armLessonVoice } from "@/lib/education/LessonNarrator";
 import { academyPerf, beginAcademyTransition, endAcademyTransition } from "@/lib/education/academyPerformance";
@@ -38,6 +59,7 @@ export function useLessonLaunchers() {
 
   const openMM = useMarketMechanicsStore((s) => s.open);
   const restartMM = useMarketMechanicsStore((s) => s.restart);
+  const startMmBridge = useMarketMechanicsBridgeStore((s) => s.start);
 
   const openOB = useOrderBookLessonStore((s) => s.open);
   const restartOB = useOrderBookLessonStore((s) => s.restart);
@@ -86,6 +108,46 @@ export function useLessonLaunchers() {
   const restartLiveDesk = useLiveDeskLessonStore((s) => s.restart);
   const startLiveDeskBridge = useLiveDeskBridgeStore((s) => s.start);
 
+  const openMarketState = useMarketStateLessonStore((s) => s.open);
+  const restartMarketState = useMarketStateLessonStore((s) => s.restart);
+  const startMarketStateBridge = useMarketStateBridgeStore((s) => s.start);
+
+  const openDailyBriefing = useDailyBriefingLessonStore((s) => s.open);
+  const restartDailyBriefing = useDailyBriefingLessonStore((s) => s.restart);
+  const startDailyBriefingBridge = useDailyBriefingBridgeStore((s) => s.start);
+
+  const openMarketMemory = useMarketMemoryLessonStore((s) => s.open);
+  const restartMarketMemory = useMarketMemoryLessonStore((s) => s.restart);
+  const startMarketMemoryBridge = useMarketMemoryBridgeStore((s) => s.start);
+
+  const openCryptoFinancialOs = useCryptoFinancialOsLessonStore((s) => s.open);
+  const restartCryptoFinancialOs = useCryptoFinancialOsLessonStore((s) => s.restart);
+  const startCryptoFinancialOsBridge = useCryptoFinancialOsBridgeStore((s) => s.start);
+
+  const openFirstTrade = useFirstTradeLessonStore((s) => s.open);
+  const restartFirstTrade = useFirstTradeLessonStore((s) => s.restart);
+  const startFirstTradeBridge = useFirstTradeBridgeStore((s) => s.start);
+
+  const openMarketStructure = useMarketStructureLessonStore((s) => s.open);
+  const restartMarketStructure = useMarketStructureLessonStore((s) => s.restart);
+  const startMarketStructureBridge = useMarketStructureBridgeStore((s) => s.start);
+
+  const openLiquidityDeep = useLiquidityDeepLessonStore((s) => s.open);
+  const restartLiquidityDeep = useLiquidityDeepLessonStore((s) => s.restart);
+  const startLiquidityDeepBridge = useLiquidityDeepBridgeStore((s) => s.start);
+
+  const openCrossMarket = useCrossMarketLessonStore((s) => s.open);
+  const restartCrossMarket = useCrossMarketLessonStore((s) => s.restart);
+  const startCrossMarketBridge = useCrossMarketBridgeStore((s) => s.start);
+
+  const openMacroFlows = useMacroFlowsLessonStore((s) => s.open);
+  const restartMacroFlows = useMacroFlowsLessonStore((s) => s.restart);
+  const startMacroFlowsBridge = useMacroFlowsBridgeStore((s) => s.start);
+
+  const openIntelligenceDesk = useIntelligenceDeskLessonStore((s) => s.open);
+  const restartIntelligenceDesk = useIntelligenceDeskLessonStore((s) => s.restart);
+  const startIntelligenceDeskBridge = useIntelligenceDeskBridgeStore((s) => s.start);
+
   const launch = (lessonId: string, mode: LaunchMode = "start") => {
     const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     armLessonVoice();
@@ -96,7 +158,8 @@ export function useLessonLaunchers() {
 
     switch (lessonId) {
       case "market-mechanics":
-        if (mode === "restart") restartMM();
+        if (mode === "bridge") startMmBridge();
+        else if (mode === "restart" || mode === "simulator") restartMM();
         else openMM();
         break;
       case "order-book":
@@ -153,6 +216,56 @@ export function useLessonLaunchers() {
         if (mode === "bridge") startLiveDeskBridge();
         else if (mode === "restart" || mode === "simulator") restartLiveDesk();
         else openLiveDesk();
+        break;
+      case "market-state":
+        if (mode === "bridge") startMarketStateBridge();
+        else if (mode === "restart" || mode === "simulator") restartMarketState();
+        else openMarketState();
+        break;
+      case "daily-briefing":
+        if (mode === "bridge") startDailyBriefingBridge();
+        else if (mode === "restart" || mode === "simulator") restartDailyBriefing();
+        else openDailyBriefing();
+        break;
+      case "market-memory":
+        if (mode === "bridge") startMarketMemoryBridge();
+        else if (mode === "restart" || mode === "simulator") restartMarketMemory();
+        else openMarketMemory();
+        break;
+      case "crypto-financial-os":
+        if (mode === "bridge") startCryptoFinancialOsBridge();
+        else if (mode === "restart" || mode === "simulator") restartCryptoFinancialOs();
+        else openCryptoFinancialOs();
+        break;
+      case "first-trade-checklist":
+        if (mode === "bridge") startFirstTradeBridge();
+        else if (mode === "restart" || mode === "simulator") restartFirstTrade();
+        else openFirstTrade();
+        break;
+      case "market-structure":
+        if (mode === "bridge") startMarketStructureBridge();
+        else if (mode === "restart" || mode === "simulator") restartMarketStructure();
+        else openMarketStructure();
+        break;
+      case "liquidity-deep":
+        if (mode === "bridge") startLiquidityDeepBridge();
+        else if (mode === "restart" || mode === "simulator") restartLiquidityDeep();
+        else openLiquidityDeep();
+        break;
+      case "cross-market":
+        if (mode === "bridge") startCrossMarketBridge();
+        else if (mode === "restart" || mode === "simulator") restartCrossMarket();
+        else openCrossMarket();
+        break;
+      case "macro-flows":
+        if (mode === "bridge") startMacroFlowsBridge();
+        else if (mode === "restart" || mode === "simulator") restartMacroFlows();
+        else openMacroFlows();
+        break;
+      case "intelligence-desk":
+        if (mode === "bridge") startIntelligenceDeskBridge();
+        else if (mode === "restart" || mode === "simulator") restartIntelligenceDesk();
+        else openIntelligenceDesk();
         break;
       default:
         break;

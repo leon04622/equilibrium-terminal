@@ -1,5 +1,6 @@
 "use client";
 
+import { AlphaFeatureFlags } from "@/lib/alpha/AlphaFeatureFlags";
 import { evaluateExecutionGuards } from "@/lib/wedge/executionGuards";
 import { useExecutionIntelligenceStore } from "@/store/useExecutionIntelligenceStore";
 import { useTerminalStore } from "@/store/terminalStore";
@@ -23,7 +24,9 @@ export function ExecutionWarningBanner() {
     bookUpdatedAt: book?.time ?? null,
   });
 
-  if (!spreadWarn && !slipWarn && !guard.blocked) return null;
+  const executionPaused = !AlphaFeatureFlags.isEnabled("execution");
+
+  if (!spreadWarn && !slipWarn && !guard.blocked && !executionPaused) return null;
 
   return (
     <div
@@ -34,6 +37,7 @@ export function ExecutionWarningBanner() {
         terminalSkin.textWarn,
       )}
     >
+      {executionPaused ? "EXECUTION KILL SWITCH ACTIVE · " : ""}
       {guard.blocked ? `${guard.reason} · ` : ""}
       {spreadWarn ? `Spread ${spreadBps.toFixed(1)} bps · ` : ""}
       {slipWarn ? `Slippage ${slippage.riskTier.toUpperCase()} · ` : ""}

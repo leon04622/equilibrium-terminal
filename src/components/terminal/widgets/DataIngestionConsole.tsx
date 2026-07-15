@@ -3,6 +3,9 @@
 import { Database, Layers, Radio, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { MarketDataBackboneOrchestrator } from "@/lib/ingest/MarketDataBackboneOrchestrator";
+import { useTerminalStore } from "@/store/terminalStore";
 import { useDataIngestionStore, type IngestionTab } from "@/store/useDataIngestionStore";
 
 const TABS: { id: IngestionTab; label: string }[] = [
@@ -24,9 +27,13 @@ function healthColor(h: string): string {
 }
 
 export function DataIngestionConsole() {
-  const snapshot = useDataIngestionStore((s) => s.snapshot);
+  const storeSnapshot = useDataIngestionStore((s) => s.snapshot);
   const activeTab = useDataIngestionStore((s) => s.activeTab);
   const setActiveTab = useDataIngestionStore((s) => s.setActiveTab);
+  const selectedCoin = useTerminalStore((s) => s.selectedAsset?.coin ?? "BTC");
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    MarketDataBackboneOrchestrator.platformSnapshot(selectedCoin),
+  );
 
   if (!snapshot) {
     return (

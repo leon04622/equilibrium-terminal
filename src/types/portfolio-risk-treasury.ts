@@ -25,7 +25,9 @@ export type PortfolioRiskAlertKind =
   | "treasury_imbalance"
   | "stablecoin_risk"
   | "concentration_risk"
-  | "venue_dependency";
+  | "venue_dependency"
+  | "var_breach"
+  | "margin_call";
 
 export interface PortfolioHoldingRow {
   asset: string;

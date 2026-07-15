@@ -22,6 +22,18 @@ const STEP_DEFS: Omit<OnboardingStep, "completed" | "completedAt">[] = [
     required: true,
   },
   {
+    id: "start_operator_mode",
+    title: "Start Operator Mode",
+    detail: "Your daily operating system — briefing, market state, ops, live desk, execution plan. Available Day 1.",
+    required: true,
+  },
+  {
+    id: "start_learning",
+    title: "Start Learning",
+    detail: "Optional — Academy lessons enhance Operator Mode with advanced checks and review workflows.",
+    required: false,
+  },
+  {
     id: "keyboard_shortcuts",
     title: "Keyboard workflow",
     detail: "Ctrl+K OmniBar · density controls in experience bar.",
@@ -106,6 +118,15 @@ export class OnboardingEngine {
     return readStored().dismissedAt !== null;
   }
 
+  static needsOnboarding(): boolean {
+    return OnboardingEngine.completionPct() < 100;
+  }
+
+  static resumeWalkthrough(): void {
+    const stored = readStored();
+    writeStored({ ...stored, dismissedAt: null });
+  }
+
   static dismiss(): void {
     const stored = readStored();
     writeStored({ ...stored, dismissedAt: Date.now() });
@@ -119,19 +140,24 @@ export class OnboardingEngine {
   }
 
   static shouldShowWalkthrough(): boolean {
-    if (OnboardingEngine.isDismissed()) return false;
-    return OnboardingEngine.completionPct() < 100;
+    if (!OnboardingEngine.needsOnboarding()) return false;
+    return !OnboardingEngine.isDismissed();
+  }
+
+  static shouldShowResumeHint(): boolean {
+    return OnboardingEngine.needsOnboarding();
   }
 
   static autoProgressHints(opts: {
     walletConnected: boolean;
     deskFocusMode: boolean;
     omniUsed: boolean;
+    executionDeskActive: boolean;
   }): void {
     OnboardingEngine.completeStep("welcome");
     if (opts.deskFocusMode) OnboardingEngine.completeStep("workspace_template");
     if (opts.walletConnected) OnboardingEngine.completeStep("exchange_connect");
     if (opts.omniUsed) OnboardingEngine.completeStep("omnibar");
-    if (opts.deskFocusMode) OnboardingEngine.completeStep("execution_desk");
+    if (opts.deskFocusMode && opts.executionDeskActive) OnboardingEngine.completeStep("execution_desk");
   }
 }

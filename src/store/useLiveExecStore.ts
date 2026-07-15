@@ -11,7 +11,8 @@ export type LiveExecTab =
   | "perf"
   | "continuity"
   | "keys"
-  | "modes";
+  | "modes"
+  | "builder";
 
 interface LiveExecState {
   snapshot: LiveExecSnapshot | null;

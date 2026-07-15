@@ -60,6 +60,14 @@ function AgentTelemetryRow({ agentId, status, tokens }: {
   );
 }
 
+function displayThesis(thesis: string): string {
+  return thesis.replace(/\s*\[LLM stub\]/gi, "").trim();
+}
+
+function isRulesBasedThesis(thesis: string): boolean {
+  return /\[LLM stub\]/i.test(thesis);
+}
+
 function FusedRow({ op }: { op: FusedOpportunity }) {
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
   const pct = Math.round(op.fusedConfidenceScore * 100);
@@ -115,7 +123,10 @@ function FusedRow({ op }: { op: FusedOpportunity }) {
       </div>
 
       <p className={cn(TERMINAL_TYPO.dataSm, "truncate pl-[4.5rem] text-slate-300")}>
-        {op.thesis}
+        {displayThesis(op.thesis)}
+        {isRulesBasedThesis(op.thesis) ? (
+          <span className={cn(TERMINAL_TYPO.micro, "ml-1 text-violet-400")}>RULES</span>
+        ) : null}
       </p>
 
       <ul className="mt-0.5 space-y-0 pl-[4.5rem]">
@@ -157,6 +168,9 @@ export function ProactiveMonitor() {
         )}
       >
         <span>AGENTIC OPS</span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+          NO LLM
+        </span>
         <span className={TERMINAL_TYPO.micro}>
           <span className={loopRunning ? terminalSkin.textUp : terminalSkin.textDown}>
             {loopRunning ? "LOOP ON" : "LOOP OFF"}

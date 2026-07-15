@@ -60,6 +60,15 @@ export interface HlApproveAgentAction {
   nonce: number;
 }
 
+export interface HlApproveBuilderFeeAction {
+  type: "approveBuilderFee";
+  signatureChainId: string;
+  hyperliquidChain: typeof HL_CHAIN | "Testnet";
+  maxFeeRate: string;
+  builder: string;
+  nonce: number;
+}
+
 export type HlL1Action = HlOrderAction | HlCancelAction | HlUpdateLeverageAction;
 
 export interface HlSignature {
@@ -69,7 +78,7 @@ export interface HlSignature {
 }
 
 export interface HlExchangeRequest {
-  action: HlL1Action | HlApproveAgentAction;
+  action: HlL1Action | HlApproveAgentAction | HlApproveBuilderFeeAction;
   nonce: number;
   signature: HlSignature;
   vaultAddress?: string;

@@ -8,15 +8,19 @@ import { useHyperliquidAuthContext } from "@/contexts/HyperliquidAuthContext";
 import { productionAuthEngine } from "@/lib/infrastructure/AuthEngine";
 import { clientPersistenceQueue } from "@/lib/infrastructure/PersistenceQueue";
 import { SnapshotSerializer } from "@/lib/infrastructure/SnapshotSerializer";
+import { applyWorkspaceSnapshot } from "@/lib/workflow/WorkspaceSnapshotRestore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useAlertStore } from "@/store/useAlertStore";
+import { useInformationDiscoveryStore } from "@/store/useInformationDiscoveryStore";
+import { terminalBus } from "@/store/eventBus";
 import { useTerminalStore } from "@/store/terminalStore";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 import type { PlatformInfrastructureVitals } from "@/types/production-platform";
 
 const VITALS_POLL_MS = 10_000;
 const SESSION_POLL_MS = 60_000;
-const SNAPSHOT_AUTOSAVE_MS = 120_000;
+const SNAPSHOT_AUTOSAVE_MS = 60_000;
+const LAYOUT_PUSH_DEBOUNCE_MS = 8_000;
 
 export interface UseProductionPlatformOptions {
   layout: Layout[];
@@ -33,9 +37,40 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    throw new Error(`${url} responded ${res.status}`);
+    let detail = `http_${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) detail = body.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail);
   }
   return (await res.json()) as T;
+}
+
+function describeSiweError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("jwt_not_configured")) {
+    return process.env.NODE_ENV === "production"
+      ? "Desk auth not configured on server — contact operator."
+      : "Desk auth needs EQUILIBRIUM_JWT_SECRET in .env.local (≥32 chars).";
+  }
+  if (lower.includes("user rejected") || lower.includes("denied") || lower.includes("cancel")) {
+    return "Wallet sign-in cancelled.";
+  }
+  if (lower.includes("verification_failed") || lower.includes("invalid")) {
+    return "Signature rejected — try Sign In again.";
+  }
+  if (lower.includes("internal_error") || lower.includes("http_500")) {
+    return process.env.NODE_ENV === "production"
+      ? "Auth server error — wait a moment and retry."
+      : "Auth server error — set EQUILIBRIUM_JWT_SECRET in .env.local and retry.";
+  }
+  if (lower.includes("http_401") || lower.includes("http_403")) {
+    return "Sign-in rejected — reconnect wallet and retry.";
+  }
+  return "Sign-in failed — retry or reconnect wallet.";
 }
 
 export function useProductionPlatform({ layout, enabled = true }: UseProductionPlatformOptions) {
@@ -52,7 +87,11 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
   const appendSaveLog = useProductionConfigStore((s) => s.appendSaveLog);
   const setSnapshotMeta = useProductionConfigStore((s) => s.setSnapshotMeta);
   const setSiwePending = useProductionConfigStore((s) => s.setSiwePending);
+  const setSiweLastError = useProductionConfigStore((s) => s.setSiweLastError);
   const claims = useProductionConfigStore((s) => s.claims);
+  const siwePending = useProductionConfigStore((s) => s.siwePending);
+  const snapshotPulledRef = useRef(false);
+  const layoutPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -81,6 +120,7 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
   const loginWithSiwe = useCallback(async () => {
     if (!address || !isConnected) return false;
     setSiwePending(true);
+    setSiweLastError(null);
     setCloudSyncStatus("syncing");
     const started = Date.now();
     try {
@@ -108,6 +148,8 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
       setClaims(result.claims);
       setSessionHealth("healthy");
       setCloudSyncStatus("synced");
+      setSiweLastError(null);
+      snapshotPulledRef.current = false;
       appendSaveLog({
         operation: "session_refresh",
         status: "ok",
@@ -116,11 +158,14 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
       });
       return true;
     } catch (err) {
+      const raw = err instanceof Error ? err.message : "SIWE login failed";
+      const friendly = describeSiweError(raw);
+      setSiweLastError(friendly);
       setCloudSyncStatus("degraded");
       appendSaveLog({
         operation: "session_refresh",
         status: "error",
-        message: err instanceof Error ? err.message : "SIWE login failed",
+        message: friendly,
         durationMs: Date.now() - started,
       });
       return false;
@@ -136,6 +181,7 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
     setSessionHealth,
     setCloudSyncStatus,
     setSiwePending,
+    setSiweLastError,
     appendSaveLog,
   ]);
 
@@ -147,14 +193,17 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
       const widgets = useTerminalStore.getState().widgets;
       const selectedCoin = useTerminalStore.getState().selectedCoin;
       const alertRules = useAlertStore.getState().rules;
+      const watchlist = useInformationDiscoveryStore.getState().watchlist.map((w) => ({
+        coin: w.coin,
+        pinned: w.coin === selectedCoin,
+        addedAt: w.addedAt,
+      }));
       const record = await SnapshotSerializer.pack({
         workspaceId: claims.workspaceId,
         userId: claims.sub,
         layout,
         widgets,
-        watchlist: selectedCoin
-          ? [{ coin: selectedCoin, pinned: true, addedAt: Date.now() }]
-          : [],
+        watchlist,
         omniBarHistory: [],
         alertRules,
         selectedCoin,
@@ -195,15 +244,16 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
         snapshot: import("@/types/production-platform").WorkspaceSnapshotRecord;
       }>("/api/workspace/snapshot");
       const payload = await SnapshotSerializer.unpack(data.snapshot);
-      if (payload.selectedCoin) {
-        useTerminalStore.getState().selectAssetByCoin(payload.selectedCoin, "snapshot_restore");
-      }
+      const result = applyWorkspaceSnapshot(payload);
       setSnapshotMeta(data.snapshot.contentHash, payload.savedAt);
       setCloudSyncStatus("synced");
       appendSaveLog({
         operation: "snapshot_pull",
-        status: "ok",
-        message: "Workspace snapshot restored",
+        status: result.warnings.length > 0 ? "error" : "ok",
+        message:
+          result.warnings.length > 0
+            ? `Restored with warnings: ${result.warnings.join("; ")}`
+            : "Workspace snapshot restored",
         durationMs: Date.now() - started,
       });
       return payload;
@@ -297,6 +347,13 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
   }, [enabled, refreshSession]);
 
   useEffect(() => {
+    if (!enabled) return;
+    return terminalBus.on("platform:sign-in", () => {
+      void loginWithSiwe();
+    });
+  }, [enabled, loginWithSiwe]);
+
+  useEffect(() => {
     if (!enabled || !claims) return;
     const id = window.setInterval(() => {
       const telemetry = useTraderTelemetryStore.getState().exportAnonymizedBatch();
@@ -309,6 +366,28 @@ export function useProductionPlatform({ layout, enabled = true }: UseProductionP
     }, 15_000);
     return () => window.clearInterval(id);
   }, [enabled, claims]);
+
+  useEffect(() => {
+    if (!enabled || !claims || snapshotPulledRef.current) return;
+    snapshotPulledRef.current = true;
+    void pullSnapshot();
+  }, [enabled, claims, pullSnapshot]);
+
+  useEffect(() => {
+    if (!enabled || !claims) return;
+    const schedulePush = () => {
+      if (layoutPushTimerRef.current) clearTimeout(layoutPushTimerRef.current);
+      layoutPushTimerRef.current = setTimeout(() => {
+        layoutPushTimerRef.current = null;
+        void pushSnapshot();
+      }, LAYOUT_PUSH_DEBOUNCE_MS);
+    };
+    const offLayout = terminalBus.on("workspace:layout-commit", schedulePush);
+    return () => {
+      offLayout();
+      if (layoutPushTimerRef.current) clearTimeout(layoutPushTimerRef.current);
+    };
+  }, [enabled, claims, pushSnapshot]);
 
   useEffect(() => {
     if (!enabled || !claims) return;

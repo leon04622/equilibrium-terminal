@@ -12,6 +12,7 @@ export type RMVisual =
   | "riskPerTrade"
   | "riskReward"
   | "drawdowns"
+  | "volatilityRisk"
   | "accountSurvival"
   | "recap";
 
@@ -83,9 +84,20 @@ export const RISK_MANAGEMENT_SCENES: RMScene[] = [
     holdMs: 2400,
   },
   {
-    id: "drawdowns",
+    id: "volatility-risk",
     lesson: 6,
-    chapter: "PHASE 6 · DRAWDOWNS",
+    chapter: "PHASE 6 · VOLATILITY & SIZE",
+    title: "Volatility changes your risk",
+    voice:
+      "When volatility expands, the same position size moves your account more. Spreads widen, slippage increases, and stops get hit faster. In calm markets, standard size works. In volatile markets, cut size or stand aside until conditions stabilize.",
+    takeaway: "High vol → smaller size or wait.",
+    visual: "volatilityRisk",
+    holdMs: 2600,
+  },
+  {
+    id: "drawdowns",
+    lesson: 7,
+    chapter: "PHASE 7 · DRAWDOWNS",
     title: "Recovery gets harder",
     voice:
       "A ten percent drawdown needs an eleven percent gain to recover. Twenty percent needs twenty-five. Fifty percent needs one hundred. Eighty percent needs four hundred. The deeper the hole, the harder the climb.",
@@ -95,8 +107,8 @@ export const RISK_MANAGEMENT_SCENES: RMScene[] = [
   },
   {
     id: "survival",
-    lesson: 7,
-    chapter: "PHASE 7 · ACCOUNT SURVIVAL",
+    lesson: 8,
+    chapter: "PHASE 8 · ACCOUNT SURVIVAL",
     title: "Stay in the game",
     voice:
       "The goal is not maximum profit on one trade. The goal is long-term survival. Traders who protect capital get more chances to learn, adapt, and compound. You cannot compound if you are out of the game.",

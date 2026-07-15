@@ -106,7 +106,7 @@ function PaymentFlow({
           <p className="font-mono text-[9px] text-slate-500">pay</p>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <ArrowRight className={cn("h-5 w-5 transition-opacity", pulse === 1 ? "text-violet-300 opacity-100" : "text-slate-600 opacity-40")} />
+          <ArrowRight className={cn("h-5 w-5 transition-opacity", pulse === 1 ? "text-violet-300 opacity-100" : "text-slate-600 opacity-40")} aria-hidden />
           <span className="font-mono text-[9px] text-violet-400">{label}</span>
         </div>
         <div className={cn("rounded-md border px-3 py-2 text-center", to.bg, to.border)}>

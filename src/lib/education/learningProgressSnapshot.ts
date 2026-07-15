@@ -4,6 +4,7 @@ import type { RawAcademyProgress } from "@/lib/education/learningAcademy";
 export function readAcademyProgress(): RawAcademyProgress {
   const fallback: RawAcademyProgress = {
     marketMechanics: { completed: false, lastStep: 0 },
+    marketMechanicsBridge: { bridgeCompleted: false, conceptsMastered: [] },
     orderBook: { completed: false, lastStep: 0, replayWatched: false },
     orderBookBridge: { bridgeCompleted: false, conceptsMastered: [] },
     funding: { completed: false, lastStep: 0 },
@@ -26,12 +27,33 @@ export function readAcademyProgress(): RawAcademyProgress {
     operatorJournalBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
     liveDesk: { completed: false, lastStep: 0 },
     liveDeskBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    marketState: { completed: false, lastStep: 0 },
+    marketStateBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    dailyBriefing: { completed: false, lastStep: 0 },
+    dailyBriefingBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    marketMemory: { completed: false, lastStep: 0 },
+    marketMemoryBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    cryptoFinancialOs: { completed: false, lastStep: 0 },
+    cryptoFinancialOsBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    firstTradeChecklist: { completed: false, lastStep: 0 },
+    firstTradeChecklistBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    marketStructure: { completed: false, lastStep: 0 },
+    marketStructureBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    liquidityDeep: { completed: false, lastStep: 0 },
+    liquidityDeepBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    crossMarket: { completed: false, lastStep: 0 },
+    crossMarketBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    macroFlows: { completed: false, lastStep: 0 },
+    macroFlowsBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
+    intelligenceDesk: { completed: false, lastStep: 0 },
+    intelligenceDeskBridge: { bridgeCompleted: false, certified: false, conceptsMastered: [] },
   };
 
   if (typeof window === "undefined") return fallback;
 
   try {
     const mm = JSON.parse(localStorage.getItem("eq-market-mechanics-progress-v1") ?? "{}");
+    const mmBridge = JSON.parse(localStorage.getItem("eq-market-mechanics-bridge-memory-v1") ?? "{}");
     const ob = JSON.parse(localStorage.getItem("eq-ob-lesson-progress-v2") ?? "{}");
     const obBridge = JSON.parse(localStorage.getItem("eq-lesson-bridge-memory-v1") ?? "{}");
     const fund = JSON.parse(localStorage.getItem("eq-funding-crowding-progress-v1") ?? "{}");
@@ -54,11 +76,35 @@ export function readAcademyProgress(): RawAcademyProgress {
     const ojBridge = JSON.parse(localStorage.getItem("eq-operator-journal-bridge-memory-v1") ?? "{}");
     const ld = JSON.parse(localStorage.getItem("eq-live-desk-progress-v1") ?? "{}");
     const ldBridge = JSON.parse(localStorage.getItem("eq-live-desk-bridge-memory-v1") ?? "{}");
+    const ms = JSON.parse(localStorage.getItem("eq-market-state-progress-v1") ?? "{}");
+    const msBridge = JSON.parse(localStorage.getItem("eq-market-state-bridge-memory-v1") ?? "{}");
+    const db = JSON.parse(localStorage.getItem("eq-daily-briefing-progress-v1") ?? "{}");
+    const dbBridge = JSON.parse(localStorage.getItem("eq-daily-briefing-bridge-memory-v1") ?? "{}");
+    const mem = JSON.parse(localStorage.getItem("eq-market-memory-progress-v1") ?? "{}");
+    const memBridge = JSON.parse(localStorage.getItem("eq-market-memory-bridge-memory-v1") ?? "{}");
+    const cfo = JSON.parse(localStorage.getItem("eq-crypto-financial-os-progress-v1") ?? "{}");
+    const cfoBridge = JSON.parse(localStorage.getItem("eq-crypto-financial-os-bridge-memory-v1") ?? "{}");
+    const ft = JSON.parse(localStorage.getItem("eq-first-trade-progress-v1") ?? "{}");
+    const ftBridge = JSON.parse(localStorage.getItem("eq-first-trade-bridge-memory-v1") ?? "{}");
+    const mstruct = JSON.parse(localStorage.getItem("eq-market-structure-progress-v1") ?? "{}");
+    const mstructBridge = JSON.parse(localStorage.getItem("eq-market-structure-bridge-memory-v1") ?? "{}");
+    const liqDeep = JSON.parse(localStorage.getItem("eq-liquidity-deep-progress-v1") ?? "{}");
+    const liqDeepBridge = JSON.parse(localStorage.getItem("eq-liquidity-deep-bridge-memory-v1") ?? "{}");
+    const crossMarket = JSON.parse(localStorage.getItem("eq-cross-market-progress-v1") ?? "{}");
+    const crossMarketBridge = JSON.parse(localStorage.getItem("eq-cross-market-bridge-memory-v1") ?? "{}");
+    const macroFlows = JSON.parse(localStorage.getItem("eq-macro-flows-progress-v1") ?? "{}");
+    const macroFlowsBridge = JSON.parse(localStorage.getItem("eq-macro-flows-bridge-memory-v1") ?? "{}");
+    const intelligenceDesk = JSON.parse(localStorage.getItem("eq-intelligence-desk-progress-v1") ?? "{}");
+    const intelligenceDeskBridge = JSON.parse(localStorage.getItem("eq-intelligence-desk-bridge-memory-v1") ?? "{}");
 
     return {
       marketMechanics: {
         completed: Boolean(mm.completed),
         lastStep: Number.isFinite(mm.lastStep) ? Number(mm.lastStep) : 0,
+      },
+      marketMechanicsBridge: {
+        bridgeCompleted: Boolean(mmBridge.bridgeCompleted),
+        conceptsMastered: Array.isArray(mmBridge.conceptsMastered) ? mmBridge.conceptsMastered : [],
       },
       orderBook: {
         completed: Boolean(ob.completed),
@@ -157,6 +203,102 @@ export function readAcademyProgress(): RawAcademyProgress {
         bridgeCompleted: Boolean(ldBridge.bridgeCompleted),
         certified: Boolean(ldBridge.certified),
         conceptsMastered: Array.isArray(ldBridge.conceptsMastered) ? ldBridge.conceptsMastered : [],
+      },
+      marketState: {
+        completed: Boolean(ms.completed),
+        lastStep: Number.isFinite(ms.lastStep) ? Number(ms.lastStep) : 0,
+      },
+      marketStateBridge: {
+        bridgeCompleted: Boolean(msBridge.bridgeCompleted),
+        certified: Boolean(msBridge.certified),
+        conceptsMastered: Array.isArray(msBridge.conceptsMastered) ? msBridge.conceptsMastered : [],
+      },
+      dailyBriefing: {
+        completed: Boolean(db.completed),
+        lastStep: Number.isFinite(db.lastStep) ? Number(db.lastStep) : 0,
+      },
+      dailyBriefingBridge: {
+        bridgeCompleted: Boolean(dbBridge.bridgeCompleted),
+        certified: Boolean(dbBridge.certified),
+        conceptsMastered: Array.isArray(dbBridge.conceptsMastered) ? dbBridge.conceptsMastered : [],
+      },
+      marketMemory: {
+        completed: Boolean(mem.completed),
+        lastStep: Number.isFinite(mem.lastStep) ? Number(mem.lastStep) : 0,
+      },
+      marketMemoryBridge: {
+        bridgeCompleted: Boolean(memBridge.bridgeCompleted),
+        certified: Boolean(memBridge.certified),
+        conceptsMastered: Array.isArray(memBridge.conceptsMastered) ? memBridge.conceptsMastered : [],
+      },
+      cryptoFinancialOs: {
+        completed: Boolean(cfo.completed),
+        lastStep: Number.isFinite(cfo.lastStep) ? Number(cfo.lastStep) : 0,
+      },
+      cryptoFinancialOsBridge: {
+        bridgeCompleted: Boolean(cfoBridge.bridgeCompleted),
+        certified: Boolean(cfoBridge.certified),
+        conceptsMastered: Array.isArray(cfoBridge.conceptsMastered) ? cfoBridge.conceptsMastered : [],
+      },
+      firstTradeChecklist: {
+        completed: Boolean(ft.completed),
+        lastStep: Number.isFinite(ft.lastStep) ? Number(ft.lastStep) : 0,
+      },
+      firstTradeChecklistBridge: {
+        bridgeCompleted: Boolean(ftBridge.bridgeCompleted),
+        certified: Boolean(ftBridge.certified),
+        conceptsMastered: Array.isArray(ftBridge.conceptsMastered) ? ftBridge.conceptsMastered : [],
+      },
+      marketStructure: {
+        completed: Boolean(mstruct.completed),
+        lastStep: Number.isFinite(mstruct.lastStep) ? Number(mstruct.lastStep) : 0,
+      },
+      marketStructureBridge: {
+        bridgeCompleted: Boolean(mstructBridge.bridgeCompleted),
+        certified: Boolean(mstructBridge.certified),
+        conceptsMastered: Array.isArray(mstructBridge.conceptsMastered) ? mstructBridge.conceptsMastered : [],
+      },
+      liquidityDeep: {
+        completed: Boolean(liqDeep.completed),
+        lastStep: Number.isFinite(liqDeep.lastStep) ? Number(liqDeep.lastStep) : 0,
+      },
+      liquidityDeepBridge: {
+        bridgeCompleted: Boolean(liqDeepBridge.bridgeCompleted),
+        certified: Boolean(liqDeepBridge.certified),
+        conceptsMastered: Array.isArray(liqDeepBridge.conceptsMastered) ? liqDeepBridge.conceptsMastered : [],
+      },
+      crossMarket: {
+        completed: Boolean(crossMarket.completed),
+        lastStep: Number.isFinite(crossMarket.lastStep) ? Number(crossMarket.lastStep) : 0,
+      },
+      crossMarketBridge: {
+        bridgeCompleted: Boolean(crossMarketBridge.bridgeCompleted),
+        certified: Boolean(crossMarketBridge.certified),
+        conceptsMastered: Array.isArray(crossMarketBridge.conceptsMastered)
+          ? crossMarketBridge.conceptsMastered
+          : [],
+      },
+      macroFlows: {
+        completed: Boolean(macroFlows.completed),
+        lastStep: Number.isFinite(macroFlows.lastStep) ? Number(macroFlows.lastStep) : 0,
+      },
+      macroFlowsBridge: {
+        bridgeCompleted: Boolean(macroFlowsBridge.bridgeCompleted),
+        certified: Boolean(macroFlowsBridge.certified),
+        conceptsMastered: Array.isArray(macroFlowsBridge.conceptsMastered)
+          ? macroFlowsBridge.conceptsMastered
+          : [],
+      },
+      intelligenceDesk: {
+        completed: Boolean(intelligenceDesk.completed),
+        lastStep: Number.isFinite(intelligenceDesk.lastStep) ? Number(intelligenceDesk.lastStep) : 0,
+      },
+      intelligenceDeskBridge: {
+        bridgeCompleted: Boolean(intelligenceDeskBridge.bridgeCompleted),
+        certified: Boolean(intelligenceDeskBridge.certified),
+        conceptsMastered: Array.isArray(intelligenceDeskBridge.conceptsMastered)
+          ? intelligenceDeskBridge.conceptsMastered
+          : [],
       },
     };
   } catch {

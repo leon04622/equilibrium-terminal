@@ -21,6 +21,11 @@ export class ChartSyncCoordinator {
     terminalBus.emit("chart:sync", ChartSyncCoordinator.getState());
   }
 
+  /** Hydrate from persisted prefs without emitting sync events. */
+  static initTimeframe(tf: ChartTimeframe): void {
+    ChartSyncCoordinator.timeframe = tf;
+  }
+
   static setTimeframe(tf: ChartTimeframe): void {
     ChartSyncCoordinator.timeframe = tf;
     terminalBus.emit("chart:sync", ChartSyncCoordinator.getState());

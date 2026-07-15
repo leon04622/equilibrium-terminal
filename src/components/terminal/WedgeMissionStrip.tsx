@@ -4,12 +4,16 @@ import { getCurrentPhase } from "@/lib/roadmap/ExecutionRoadmap";
 import { TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useWedgeStore } from "@/store/useWedgeStore";
+import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
+import { useOperatorModeStore } from "@/store/useOperatorModeStore";
 
-/** One-line mission context when V1 wedge layout is active. */
+/** One-line mission context when V1 wedge layout is active (plain-English mode). */
 export function WedgeMissionStrip() {
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
   const setDeskFocusMode = useWedgeStore((s) => s.setDeskFocusMode);
-  if (!deskFocusMode) return null;
+  const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
+  const operatorActive = useOperatorModeStore((s) => s.active);
+  if (!deskFocusMode || !beginnerMode || operatorActive) return null;
 
   const phase = getCurrentPhase();
 

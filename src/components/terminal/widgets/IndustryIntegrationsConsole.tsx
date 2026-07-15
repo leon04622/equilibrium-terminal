@@ -1,6 +1,8 @@
 "use client";
 
 import { Plug } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { IntegrationsOrchestrator } from "@/lib/integrations";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import {
@@ -35,9 +37,11 @@ function sevColor(sev: string): string {
 }
 
 export function IndustryIntegrationsConsole() {
-  const snapshot = useIndustryIntegrationsStore((s) => s.snapshot);
+  const storeSnapshot = useIndustryIntegrationsStore((s) => s.snapshot);
   const activeTab = useIndustryIntegrationsStore((s) => s.activeTab);
   const setActiveTab = useIndustryIntegrationsStore((s) => s.setActiveTab);
+
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => IntegrationsOrchestrator.snapshot());
 
   if (!snapshot) {
     return (

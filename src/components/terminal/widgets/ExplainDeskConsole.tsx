@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GraduationCap } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { OperatorGuideOrchestrator } from "@/lib/operator-guide/OperatorGuideOrchestrator";
@@ -42,7 +43,8 @@ export function ExplainDeskConsole() {
   const [activeTab, setActiveTab] = useState<OperatorGuideTab>("glossary");
   const [search, setSearch] = useState("");
 
-  const snap = useOperatorGuideStore((s) => s.snapshot);
+  const storeSnapshot = useOperatorGuideStore((s) => s.snapshot);
+  const snap = useConsoleSnapshot(storeSnapshot, () => OperatorGuideOrchestrator.snapshot());
   const explainActive = useOperatorGuideStore((s) => s.explainModeActive);
   const toggleExplain = useOperatorGuideStore((s) => s.toggleExplainMode);
   const startWorkflow = useOperatorGuideStore((s) => s.startWorkflow);

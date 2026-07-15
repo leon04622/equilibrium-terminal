@@ -35,7 +35,7 @@ function IntroScene() {
             </div>
           ))}
         </div>
-        <ArrowRight className="h-4 w-4 text-amber-500" />
+        <ArrowRight className="h-4 w-4 text-amber-500" aria-hidden />
         <span className="font-mono text-[9px] text-amber-400/80">→ market · limit · stop</span>
       </div>
     </Stage>

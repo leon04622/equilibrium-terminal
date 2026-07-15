@@ -50,6 +50,7 @@ export function DomLadder() {
   return (
     <div
       className={cn("flex h-full flex-col overflow-hidden rounded-none", terminalSkin.canvas)}
+      data-domladder-panel="domladder"
       data-panel-id="domladder"
     >
       <div
@@ -118,7 +119,7 @@ export function DomLadder() {
         </div>
       </div>
 
-      <div ref={containerRef} className="relative min-h-0 flex-1 rounded-none bg-slate-950">
+      <div ref={containerRef} data-domladder-region="ladder" className="relative min-h-0 flex-1 rounded-none bg-slate-950">
         <canvas ref={canvasRef} className="block h-full w-full rounded-none" />
       </div>
     </div>

@@ -108,3 +108,8 @@ export function getJwtSecret(): string {
   if (fromEnv && fromEnv.length >= 32) return fromEnv;
   return "equilibrium-dev-jwt-secret-min-32-chars!!";
 }
+
+export function isJwtSecretConfigured(): boolean {
+  const fromEnv = process.env.EQUILIBRIUM_JWT_SECRET;
+  return Boolean(fromEnv && fromEnv.length >= 32);
+}

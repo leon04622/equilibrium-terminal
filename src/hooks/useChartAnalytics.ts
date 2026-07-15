@@ -33,7 +33,9 @@ export function useChartAnalytics(enabled = true): void {
       const snap = ChartAnalyticsOrchestrator.snapshot(coin, timeframe, overlays);
       const visible = chartReplayEngine.visibleCandles();
       useChartAnalyticsStore.getState().setSnapshot(snap);
-      useChartAnalyticsStore.getState().setDisplayCandles(visible);
+      if (visible.length > 0) {
+        useChartAnalyticsStore.getState().setDisplayCandles(visible);
+      }
     };
 
     refresh();

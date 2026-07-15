@@ -9,6 +9,7 @@ export type TerminalEventMap = {
   "widget:focus": {
     widgetId: string;
   };
+  "platform:sign-in": Record<string, never>;
   "ai:prompt": {
     prompt: string;
     source: "omnibar" | "copilot" | "operatordesk";
@@ -152,6 +153,12 @@ export type TerminalEventMap = {
   "guide:explain-toggle": {
     active: boolean;
   };
+  "workspace:snapshot-restore": {
+    layout: import("react-grid-layout").Layout[];
+    selectedCoin?: string | null;
+    savedAt?: number;
+  };
+  "workspace:layout-commit": Record<string, never>;
 };
 
 type Handler<T> = (payload: T) => void;

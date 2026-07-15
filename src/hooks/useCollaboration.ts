@@ -76,6 +76,7 @@ export function useCollaboration(
 
     const syncId = window.setInterval(() => {
       if (document.hidden) return;
+      if (!useProductionConfigStore.getState().isEntitled("teamNetEnabled")) return;
       const snap = useCollaborationStore.getState().snapshot;
       if (!snap) return;
       void fetch("/api/collaboration/sync", {
@@ -107,11 +108,11 @@ export function useCollaboration(
 
     const offLayout = terminalBus.on("network:layout", ({ deskId, layout: remoteLayout }) => {
       if (deskId !== useNetworkGraphStore.getState().activeDeskId) return;
-      terminalBus.emit("layout:refresh", {});
-      void remoteLayout;
+      terminalBus.emit("workspace:snapshot-restore", { layout: remoteLayout });
     });
 
     const offIntel = terminalBus.on("intelligence:engine", ({ id, summary, coin }) => {
+      if (!useProductionConfigStore.getState().isEntitled("teamNetEnabled")) return;
       const deskId = useNetworkGraphStore.getState().activeDeskId;
       const localId = useNetworkGraphStore.getState().localTraderId;
       const canAnnotate = useCollaborationStore.getState().snapshot?.permissions.canAnnotate;

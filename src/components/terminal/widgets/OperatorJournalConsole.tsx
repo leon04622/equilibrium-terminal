@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ClipboardList, PlayCircle } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { OperatorJournalOrchestrator } from "@/lib/operator-journal/OperatorJournalOrchestrator";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { useOperatorJournalStore } from "@/store/useOperatorJournalStore";
@@ -73,7 +75,8 @@ function Bar({ label, value }: { label: string; value: number }) {
 export function OperatorJournalConsole() {
   const tab = useOperatorJournalStore((s) => s.activeTab);
   const setTab = useOperatorJournalStore((s) => s.setActiveTab);
-  const snapshot = useOperatorJournalStore((s) => s.snapshot);
+  const storeSnapshot = useOperatorJournalStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => OperatorJournalOrchestrator.snapshot());
   const logDecision = useOperatorJournalStore((s) => s.logDecision);
   const endSession = useOperatorJournalStore((s) => s.endSession);
   const openReplay = useOperatorJournalStore((s) => s.openReplay);

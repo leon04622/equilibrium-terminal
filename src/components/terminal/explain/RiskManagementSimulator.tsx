@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { RiskManagementPlayground } from "@/components/terminal/explain/risk-management/RiskManagementPlayground";
 import { RISK_MANAGEMENT_SCENES } from "@/lib/education/riskManagementScenes";
 import { useLessonSceneDriver } from "@/lib/education/useLessonSceneDriver";
@@ -41,6 +42,7 @@ export function RiskManagementSimulator() {
     playing,
     voiceOn,
     scene,
+    captionVoice,
     reduceMotion,
     exit,
     togglePlay,
@@ -94,7 +96,7 @@ export function RiskManagementSimulator() {
           </div>
         </div>
       </div>
-      <p className="shrink-0 px-4 pb-1 text-center font-mono text-xs text-slate-300" aria-live="polite">{scene.voice}</p>
+      <p className="shrink-0 px-4 pb-1 text-center font-mono text-xs text-slate-300" aria-live="polite">{captionVoice}</p>
       <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-slate-800 px-3 py-2.5">
         <button type="button" disabled={isFirst} onClick={() => setIndex(index - 1)} className={cn(TERMINAL_TYPO.micro, "border border-slate-700 px-2 py-1", isFirst ? "text-slate-700" : "text-slate-400")}>
           <ArrowLeft className="inline h-3 w-3" /> BACK
@@ -117,7 +119,7 @@ export function RiskManagementSimulator() {
           </button>
         ) : (
           <button type="button" onClick={() => setIndex(index + 1)} className={cn(TERMINAL_TYPO.micro, "border border-emerald-700/50 px-2 py-1 text-emerald-300")}>
-            NEXT <ArrowRight className="inline h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

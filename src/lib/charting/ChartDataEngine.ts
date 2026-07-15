@@ -1,20 +1,20 @@
 import type { NormalizedCandle, NormalizedTrade } from "@/types/terminal-schema";
 import type { ChartTimeframe } from "@/types/chart-analytics";
+import { chartTimeframeToHlInterval, hlIntervalSeconds } from "@/lib/hyperliquid/candles";
 
 const MAX_BARS = 800;
-const TF_SECONDS: Record<ChartTimeframe, number> = {
+const TF_SECONDS: Partial<Record<ChartTimeframe, number>> = {
   "1s": 1,
-  "1m": 60,
-  "5m": 300,
-  "15m": 900,
-  "1h": 3600,
-  "4h": 14_400,
-  "1d": 86_400,
 };
 
 export class ChartDataEngine {
   static timeframeSeconds(tf: ChartTimeframe): number {
-    return TF_SECONDS[tf];
+    const interval = chartTimeframeToHlInterval(tf);
+    if (interval) {
+      const sec = hlIntervalSeconds(interval);
+      if (sec != null) return sec;
+    }
+    return TF_SECONDS[tf] ?? 60;
   }
 
   /** Viewport window for memory-efficient rendering. */
@@ -41,7 +41,7 @@ export class ChartDataEngine {
     trades: NormalizedTrade[],
     tf: ChartTimeframe,
   ): NormalizedCandle[] {
-    const bucketSec = TF_SECONDS[tf];
+    const bucketSec = ChartDataEngine.timeframeSeconds(tf);
     const buckets = new Map<number, NormalizedCandle>();
 
     for (const t of trades) {
@@ -74,5 +74,40 @@ export class ChartDataEngine {
   ): NormalizedCandle[] {
     if (hlCandles.length > 0) return ChartDataEngine.viewport(hlCandles);
     return ChartDataEngine.candlesFromTrades(trades, tf);
+  }
+
+  /** True when candle open times sit on Hyperliquid bucket boundaries for the TF. */
+  static candlesAlignToTimeframe(
+    candles: NormalizedCandle[],
+    tf: ChartTimeframe,
+  ): boolean {
+    if (candles.length === 0) return true;
+    if (tf === "1M" || tf === "1w" || tf === "3d") return true;
+    const step = ChartDataEngine.timeframeSeconds(tf);
+    return candles.every((c) => c.time % step === 0);
+  }
+
+  static filterForTimeframe(
+    candles: NormalizedCandle[],
+    tf: ChartTimeframe,
+  ): NormalizedCandle[] {
+    if (tf === "1M" || tf === "1w" || tf === "3d") return candles;
+    const step = ChartDataEngine.timeframeSeconds(tf);
+    return candles.filter((c) => c.time % step === 0);
+  }
+
+  /** Merge only the live tail — never overwrite sealed HL history with a WS snapshot. */
+  static mergeLiveTail(
+    history: NormalizedCandle[],
+    live: NormalizedCandle[],
+    tf: ChartTimeframe,
+  ): NormalizedCandle[] {
+    if (live.length === 0 || history.length === 0) return history;
+    const step = ChartDataEngine.timeframeSeconds(tf);
+    const lastHistTime = history[history.length - 1]!.time;
+    const tailStart = lastHistTime - step;
+    const tailUpdates = live.filter((c) => c.time >= tailStart);
+    if (tailUpdates.length === 0) return history;
+    return ChartDataEngine.mergeCandles(history, tailUpdates);
   }
 }

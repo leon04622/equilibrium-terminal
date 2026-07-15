@@ -59,7 +59,7 @@ export function useGlobalShortcuts(enabled = true): void {
           if (!e.shiftKey) focus("dailyops");
           break;
         case "j":
-          focus("traderjournal");
+          focus("operatorjournal");
           break;
         case "r":
           if (!e.shiftKey) focus("research");
@@ -94,6 +94,7 @@ export function useGlobalShortcuts(enabled = true): void {
           break;
         case "p":
           if (e.shiftKey) focus("propintel");
+          else focus("paperblotter");
           break;
         case "1":
           focus("chart");

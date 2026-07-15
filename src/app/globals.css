@@ -57,6 +57,28 @@ html[data-eq-stress="1"] .eq-stress-hide {
   @apply rounded-none;
 }
 
+/*
+ * react-grid-layout ships 200ms transitions on top/left/transform/height.
+ * That fights native scrollbar dragging — panels appear to "jump" while scrolling.
+ */
+.react-grid-layout.layout {
+  transition: none !important;
+}
+
+.react-grid-layout.layout > .react-grid-item,
+.react-grid-layout.layout > .react-grid-item.cssTransforms {
+  transition: none !important;
+}
+
+html[data-eq-calm="1"] .react-grid-layout.layout > .react-grid-item {
+  transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out !important;
+  transition-property: box-shadow, border-color !important;
+}
+
+html[data-eq-reduced-motion="1"] .react-grid-layout.layout > .react-grid-item {
+  transition: none !important;
+}
+
 /* Phase 26 — institutional experience layer */
 html[data-eq-calm="1"] .eq-flash {
   animation-duration: 0.12s !important;
@@ -80,6 +102,11 @@ html[data-eq-calm="1"] .react-grid-item {
   transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out;
 }
 
+html[data-eq-calm="1"] .react-grid-layout.layout > .react-grid-item {
+  transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out !important;
+  transition-property: box-shadow, border-color !important;
+}
+
 html[data-eq-calm="1"] button,
 html[data-eq-calm="1"] [role="tab"] {
   transition: color 0.12s ease-out, background-color 0.12s ease-out, border-color 0.12s ease-out;
@@ -99,7 +126,7 @@ html[data-eq-reduced-motion="1"] .react-grid-item {
 
 /* Phase 61 — institutional maturity: chart surface, live energy, multi-monitor */
 .eq-chart-surface {
-  background: linear-gradient(180deg, rgb(2 6 23) 0%, rgb(2 8 18) 100%);
+  background: #0d1117;
 }
 
 @keyframes eq-live-pulse-keyframes {
@@ -189,3 +216,188 @@ html[data-eq-reduced-motion="1"] .eq-live-pulse {
 .react-grid-item[data-panel-id="chart"] {
   z-index: 1;
 }
+
+/* Bloomberg pass — black canvas, amber chrome, dense panels */
+html[data-eq-bloomberg="1"] {
+  --bb-bg: #000000;
+  --bb-panel: #0a0a0a;
+  --bb-border: #333333;
+  --bb-chrome: #ff9900;
+  --bb-muted: #888888;
+}
+
+html[data-eq-bloomberg="1"],
+html[data-eq-bloomberg="1"] body {
+  background: var(--bb-bg) !important;
+  color: #e8e8e8;
+}
+
+html[data-eq-bloomberg="1"] .react-grid-item > div {
+  border-color: var(--bb-border) !important;
+}
+
+html[data-eq-bloomberg="1"] header.flex.shrink-0.items-center {
+  background: var(--bb-bg) !important;
+  border-bottom-color: var(--bb-chrome) !important;
+}
+
+html[data-eq-bloomberg="1"] [class*="panelHeader"],
+html[data-eq-bloomberg="1"] .react-grid-item header {
+  background: var(--bb-bg) !important;
+  border-bottom: 1px solid var(--bb-chrome) !important;
+}
+
+html[data-eq-bloomberg="1"] [class*="panelHeader"] p,
+html[data-eq-bloomberg="1"] .react-grid-item header p {
+  color: var(--bb-chrome) !important;
+}
+
+html[data-eq-bloomberg="1"] .eq-bloomberg-hide {
+  display: none !important;
+}
+
+html[data-eq-bloomberg="1"] .eq-bloomberg-desk-bar {
+  background: var(--bb-bg) !important;
+  border-bottom-color: var(--bb-border) !important;
+}
+
+html[data-eq-bloomberg="1"] .eq-bloomberg-desk-active {
+  border-color: var(--bb-chrome) !important;
+  color: var(--bb-chrome) !important;
+  background: #1a1200 !important;
+}
+
+html[data-eq-bloomberg="1"] .eq-bloomberg-ops-strip {
+  background: var(--bb-bg) !important;
+  border-bottom-color: var(--bb-chrome) !important;
+  color: var(--bb-chrome) !important;
+}
+
+[data-workspace-scroll] {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
+  overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
+  contain: layout style;
+  transform: translateZ(0);
+  scroll-behavior: auto !important;
+}
+
+[data-workspace-scroll] .react-grid-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
+}
+
+.react-grid-item.react-draggable-dragging,
+.react-grid-item.resizing {
+  z-index: 40;
+  will-change: transform;
+}
+
+[data-workspace-scroll] .react-grid-layout {
+  overflow-anchor: none;
+}
+
+[data-eq-scrolling="1"] .react-grid-item,
+[data-eq-scrolling="1"] .eq-panel-shell {
+  transition: none !important;
+}
+
+[data-eq-scrolling="1"] .eq-panel-shell,
+[data-eq-scrolling="1"] .react-grid-item * {
+  animation-play-state: paused !important;
+}
+
+.eq-panel-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Bloomberg-style scrollbar — thin, stable, no layout shift */
+html[data-eq-bloomberg="1"] [data-workspace-scroll] {
+  scrollbar-color: #444444 #000000;
+  scrollbar-width: thin;
+}
+
+html[data-eq-bloomberg="1"] [data-workspace-scroll]::-webkit-scrollbar {
+  width: 10px;
+}
+
+html[data-eq-bloomberg="1"] [data-workspace-scroll]::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+html[data-eq-bloomberg="1"] [data-workspace-scroll]::-webkit-scrollbar-thumb {
+  background: #444444;
+  border: 2px solid #000000;
+  border-radius: 0;
+}
+
+html[data-eq-bloomberg="1"] [data-workspace-scroll]::-webkit-scrollbar-thumb:hover {
+  background: #ff9900;
+}
+
+html:not([data-eq-bloomberg="1"]) [data-workspace-scroll] {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(51 65 85) rgb(2 6 23);
+}
+
+html:not([data-eq-bloomberg="1"]) [data-workspace-scroll]::-webkit-scrollbar {
+  width: 10px;
+}
+
+html:not([data-eq-bloomberg="1"]) [data-workspace-scroll]::-webkit-scrollbar-track {
+  background: rgb(2 6 23);
+}
+
+html:not([data-eq-bloomberg="1"]) [data-workspace-scroll]::-webkit-scrollbar-thumb {
+  background: rgb(51 65 85);
+  border: 2px solid rgb(2 6 23);
+  border-radius: 0;
+}
+
+/* Legacy native selects — prefer TerminalSelect (custom menu avoids Windows gray panels) */
+select:not([data-native-select]),
+select.eq-terminal-select:not([data-native-select]),
+.eq-terminal-select select:not([data-native-select]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
+select option,
+select.eq-terminal-select option,
+.eq-terminal-select select option {
+  background-color: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
+html[data-eq-bloomberg="1"] select,
+html[data-eq-bloomberg="1"] select.eq-terminal-select,
+html[data-eq-bloomberg="1"] .eq-terminal-select select {
+  background-color: #000000;
+  color: #cccccc;
+}
+
+html[data-eq-bloomberg="1"] select option,
+html[data-eq-bloomberg="1"] select.eq-terminal-select option,
+html[data-eq-bloomberg="1"] .eq-terminal-select select option {
+  background-color: #111111;
+  color: #cccccc;
+}
+
+.eq-terminal-select-menu {
+  background-color: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
+html[data-eq-bloomberg="1"] .eq-terminal-select-menu {
+  background-color: #000000;
+  color: #cccccc;
+  border-color: #333333;
+}
+

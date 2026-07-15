@@ -15,8 +15,11 @@ export class InformationDistributionOrchestrator {
     const briefings = BriefingDispatchEngine.build();
     const personalized = PersonalizedDeliveryEngine.filter(filtered);
 
-    const criticalPending = filtered.filter((i) => i.severity === "critical").length;
-    const deliveryChannels = NotificationDeliveryEngine.channelStatus(criticalPending);
+    const prefs = NotificationDeliveryEngine.loadPrefs();
+    const pendingDeliver = filtered.filter((i) =>
+      NotificationDeliveryEngine.shouldDeliver(i.severity, prefs),
+    ).length;
+    const deliveryChannels = NotificationDeliveryEngine.channelStatus(pendingDeliver);
 
     const syndication = ExternalDistributionEngine.meta(filtered);
     const distributionScore = Math.round(

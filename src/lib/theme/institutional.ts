@@ -15,7 +15,7 @@ export const DENSITY_PRESETS: Record<
   TerminalDensity,
   { rowH: number; gridRowHeight: number; pad: string; label: string }
 > = {
-  compact: { rowH: 16, gridRowHeight: 22, pad: "p-0.5", label: "COMPACT" },
+  compact: { rowH: 15, gridRowHeight: 20, pad: "p-0.5", label: "COMPACT" },
   standard: { rowH: 18, gridRowHeight: 24, pad: "p-1", label: "STANDARD" },
   comfortable: { rowH: 20, gridRowHeight: 26, pad: "p-1.5", label: "COMFORT" },
 };

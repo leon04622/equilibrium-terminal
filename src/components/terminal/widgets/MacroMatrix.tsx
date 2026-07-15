@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { useMarketAtmosphereStore } from "@/store/useMarketAtmosphereStore";
+import { useExternalNewsStore } from "@/store/useExternalNewsStore";
 import type { MacroCalendarEvent, MacroTickerData, MarketRegime } from "@/types/market-atmosphere";
 
 function regimeLabel(regime: MarketRegime): string {
@@ -97,6 +98,15 @@ export function MacroMatrix() {
   const calendar = useMarketAtmosphereStore((s) => s.calendar);
   const stress = useMarketAtmosphereStore((s) => s.stress);
   const regime = useMarketAtmosphereStore((s) => s.regime);
+  const headlines = useExternalNewsStore((s) => s.headlines);
+
+  const macroDesk = useMemo(
+    () =>
+      headlines
+        .filter((h) => h.tier === "macro" || h.source === "FRED" || h.source === "US TREASURY")
+        .slice(0, 4),
+    [headlines],
+  );
 
   const sortedCalendar = useMemo(
     () => [...calendar].sort((a, b) => a.scheduledAt - b.scheduledAt).slice(0, 4),
@@ -105,12 +115,16 @@ export function MacroMatrix() {
 
   return (
     <div
+      data-macro-panel="macro"
+      data-macro-region="panel"
+      data-panel-id="macro"
       className={cn(
         "flex h-full min-h-0 flex-col overflow-hidden rounded-none",
         "border-[0.5px] border-slate-800 bg-slate-950",
       )}
     >
       <div
+        data-macro-region="regime-strip"
         className={cn(
           terminalSkin.panelHeader,
           terminalSkin.borderB,
@@ -122,6 +136,17 @@ export function MacroMatrix() {
           {regimeLabel(regime.regime)} · STR {stress.score}
         </span>
       </div>
+
+      {macroDesk.length > 0 ? (
+        <div data-macro-region="macro-desk" className={cn(terminalSkin.borderB, "shrink-0 px-1 py-0.5")}>
+          <span className={cn(TERMINAL_TYPO.micro, "text-amber-500")}>INSTITUTIONAL MACRO</span>
+          {macroDesk.map((row) => (
+            <p key={row.id} className={cn(TERMINAL_TYPO.micro, "truncate text-slate-500")}>
+              <span className="text-amber-600/80">{row.source}</span> · {row.headline}
+            </p>
+          ))}
+        </div>
+      ) : null}
 
       <div
         className={cn(
@@ -137,13 +162,14 @@ export function MacroMatrix() {
         <span className="justify-self-end">RNG</span>
       </div>
 
-      <div className="shrink-0">
+      <div data-macro-region="tickers" className="shrink-0">
         {macro.map((row) => (
           <MacroRow key={row.symbol} row={row} />
         ))}
       </div>
 
       <div
+        data-macro-region="stress-gauge"
         className={cn(
           terminalSkin.borderT,
           terminalSkin.borderB,
@@ -164,11 +190,11 @@ export function MacroMatrix() {
         />
       </div>
 
-      <div className={cn(terminalSkin.borderB, "px-1 py-0.5")}>
+      <div data-macro-region="calendar" className={cn(terminalSkin.borderB, "px-1 py-0.5")}>
         <span className={TERMINAL_TYPO.micro}>MACRO CALENDAR</span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div data-macro-region="calendar" className="min-h-0 flex-1 overflow-auto">
         {sortedCalendar.map((event) => (
           <CalendarRow key={event.id} event={event} />
         ))}

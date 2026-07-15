@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { ExplainVisualCueCard } from "@/components/terminal/explain/ExplainVisualCue";
 import { GuidedLessonEngine } from "@/lib/operator-guide/GuidedLessonEngine";
 import { OperatorGuideOrchestrator } from "@/lib/operator-guide/OperatorGuideOrchestrator";
@@ -106,7 +107,7 @@ export function GuidedLessonPlayer({ panelId }: { panelId: string }) {
     setHighlightPanel(step.focusPanel);
     setFocusLabels(step.labels ?? []);
     terminalBus.emit("widget:focus", { widgetId: step.focusPanel });
-    speakStep(clamped);
+    if (playingRef.current) speakStep(clamped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clamped, voiceOn]);
 
@@ -124,7 +125,7 @@ export function GuidedLessonPlayer({ panelId }: { panelId: string }) {
   const lastSpokenAnnotation = useRef<string | null>(null);
   useEffect(() => {
     const ann = activeReplay?.activeAnnotation;
-    if (!ann || !voiceOnRef.current || !voiceSupported) return;
+    if (!ann || !voiceOnRef.current || !playingRef.current || !voiceSupported) return;
     if (lastSpokenAnnotation.current === ann.id) return;
     lastSpokenAnnotation.current = ann.id;
     speakLesson(TranslationEngine.voiceLine(ann.headline), {
@@ -355,14 +356,14 @@ export function GuidedLessonPlayer({ panelId }: { panelId: string }) {
         ) : (
           <button
             type="button"
+            aria-label="Next step"
             onClick={() => goTo(clamped + 1)}
             className={cn(
               TERMINAL_TYPO.micro,
               "flex items-center gap-1 border border-cyan-700/50 bg-cyan-950/30 px-2 py-1 text-cyan-300 hover:bg-cyan-950/50",
             )}
           >
-            NEXT
-            <ArrowRight className="h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

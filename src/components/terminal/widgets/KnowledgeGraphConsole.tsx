@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { GitBranch, Network, Search } from "lucide-react";
 import { GraphQueryEngine } from "@/lib/knowledge-graph/GraphQueryEngine";
+import { marketKnowledgeGraph } from "@/lib/knowledge-graph/MarketKnowledgeGraph";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { useMarketKnowledgeGraphStore } from "@/store/useMarketKnowledgeGraphStore";
@@ -92,7 +94,8 @@ function MiniGraph({
 }
 
 export function KnowledgeGraphConsole() {
-  const snapshot = useMarketKnowledgeGraphStore((s) => s.snapshot);
+  const storeSnapshot = useMarketKnowledgeGraphStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => marketKnowledgeGraph.snapshot());
   const lastQuery = useMarketKnowledgeGraphStore((s) => s.lastQuery);
   const assetHub = useMarketKnowledgeGraphStore((s) => s.assetHub);
   const crossMarket = useMarketKnowledgeGraphStore((s) => s.crossMarket);
@@ -117,6 +120,14 @@ export function KnowledgeGraphConsole() {
   const centerId =
     selectedEntityId ?? (assetHub ? `asset:${assetHub.coin}` : subgraph.entities[0]?.id ?? null);
 
+  if (!snapshot) {
+    return (
+      <div className="flex h-full items-center justify-center p-2">
+        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Building knowledge graph…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header
@@ -127,6 +138,9 @@ export function KnowledgeGraphConsole() {
       >
         <Network className="h-3 w-3 text-cyan-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>KNOWLEDGE GRAPH</span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+          RULES
+        </span>
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
           {snapshot.entityCount}E · {snapshot.linkCount}L
         </span>

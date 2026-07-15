@@ -1,6 +1,8 @@
 "use client";
 
 import { Gem } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { ProprietaryIntelligenceOrchestrator } from "@/lib/proprietary";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import {
@@ -34,7 +36,10 @@ function trendGlyph(trend: string): string {
 }
 
 export function ProprietaryIntelligenceConsole() {
-  const snapshot = useProprietaryIntelligenceStore((s) => s.snapshot);
+  const storeSnapshot = useProprietaryIntelligenceStore((s) => s.snapshot);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    ProprietaryIntelligenceOrchestrator.snapshot(),
+  );
   const activeTab = useProprietaryIntelligenceStore((s) => s.activeTab);
   const setActiveTab = useProprietaryIntelligenceStore((s) => s.setActiveTab);
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);

@@ -6,8 +6,10 @@ import {
   isDeskId,
   type DeskId,
 } from "@/lib/desks/DeskRegistry";
+import { mergeMissingCorePanels } from "@/lib/wedge/layoutMerge";
 
 const STORAGE_KEY = "eq-desks-v1";
+const BOOT_KEY = "eq-boot-operator-os-v1";
 
 interface DeskPersist {
   activeDeskId: DeskId | null;
@@ -15,22 +17,50 @@ interface DeskPersist {
   layouts: Partial<Record<DeskId, Layout[]>>;
 }
 
-const EMPTY: DeskPersist = { activeDeskId: null, layouts: {} };
+const EMPTY: DeskPersist = { activeDeskId: "execution", layouts: {} };
 
 function loadPersist(): DeskPersist {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return EMPTY;
+    if (!raw) {
+      localStorage.setItem(BOOT_KEY, "1");
+      return EMPTY;
+    }
     const parsed = JSON.parse(raw) as Partial<DeskPersist>;
+    const activeDeskId = isDeskId(parsed.activeDeskId ?? undefined)
+      ? (parsed.activeDeskId as DeskId)
+      : null;
+    let layouts =
+      parsed.layouts && typeof parsed.layouts === "object"
+        ? (parsed.layouts as Partial<Record<DeskId, Layout[]>>)
+        : {};
+
+    // Inject wedge-core panels (newswire, etc.) into saved layouts from before they shipped.
+    let migrated = false;
+    const nextLayouts: Partial<Record<DeskId, Layout[]>> = { ...layouts };
+    for (const id of Object.keys(nextLayouts) as DeskId[]) {
+      if (!isDeskId(id)) continue;
+      const saved = nextLayouts[id];
+      if (!saved?.length) continue;
+      const merged = mergeMissingCorePanels(saved, cloneDeskLayout(id));
+      if (merged.length !== saved.length) {
+        nextLayouts[id] = merged;
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      layouts = nextLayouts;
+      savePersist({ activeDeskId, layouts });
+    }
+
+    if (!localStorage.getItem(BOOT_KEY) && activeDeskId === null) {
+      localStorage.setItem(BOOT_KEY, "1");
+      return { activeDeskId: "execution", layouts };
+    }
     return {
-      activeDeskId: isDeskId(parsed.activeDeskId ?? undefined)
-        ? (parsed.activeDeskId as DeskId)
-        : null,
-      layouts:
-        parsed.layouts && typeof parsed.layouts === "object"
-          ? (parsed.layouts as Partial<Record<DeskId, Layout[]>>)
-          : {},
+      activeDeskId,
+      layouts,
     };
   } catch {
     return EMPTY;
@@ -78,9 +108,12 @@ export const useDeskStore = create<DeskState>()(
       },
 
       layoutFor: (id) => {
+        const canonical = cloneDeskLayout(id);
         const saved = get().layouts[id];
-        if (saved && saved.length) return saved.map((l) => ({ ...l }));
-        return cloneDeskLayout(id);
+        if (saved && saved.length) {
+          return mergeMissingCorePanels(saved, canonical);
+        }
+        return canonical;
       },
 
       saveDeskLayout: (id, layout) => {

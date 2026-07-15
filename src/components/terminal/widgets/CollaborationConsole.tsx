@@ -1,12 +1,15 @@
 "use client";
 
 import { Users } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { CollaborationOrchestrator } from "@/lib/collaboration";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import {
   useCollaborationStore,
   type CollaborationTab,
 } from "@/store/useCollaborationStore";
+import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useTerminalStore } from "@/store/terminalStore";
 import { terminalBus } from "@/store/eventBus";
 
@@ -34,10 +37,13 @@ function presenceColor(status: string): string {
 }
 
 export function CollaborationConsole() {
-  const snapshot = useCollaborationStore((s) => s.snapshot);
+  const storeSnapshot = useCollaborationStore((s) => s.snapshot);
   const activeTab = useCollaborationStore((s) => s.activeTab);
   const setActiveTab = useCollaborationStore((s) => s.setActiveTab);
+  const entitled = useProductionConfigStore((s) => s.isEntitled("teamNetEnabled"));
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
+
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => CollaborationOrchestrator.snapshot());
 
   if (!snapshot) {
     return (
@@ -62,6 +68,15 @@ export function CollaborationConsole() {
           {sharedWorkspace.layoutVersion}
         </span>
       </header>
+
+      {!entitled ? (
+        <p className={cn(terminalSkin.borderB, TERMINAL_TYPO.micro, "shrink-0 bg-violet-950/30 px-2 py-1 text-violet-400/90")}>
+          Preview mode — local team mesh demo. Team tier unlocks live sync and layout share.
+        </p>
+      ) : null}
+      <p className={cn(terminalSkin.borderB, TERMINAL_TYPO.micro, "shrink-0 bg-slate-900/60 px-2 py-0.5 text-slate-500")}>
+        LOCAL DEMO MESH — seeded peers for layout preview; no live transport until team sync ships.
+      </p>
 
       <nav className={cn(terminalSkin.borderB, "flex shrink-0 flex-wrap gap-0.5 p-0.5")}>
         {TABS.map((t) => (

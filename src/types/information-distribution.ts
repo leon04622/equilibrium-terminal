@@ -58,6 +58,8 @@ export interface NewswireItem {
   confidence: number;
   verified: boolean;
   timestamp: number;
+  /** External headline link when sourced from crypto RSS wire. */
+  articleUrl?: string | null;
 }
 
 export interface MarketIncident {

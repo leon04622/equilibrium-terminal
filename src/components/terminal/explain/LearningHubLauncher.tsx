@@ -28,6 +28,16 @@ import { useDailyOperationsLessonStore } from "@/store/useDailyOperationsLessonS
 import { useDailyOperationsBridgeStore } from "@/store/useDailyOperationsBridgeStore";
 import { useOperatorJournalLessonStore } from "@/store/useOperatorJournalLessonStore";
 import { useOperatorJournalBridgeStore } from "@/store/useOperatorJournalBridgeStore";
+import { useLiveDeskLessonStore } from "@/store/useLiveDeskLessonStore";
+import { useLiveDeskBridgeStore } from "@/store/useLiveDeskBridgeStore";
+import { useMarketStateLessonStore } from "@/store/useMarketStateLessonStore";
+import { useMarketStateBridgeStore } from "@/store/useMarketStateBridgeStore";
+import { useDailyBriefingLessonStore } from "@/store/useDailyBriefingLessonStore";
+import { useDailyBriefingBridgeStore } from "@/store/useDailyBriefingBridgeStore";
+import { useMarketMemoryLessonStore } from "@/store/useMarketMemoryLessonStore";
+import { useMarketMemoryBridgeStore } from "@/store/useMarketMemoryBridgeStore";
+import { useCryptoFinancialOsLessonStore } from "@/store/useCryptoFinancialOsLessonStore";
+import { useCryptoFinancialOsBridgeStore } from "@/store/useCryptoFinancialOsBridgeStore";
 import { armLessonVoice } from "@/lib/education/LessonNarrator";
 import { warmAcademyAssets } from "@/lib/education/warmAcademyAssets";
 
@@ -59,6 +69,16 @@ export function LearningHubLauncher() {
   const dailyOpsBridgeActive = useDailyOperationsBridgeStore((s) => s.active);
   const ojActive = useOperatorJournalLessonStore((s) => s.active);
   const ojBridgeActive = useOperatorJournalBridgeStore((s) => s.active);
+  const liveDeskActive = useLiveDeskLessonStore((s) => s.active);
+  const liveDeskBridgeActive = useLiveDeskBridgeStore((s) => s.active);
+  const marketStateActive = useMarketStateLessonStore((s) => s.active);
+  const marketStateBridgeActive = useMarketStateBridgeStore((s) => s.active);
+  const dailyBriefingActive = useDailyBriefingLessonStore((s) => s.active);
+  const dailyBriefingBridgeActive = useDailyBriefingBridgeStore((s) => s.active);
+  const marketMemoryActive = useMarketMemoryLessonStore((s) => s.active);
+  const marketMemoryBridgeActive = useMarketMemoryBridgeStore((s) => s.active);
+  const cryptoFinancialOsActive = useCryptoFinancialOsLessonStore((s) => s.active);
+  const cryptoFinancialOsBridgeActive = useCryptoFinancialOsBridgeStore((s) => s.active);
 
   const progressVersion = useLearningAcademyStore((s) => s.progressVersion);
 
@@ -83,7 +103,17 @@ export function LearningHubLauncher() {
     dailyOpsActive ||
     dailyOpsBridgeActive ||
     ojActive ||
-    ojBridgeActive;
+    ojBridgeActive ||
+    liveDeskActive ||
+    liveDeskBridgeActive ||
+    marketStateActive ||
+    marketStateBridgeActive ||
+    dailyBriefingActive ||
+    dailyBriefingBridgeActive ||
+    marketMemoryActive ||
+    marketMemoryBridgeActive ||
+    cryptoFinancialOsActive ||
+    cryptoFinancialOsBridgeActive;
 
   const { completedCount, liveTotal, rankTitle } = useMemo(() => {
     void progressVersion;

@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { AcademyNextLabel } from "@/components/terminal/explain/AcademyLessonControls";
 import { MarketPlayground } from "@/components/terminal/explain/market-mechanics/MarketPlayground";
 import { MARKET_MECHANICS_SCENES } from "@/lib/education/marketMechanicsScenes";
 import { useLessonSceneDriver } from "@/lib/education/useLessonSceneDriver";
 import { primeLessonVoice } from "@/lib/education/LessonNarrator";
 import { useMarketMechanicsStore } from "@/store/useMarketMechanicsStore";
+import { useMarketMechanicsBridgeStore } from "@/store/useMarketMechanicsBridgeStore";
 import { useOrderBookLessonStore } from "@/store/useOrderBookLessonStore";
 
 const scenes = MARKET_MECHANICS_SCENES;
@@ -33,6 +35,8 @@ export function MarketMechanicsSimulator() {
   const markCompleted = useMarketMechanicsStore((s) => s.markCompleted);
 
   const openOrderBook = useOrderBookLessonStore((s) => s.open);
+  const startBridge = useMarketMechanicsBridgeStore((s) => s.start);
+  const markSimulatorCompleted = useMarketMechanicsBridgeStore((s) => s.markSimulatorCompleted);
 
   const {
     index,
@@ -40,6 +44,7 @@ export function MarketMechanicsSimulator() {
     playing,
     voiceOn,
     scene,
+    captionVoice,
     reduceMotion,
     exit,
     togglePlay,
@@ -61,7 +66,15 @@ export function MarketMechanicsSimulator() {
 
   if (!active || !scene) return null;
 
+  const continueToLiveBridge = () => {
+    markSimulatorCompleted();
+    primeLessonVoice();
+    exit();
+    startBridge();
+  };
+
   const continueToOrderBook = () => {
+    markSimulatorCompleted();
     primeLessonVoice();
     exit();
     openOrderBook();
@@ -154,7 +167,7 @@ export function MarketMechanicsSimulator() {
           <span className="mr-1.5 rounded-sm border border-slate-700 px-1 text-[9px] text-slate-500">
             CC
           </span>
-          {scene.voice}
+          {captionVoice}
         </p>
         {!supported ? (
           <p className="mx-auto mt-1 max-w-2xl text-center text-[10px] text-slate-600">
@@ -227,13 +240,23 @@ export function MarketMechanicsSimulator() {
           <>
             <button
               type="button"
-              onClick={continueToOrderBook}
+              onClick={continueToLiveBridge}
               className={cn(
                 TERMINAL_TYPO.micro,
                 "flex items-center gap-1 border border-cyan-600/60 bg-cyan-950/30 px-2 py-1 text-cyan-200 hover:bg-cyan-900/40",
               )}
             >
-              TEACH ME THE ORDER BOOK <ArrowRight className="h-3 w-3" />
+              FIND IT ON LIVE TERMINAL
+            </button>
+            <button
+              type="button"
+              onClick={continueToOrderBook}
+              className={cn(
+                TERMINAL_TYPO.micro,
+                "flex items-center gap-1 border border-slate-700 px-2 py-1 text-slate-300 hover:border-slate-500",
+              )}
+            >
+              SKIP TO ORDER BOOK
             </button>
             <button
               type="button"
@@ -255,7 +278,7 @@ export function MarketMechanicsSimulator() {
               "flex items-center gap-1 border border-emerald-700/50 bg-emerald-950/30 px-2 py-1 text-emerald-300 hover:bg-emerald-950/50",
             )}
           >
-            NEXT <ArrowRight className="h-3 w-3" />
+            <AcademyNextLabel />
           </button>
         )}
       </div>

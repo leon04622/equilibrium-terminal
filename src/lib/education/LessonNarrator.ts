@@ -6,9 +6,11 @@
  */
 
 import { academyPerf } from "@/lib/education/academyPerformance";
+import { humanizeForSpeech } from "@/lib/education/speechHumanize";
 
 export interface SpeakOptions {
   rate?: number;
+  pitch?: number;
   onEnd?: () => void;
   onError?: () => void;
 }
@@ -301,7 +303,7 @@ class BrowserLessonVoice implements LessonVoice {
             const speakText = () => {
               const u = new SpeechSynthesisUtterance(text);
               u.rate = opts.rate ?? 0.92;
-              u.pitch = 1;
+              u.pitch = opts.pitch ?? 1;
               u.volume = 1;
               u.lang = "en-US";
               const voice = cachedVoice ?? pickVoice(synth.getVoices());
@@ -423,8 +425,12 @@ export function isLessonSpeaking(): boolean {
 }
 
 export function speakLesson(text: string, opts?: SpeakOptions): void {
-  const trimmed = text.trim();
+  const trimmed = humanizeForSpeech(text);
   if (!trimmed) {
+    opts?.onEnd?.();
+    return;
+  }
+  if (!getLessonVoiceEnabled()) {
     opts?.onEnd?.();
     return;
   }
@@ -458,15 +464,15 @@ export function cancelLesson(): void {
   academyPerf.recordSpeechCancel();
 }
 
-const VOICE_PREF_KEY = "eq-lesson-voice-on-v1";
+const VOICE_PREF_KEY = "eq-lesson-voice-on-v2";
 
 export function getLessonVoiceEnabled(): boolean {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") return false;
   try {
     const raw = localStorage.getItem(VOICE_PREF_KEY);
-    return raw == null ? true : raw === "1";
+    return raw === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 

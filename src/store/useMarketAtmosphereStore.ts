@@ -152,7 +152,11 @@ export interface MarketAtmosphereState {
     direction?: WireDirection;
     confidenceIndex?: number;
     acceleration?: number;
+    articleUrl?: string | null;
   }) => void;
+  ingestIntelligenceWireBatch: (
+    inputs: Array<Parameters<MarketAtmosphereState["ingestIntelligenceWire"]>[0]>,
+  ) => void;
   touchHeartbeat: () => void;
 }
 
@@ -251,7 +255,54 @@ export const useMarketAtmosphereStore = create<MarketAtmosphereState>()(
         acceleration,
         notionalUsd: input.notionalUsd,
         timestamp: input.timestamp,
+        articleUrl: input.articleUrl ?? null,
       });
+    },
+
+    ingestIntelligenceWireBatch: (inputs) => {
+      if (!inputs.length) return;
+      const built = inputs.map((input) => {
+        const direction: WireDirection =
+          input.direction ??
+          (input.headline.toLowerCase().includes("liq") ||
+          input.headline.toLowerCase().includes("flush")
+            ? "bearish"
+            : input.headline.toLowerCase().includes("build") ||
+                input.headline.toLowerCase().includes("surge")
+              ? "bullish"
+              : "neutral");
+        const confidenceIndex =
+          input.confidenceIndex ??
+          (input.severity === "critical"
+            ? 94
+            : input.severity === "watch"
+              ? 76
+              : 58);
+        const acceleration =
+          input.acceleration ??
+          Math.round(
+            (input.notionalUsd ? Math.log10(input.notionalUsd + 1) * 8 : 12) *
+              (input.severity === "critical" ? 1.4 : 1),
+          );
+        return {
+          id: input.id,
+          coin: input.coin,
+          headline: input.headline,
+          channel: input.channel,
+          severity: input.severity,
+          confidenceIndex,
+          direction,
+          acceleration,
+          notionalUsd: input.notionalUsd,
+          timestamp: input.timestamp,
+          articleUrl: input.articleUrl ?? null,
+          isNew: true as const,
+        };
+      });
+      set((s) => ({
+        wire: [...built, ...s.wire].slice(0, 120),
+        wireVersion: s.wireVersion + 1,
+      }));
     },
 
     touchHeartbeat: () => set({ heartbeatAt: Date.now() }),

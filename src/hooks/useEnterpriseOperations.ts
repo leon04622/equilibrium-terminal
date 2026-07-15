@@ -20,6 +20,8 @@ export function useEnterpriseOperations(enabled = true): void {
       const snapshot = EnterpriseOrchestrator.snapshot();
       useEnterpriseOpsStore.getState().setSnapshot(snapshot);
 
+      if (!useProductionConfigStore.getState().isEntitled("enterpriseOpsEnabled")) return;
+
       for (const notice of snapshot.notices.filter((n) => n.severity === "critical")) {
         terminalBus.emit("enterprise:notice", {
           id: notice.id,
@@ -30,10 +32,8 @@ export function useEnterpriseOperations(enabled = true): void {
       }
     };
 
-    if (entitled) refresh();
-    const tickId = window.setInterval(() => {
-      if (useProductionConfigStore.getState().isEntitled("enterpriseOpsEnabled")) refresh();
-    }, TICK_MS);
+    refresh();
+    const tickId = window.setInterval(refresh, TICK_MS);
 
     const syncId = window.setInterval(() => {
       const snap = useEnterpriseOpsStore.getState().snapshot;

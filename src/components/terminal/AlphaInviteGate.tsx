@@ -7,6 +7,10 @@ import { AlphaOrchestrator } from "@/lib/alpha/AlphaOrchestrator";
 import { InviteGateEngine } from "@/lib/alpha/InviteGateEngine";
 import { useAlphaStore } from "@/store/useAlphaStore";
 
+const SHOW_CODES =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_EQ_ALPHA_SHOW_CODES === "true";
+
 export function AlphaInviteGate() {
   const open = useAlphaStore((s) => s.inviteGateOpen);
   const setInviteGateOpen = useAlphaStore((s) => s.setInviteGateOpen);
@@ -55,9 +59,15 @@ export function AlphaInviteGate() {
               Invalid code — check spelling (hyphens matter).
             </p>
           ) : null}
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-            Valid codes: {codes.join(" · ")}
-          </p>
+          {SHOW_CODES ? (
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+              Valid codes: {codes.join(" · ")}
+            </p>
+          ) : (
+            <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+              Enter the invite code provided by your desk operator.
+            </p>
+          )}
           <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
             Or open with{" "}
             <span className="text-slate-400">?invite=EQ-ALPHA-2026</span> in the URL (saved in this

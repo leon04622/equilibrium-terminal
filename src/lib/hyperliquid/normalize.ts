@@ -1,6 +1,6 @@
 import { processWsBook } from "@/lib/orderbook";
 import { WHALE_NOTIONAL_USD } from "@/lib/hyperliquid/constants";
-import type { HlClearinghouseState } from "@/types/account";
+import type { HlClearinghouseState, HlSpotClearinghouseState } from "@/types/account";
 import type { WsBook, WsTrade } from "@/types/hyperliquid";
 import type {
   IntelligenceItem,
@@ -8,6 +8,7 @@ import type {
   NormalizedMidSnapshot,
   NormalizedOrderBook,
   NormalizedPosition,
+  NormalizedSpotBalance,
   NormalizedTrade,
   NormalizedWebData,
 } from "@/types/terminal-schema";
@@ -50,26 +51,51 @@ export function normalizeTradesBatch(raw: WsTrade[]): NormalizedTrade[] {
 
 export function normalizeCandle(raw: {
   t: number;
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-  v: number;
+  o: number | string;
+  h: number | string;
+  l: number | string;
+  c: number | string;
+  v: number | string;
 }): NormalizedCandle {
   return {
     time: Math.floor(raw.t / 1000),
-    open: raw.o,
-    high: raw.h,
-    low: raw.l,
-    close: raw.c,
-    volume: raw.v,
+    open: parseFloat(String(raw.o)),
+    high: parseFloat(String(raw.h)),
+    low: parseFloat(String(raw.l)),
+    close: parseFloat(String(raw.c)),
+    volume: parseFloat(String(raw.v)),
   };
 }
 
 export function normalizeCandlesBatch(
-  raw: Array<{ t: number; o: number; h: number; l: number; c: number; v: number }>,
+  raw: Array<{
+    t: number;
+    o: number | string;
+    h: number | string;
+    l: number | string;
+    c: number | string;
+    v: number | string;
+  }>,
 ): NormalizedCandle[] {
-  return raw.map(normalizeCandle);
+  return finalizeHlCandles(raw.map(normalizeCandle));
+}
+
+/** Sort, dedupe by open time, and drop invalid HL bars. */
+export function finalizeHlCandles(candles: NormalizedCandle[]): NormalizedCandle[] {
+  const byTime = new Map<number, NormalizedCandle>();
+  for (const c of candles) {
+    if (
+      !Number.isFinite(c.time) ||
+      !Number.isFinite(c.open) ||
+      !Number.isFinite(c.high) ||
+      !Number.isFinite(c.low) ||
+      !Number.isFinite(c.close)
+    ) {
+      continue;
+    }
+    byTime.set(c.time, c);
+  }
+  return Array.from(byTime.values()).sort((a, b) => a.time - b.time);
 }
 
 export function normalizeAllMids(mids: Record<string, string>): NormalizedMidSnapshot {
@@ -79,6 +105,39 @@ export function normalizeAllMids(mids: Record<string, string>): NormalizedMidSna
     if (Number.isFinite(n)) parsed[coin] = n;
   }
   return { mids: parsed, updatedAt: Date.now() };
+}
+
+export function normalizeSpotClearinghouse(
+  state: HlSpotClearinghouseState,
+  mids: Record<string, number>,
+): NormalizedSpotBalance[] {
+  return state.balances
+    .map((b) => {
+      const total = parseFloat(b.total);
+      const hold = parseFloat(b.hold);
+      const available = Math.max(0, total - hold);
+      if (available < 1e-12 && total < 1e-12) return null;
+      const entryNtl = parseFloat(b.entryNtl);
+      const mid = mids[b.coin];
+      const usdcValue =
+        b.coin === "USDC"
+          ? available
+          : mid && mid > 0
+            ? available * mid
+            : entryNtl > 0 && total > 0
+              ? (available / total) * entryNtl
+              : null;
+      return {
+        coin: b.coin,
+        token: b.token,
+        total,
+        hold,
+        available,
+        entryNtl,
+        usdcValue,
+      } satisfies NormalizedSpotBalance;
+    })
+    .filter((b): b is NormalizedSpotBalance => b !== null);
 }
 
 export async function normalizeClearinghouseToWebData(

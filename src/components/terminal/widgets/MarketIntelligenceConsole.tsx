@@ -1,6 +1,8 @@
 "use client";
 
 import { Brain, Sparkles } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { IntelligenceOrchestrator } from "@/lib/intelligence";
 import { cn } from "@/lib/utils";
 import { formatTapeTime, terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import {
@@ -24,10 +26,11 @@ function sevColor(band: string): string {
 }
 
 export function MarketIntelligenceConsole() {
-  const snapshot = useMarketIntelligenceStore((s) => s.snapshot);
+  const storeSnapshot = useMarketIntelligenceStore((s) => s.snapshot);
   const activeTab = useMarketIntelligenceStore((s) => s.activeTab);
   const setActiveTab = useMarketIntelligenceStore((s) => s.setActiveTab);
   const selectAssetByCoin = useTerminalStore((s) => s.selectAssetByCoin);
+  const snapshot = useConsoleSnapshot(storeSnapshot, () => IntelligenceOrchestrator.snapshot());
 
   if (!snapshot) {
     return (
@@ -44,6 +47,9 @@ export function MarketIntelligenceConsole() {
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Brain className="h-3 w-3 text-cyan-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>MARKET INTELLIGENCE</span>
+        <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+          RULES
+        </span>
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
           EQ {intelligenceScore}/100 · {marketState.compositeLabel}
         </span>
@@ -171,6 +177,9 @@ export function MarketIntelligenceConsole() {
             <div className="flex items-center gap-1">
               <Sparkles className="h-2.5 w-2.5 text-cyan-500" />
               <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>Organizational summary only</span>
+              <span className={cn(TERMINAL_TYPO.micro, "border border-violet-500/30 px-1 text-violet-400")}>
+                NO LLM
+              </span>
             </div>
             <p className={cn(TERMINAL_TYPO.dataSm, "mt-1 text-slate-300")}>{aiBrief.summary}</p>
             <ul className="mt-1 space-y-0">

@@ -1,15 +1,18 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { terminalBus } from "@/store/eventBus";
+import { ChartDataEngine } from "@/lib/charting/ChartDataEngine";
+import { hlIntervalSeconds } from "@/lib/hyperliquid/candles";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
 import { OperatorAiResponseEngine } from "@/lib/operator-ai-desk/OperatorAiResponseEngine";
 import {
   normalizeClearinghouseToWebData,
   normalizeL2Book,
+  normalizeSpotClearinghouse,
   normalizeTradesBatch,
   tradeToIntelligence,
 } from "@/lib/hyperliquid/normalize";
-import type { HlClearinghouseState } from "@/types/account";
+import type { HlClearinghouseState, HlSpotClearinghouseState } from "@/types/account";
 import type { WsBook, WsTrade } from "@/types/hyperliquid";
 import type {
   AiSessionState,
@@ -19,6 +22,7 @@ import type {
   NormalizedMidSnapshot,
   NormalizedOrderBook,
   NormalizedPosition,
+  NormalizedSpotBalance,
   NormalizedTrade,
   NormalizedWebData,
   TerminalAsset,
@@ -48,6 +52,7 @@ export interface TerminalState {
   midFlash: "up" | "down" | null;
   trades: NormalizedTrade[];
   candles: NormalizedCandle[];
+  liveCandleInterval: string | null;
   candleVersion: number;
   mids: NormalizedMidSnapshot;
   webData: NormalizedWebData | null;
@@ -56,6 +61,7 @@ export interface TerminalState {
 
   ai: AiSessionState;
   omniOpen: boolean;
+  omniFeedback: string | null;
 
   walletAddress: `0x${string}` | null;
   agentAddress: `0x${string}` | null;
@@ -65,8 +71,11 @@ export interface TerminalState {
   withdrawable: number | null;
   positions: NormalizedPosition[];
   positionsVersion: number;
+  spotBalances: NormalizedSpotBalance[];
+  spotBalancesVersion: number;
   orderError: string | null;
   orderPending: boolean;
+  lastExecutionEvent: import("@/types/terminal-schema").LiveExecutionEvent | null;
   /** @deprecated */ recentTrades: NormalizedTrade[];
   tradeTicketDraft: import("@/types/terminal-schema").TradeTicketDraft | null;
 
@@ -81,6 +90,9 @@ export interface TerminalState {
   setOneClickEnabled: (enabled: boolean) => void;
   setOrderError: (error: string | null) => void;
   setOrderPending: (pending: boolean) => void;
+  setLastExecutionEvent: (
+    event: import("@/types/terminal-schema").LiveExecutionEvent | null,
+  ) => void;
   clearPositionPnlFlash: (coin: string) => void;
   resetAccount: () => void;
   setAssets: (assets: TerminalAsset[]) => void;
@@ -89,10 +101,13 @@ export interface TerminalState {
   applyBook: (raw: WsBook) => void;
   pushTrades: (raw: WsTrade[], options?: { skipIntel?: boolean }) => void;
   applyCandles: (candles: NormalizedCandle[]) => void;
+  resetLiveCandles: (interval: string | null) => void;
   applyMids: (snapshot: NormalizedMidSnapshot) => void;
   applyClearinghouse: (state: HlClearinghouseState, user: string | null) => Promise<void>;
+  applySpotClearinghouse: (state: HlSpotClearinghouseState) => void;
   pushIntelligence: (item: IntelligenceItem) => void;
   setOmniOpen: (open: boolean) => void;
+  setOmniFeedback: (message: string | null) => void;
   submitAiPrompt: (prompt: string, source: "omnibar" | "copilot" | "operatordesk") => void;
   clearMidFlash: () => void;
   removeWidget: (id: string) => void;
@@ -130,6 +145,7 @@ export const useTerminalStore = create<TerminalState>()(
     midFlash: null,
     trades: [],
     candles: [],
+    liveCandleInterval: null,
     candleVersion: 0,
     mids: { mids: {}, updatedAt: 0 },
     webData: null,
@@ -137,6 +153,7 @@ export const useTerminalStore = create<TerminalState>()(
     intelligenceVersion: 0,
     ai: { messages: [], pendingPrompt: null, isThinking: false },
     omniOpen: false,
+    omniFeedback: null,
     walletAddress: null,
     agentAddress: null,
     authStatus: "disconnected",
@@ -145,8 +162,11 @@ export const useTerminalStore = create<TerminalState>()(
     withdrawable: null,
     positions: [],
     positionsVersion: 0,
+    spotBalances: [],
+    spotBalancesVersion: 0,
     orderError: null,
     orderPending: false,
+    lastExecutionEvent: null,
     recentTrades: [],
     tradeTicketDraft: null,
 
@@ -175,6 +195,7 @@ export const useTerminalStore = create<TerminalState>()(
     setOneClickEnabled: (oneClickEnabled) => set({ oneClickEnabled }),
     setOrderError: (orderError) => set({ orderError }),
     setOrderPending: (orderPending) => set({ orderPending }),
+    setLastExecutionEvent: (lastExecutionEvent) => set({ lastExecutionEvent }),
     clearPositionPnlFlash: (coin) =>
       set((s) => ({
         positions: s.positions.map((p) =>
@@ -191,9 +212,12 @@ export const useTerminalStore = create<TerminalState>()(
         withdrawable: null,
         positions: [],
         positionsVersion: 0,
+        spotBalances: [],
+        spotBalancesVersion: 0,
         webData: null,
         orderError: null,
         orderPending: false,
+        lastExecutionEvent: null,
       }),
 
     selectAssetByCoin: (coin, source = "manual") => {
@@ -206,6 +230,7 @@ export const useTerminalStore = create<TerminalState>()(
         book: null,
         trades: [],
         candles: [],
+        liveCandleInterval: null,
         bookVersion: 0,
       });
       terminalBus.emit("asset:select", {
@@ -253,12 +278,26 @@ export const useTerminalStore = create<TerminalState>()(
       });
     },
 
+    resetLiveCandles: (interval) =>
+      set({
+        candles: [],
+        liveCandleInterval: interval,
+      }),
+
     applyCandles: (candles) =>
-      set((s) => ({
-        candles,
-        candleVersion: s.candleVersion + 1,
-        lastMessageAt: Date.now(),
-      })),
+      set((s) => {
+        const step = s.liveCandleInterval ? hlIntervalSeconds(s.liveCandleInterval) : null;
+        const aligned =
+          step != null
+            ? candles.filter((c) => c.time % step === 0)
+            : candles;
+        if (aligned.length === 0) return s;
+        return {
+          candles: ChartDataEngine.mergeCandles(s.candles, aligned),
+          candleVersion: s.candleVersion + 1,
+          lastMessageAt: Date.now(),
+        };
+      }),
 
     applyMids: (snapshot) => set({ mids: snapshot, lastMessageAt: Date.now() }),
 
@@ -289,6 +328,16 @@ export const useTerminalStore = create<TerminalState>()(
       }));
     },
 
+    applySpotClearinghouse: (state) => {
+      const mids = get().mids.mids;
+      const spotBalances = normalizeSpotClearinghouse(state, mids);
+      set((s) => ({
+        spotBalances,
+        spotBalancesVersion: s.spotBalancesVersion + 1,
+        lastMessageAt: Date.now(),
+      }));
+    },
+
     pushIntelligence: (item) => {
       set((s) => {
         const exists = s.intelligence.some((i) => i.id === item.id);
@@ -305,7 +354,8 @@ export const useTerminalStore = create<TerminalState>()(
       });
     },
 
-    setOmniOpen: (omniOpen) => set({ omniOpen }),
+    setOmniOpen: (omniOpen) => set({ omniOpen, ...(omniOpen ? {} : { omniFeedback: null }) }),
+    setOmniFeedback: (omniFeedback) => set({ omniFeedback }),
 
     submitAiPrompt: (prompt, source) => {
       const userMsg = {
@@ -328,7 +378,7 @@ export const useTerminalStore = create<TerminalState>()(
         const reply = {
           id: `a-${Date.now()}`,
           role: "assistant" as const,
-          content: runAiStub(prompt),
+          content: `[Rules engine — no external LLM]\n${runAiStub(prompt)}`,
           timestamp: Date.now(),
           status: "complete" as const,
         };
@@ -361,8 +411,12 @@ export const terminalIngress = {
     useTerminalStore.getState().applyMids(snapshot),
   applyClearinghouse: (state: HlClearinghouseState, user: string | null) =>
     useTerminalStore.getState().applyClearinghouse(state, user),
+  applySpotClearinghouse: (state: HlSpotClearinghouseState) =>
+    useTerminalStore.getState().applySpotClearinghouse(state),
   applyCandles: (candles: NormalizedCandle[]) =>
     useTerminalStore.getState().applyCandles(candles),
+  resetLiveCandles: (interval: string | null) =>
+    useTerminalStore.getState().resetLiveCandles(interval),
 };
 
 // Phase 2 compatibility alias

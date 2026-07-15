@@ -4,10 +4,19 @@ import type {
   DistributionChannelPrefs,
   NewswireItem,
 } from "@/types/information-distribution";
+import type { TriggeredAlert } from "@/types/alerts";
 
 const PREFS_KEY = "eq-distribution-channels-v1";
 const DELIVERY_LOG_KEY = "eq-distribution-delivery-log-v1";
+const WEBHOOK_STATUS_KEY = "eq-webhook-status-v1";
 const MAX_LOG = 48;
+const MAX_DEDUPE = 512;
+
+export interface WebhookDeliveryStatus {
+  at: number;
+  ok: boolean;
+  message: string;
+}
 
 const DEFAULT_PREFS: DistributionChannelPrefs = {
   desktop: true,
@@ -42,7 +51,12 @@ function savePrefs(prefs: DistributionChannelPrefs): void {
   }
 }
 
-function appendLog(entry: { channel: DeliveryChannel; headline: string; at: number }): void {
+function appendLog(entry: {
+  channel: DeliveryChannel;
+  headline: string;
+  at: number;
+  ok?: boolean;
+}): void {
   if (typeof window === "undefined") return;
   try {
     const raw = localStorage.getItem(DELIVERY_LOG_KEY);
@@ -65,10 +79,59 @@ function lastDelivery(channel: DeliveryChannel): number | null {
   }
 }
 
+function saveWebhookStatus(status: WebhookDeliveryStatus): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WEBHOOK_STATUS_KEY, JSON.stringify(status));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadWebhookStatus(): WebhookDeliveryStatus | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(WEBHOOK_STATUS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as WebhookDeliveryStatus;
+  } catch {
+    return null;
+  }
+}
+
+function alertCategory(eventType: string): NewswireItem["category"] {
+  if (eventType.includes("LIQUIDATION")) return "liquidation";
+  if (eventType.includes("FUNDING")) return "funding";
+  if (eventType.includes("SPREAD") || eventType.includes("VOL")) return "volatility";
+  if (eventType.includes("WHALE")) return "whale";
+  return "operational";
+}
+
+function alertToNewswireItem(alert: TriggeredAlert): NewswireItem {
+  return {
+    id: `alert-${alert.id}`,
+    category: alertCategory(alert.event.type),
+    headline: alert.title,
+    detail: alert.aiExplanation ?? alert.summary,
+    coin: alert.coin,
+    severity: alert.severity,
+    source: "ALERT",
+    urgencyScore: alert.severity === "critical" ? 88 : 62,
+    impactScore: alert.severity === "critical" ? 82 : 55,
+    relevanceScore: 90,
+    compositeScore: alert.severity === "critical" ? 85 : 60,
+    confidence: 0.92,
+    verified: true,
+    timestamp: alert.timestamp,
+  };
+}
+
 /**
- * Cross-channel alert delivery — terminal-native first; external channels staged for integration.
+ * Cross-channel alert delivery — terminal-native first; webhook + desktop when configured.
  */
 export class NotificationDeliveryEngine {
+  private static deliveredIds = new Set<string>();
+
   static loadPrefs(): DistributionChannelPrefs {
     return loadPrefs();
   }
@@ -77,8 +140,17 @@ export class NotificationDeliveryEngine {
     savePrefs(prefs);
   }
 
+  static getWebhookStatus(): WebhookDeliveryStatus | null {
+    return loadWebhookStatus();
+  }
+
   static channelStatus(pendingCount: number): DeliveryChannelStatus[] {
     const prefs = loadPrefs();
+    const whStatus = loadWebhookStatus();
+    const webhookReady =
+      prefs.webhook &&
+      prefs.webhookUrl.length > 8 &&
+      (whStatus?.ok === true || whStatus === null);
     return [
       {
         channel: "terminal",
@@ -123,7 +195,15 @@ export class NotificationDeliveryEngine {
         label: "Webhook",
         lastDeliveryAt: lastDelivery("webhook"),
         pendingCount: prefs.webhook ? pendingCount : 0,
-        status: prefs.webhookUrl ? "configured" : prefs.webhook ? "error" : "disabled",
+        status: !prefs.webhook
+          ? "disabled"
+          : !prefs.webhookUrl
+            ? "error"
+            : whStatus?.ok === false
+              ? "error"
+              : webhookReady
+                ? "ready"
+                : "configured",
       },
       {
         channel: "telegram",
@@ -148,11 +228,26 @@ export class NotificationDeliveryEngine {
     return SEVERITY_RANK[severity] >= SEVERITY_RANK[prefs.minSeverity];
   }
 
+  static async dispatchAlert(alert: TriggeredAlert): Promise<void> {
+    return NotificationDeliveryEngine.dispatchItem(alertToNewswireItem(alert));
+  }
+
   static async dispatchCritical(item: NewswireItem): Promise<void> {
+    return NotificationDeliveryEngine.dispatchItem(item);
+  }
+
+  static async dispatchItem(item: NewswireItem): Promise<void> {
     const prefs = loadPrefs();
     if (!NotificationDeliveryEngine.shouldDeliver(item.severity, prefs)) return;
 
-    appendLog({ channel: "terminal", headline: item.headline, at: Date.now() });
+    const dedupeKey = item.id;
+    if (NotificationDeliveryEngine.deliveredIds.has(dedupeKey)) return;
+    if (NotificationDeliveryEngine.deliveredIds.size >= MAX_DEDUPE) {
+      NotificationDeliveryEngine.deliveredIds.clear();
+    }
+    NotificationDeliveryEngine.deliveredIds.add(dedupeKey);
+
+    appendLog({ channel: "terminal", headline: item.headline, at: Date.now(), ok: true });
 
     if (prefs.desktop && typeof Notification !== "undefined") {
       if (Notification.permission === "default") {
@@ -164,16 +259,65 @@ export class NotificationDeliveryEngine {
           tag: item.id,
           silent: item.severity !== "critical",
         });
-        appendLog({ channel: "desktop", headline: item.headline, at: Date.now() });
+        appendLog({ channel: "desktop", headline: item.headline, at: Date.now(), ok: true });
       }
     }
 
     if (prefs.webhook && prefs.webhookUrl.startsWith("http")) {
-      void fetch("/api/distribution/webhook", {
+      const ok = await NotificationDeliveryEngine.postWebhook(prefs.webhookUrl, item);
+      if (ok) {
+        appendLog({ channel: "webhook", headline: item.headline, at: Date.now(), ok: true });
+      }
+    }
+  }
+
+  static async sendTestWebhook(): Promise<WebhookDeliveryStatus> {
+    const prefs = loadPrefs();
+    if (!prefs.webhookUrl.startsWith("http")) {
+      const status: WebhookDeliveryStatus = {
+        at: Date.now(),
+        ok: false,
+        message: "Enter a valid webhook URL",
+      };
+      saveWebhookStatus(status);
+      return status;
+    }
+    const testItem: NewswireItem = {
+      id: `eq-webhook-test-${Date.now()}`,
+      category: "operational",
+      headline: "Equilibrium Terminal · webhook test",
+      detail: "Delivery channel verification — safe to ignore.",
+      coin: null,
+      severity: "info",
+      source: "EQ-TEST",
+      urgencyScore: 10,
+      impactScore: 10,
+      relevanceScore: 10,
+      compositeScore: 10,
+      confidence: 1,
+      verified: true,
+      timestamp: Date.now(),
+    };
+    const ok = await NotificationDeliveryEngine.postWebhook(prefs.webhookUrl, testItem);
+    const status: WebhookDeliveryStatus = {
+      at: Date.now(),
+      ok,
+      message: ok ? "Test delivered" : "Delivery failed — check URL",
+    };
+    saveWebhookStatus(status);
+    if (ok) {
+      appendLog({ channel: "webhook", headline: testItem.headline, at: status.at, ok: true });
+    }
+    return status;
+  }
+
+  private static async postWebhook(url: string, item: NewswireItem): Promise<boolean> {
+    try {
+      const res = await fetch("/api/distribution/webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: prefs.webhookUrl,
+          url,
           event: {
             id: item.id,
             headline: item.headline,
@@ -181,11 +325,22 @@ export class NotificationDeliveryEngine {
             coin: item.coin,
             severity: item.severity,
             category: item.category,
+            source: item.source,
             timestamp: item.timestamp,
           },
         }),
-      }).catch(() => undefined);
-      appendLog({ channel: "webhook", headline: item.headline, at: Date.now() });
+      });
+      const ok = res.ok;
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      saveWebhookStatus({
+        at: Date.now(),
+        ok,
+        message: ok ? "Delivered" : (body.error ?? `HTTP ${res.status}`),
+      });
+      return ok;
+    } catch {
+      saveWebhookStatus({ at: Date.now(), ok: false, message: "Network error" });
+      return false;
     }
   }
 }

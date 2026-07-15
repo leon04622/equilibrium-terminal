@@ -419,7 +419,7 @@ function Recap() {
           </div>
         ))}
         <div className="mt-1 flex items-center gap-2 rounded-md border border-cyan-700/40 bg-cyan-950/20 px-3 py-1.5 font-mono text-xs text-cyan-200">
-          <ArrowRight className="h-3.5 w-3.5" /> Next: the real order book
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden /> Next: the real order book
         </div>
       </div>
     </StageFrame>

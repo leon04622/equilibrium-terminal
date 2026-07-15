@@ -44,6 +44,18 @@ export interface HlClearinghouseState {
   time?: number;
 }
 
+export interface HlSpotBalance {
+  coin: string;
+  token: number;
+  hold: string;
+  total: string;
+  entryNtl: string;
+}
+
+export interface HlSpotClearinghouseState {
+  balances: HlSpotBalance[];
+}
+
 export type { NormalizedPosition as PositionRow } from "@/types/terminal-schema";
 
 export type WalletAuthStatus =

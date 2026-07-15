@@ -1,6 +1,8 @@
 "use client";
 
 import { Smartphone } from "lucide-react";
+import { useConsoleSnapshot } from "@/lib/runtime/consoleSnapshotFallback";
+import { useTerminalStore } from "@/store/terminalStore";
 import { cn } from "@/lib/utils";
 import { terminalSkin, TERMINAL_TYPO, INSTITUTIONAL_INTERACTION } from "@/lib/theme";
 import { MobileDeskOrchestrator } from "@/lib/mobile-desk/MobileDeskOrchestrator";
@@ -30,7 +32,11 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: stri
 }
 
 export function MobileDeskConsole() {
-  const snapshot = useMobileDeskStore((s) => s.snapshot);
+  const storeSnapshot = useMobileDeskStore((s) => s.snapshot);
+  const selectedCoin = useTerminalStore((s) => s.selectedCoin) ?? "BTC";
+  const snapshot = useConsoleSnapshot(storeSnapshot, () =>
+    MobileDeskOrchestrator.snapshot(selectedCoin),
+  );
   const activeTab = useMobileDeskStore((s) => s.activeTab);
   const setActiveTab = useMobileDeskStore((s) => s.setActiveTab);
   const setActiveMode = useMobileDeskStore((s) => s.setActiveMode);

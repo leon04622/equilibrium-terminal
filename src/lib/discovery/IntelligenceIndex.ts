@@ -123,7 +123,7 @@ export class IntelligenceIndex {
       { cmd: "/vol", desc: "Volatility & stress", widget: "surveillance" },
       { cmd: "/summarize", desc: "AI event summary (no trade advice)", widget: "copilot" },
       { cmd: "/graph", desc: "Query market knowledge graph", widget: "knowledgegraph" },
-      { cmd: "/journal", desc: "Trader journal & notes", widget: "traderjournal" },
+      { cmd: "/journal", desc: "Operator journal & session notes", widget: "operatorjournal" },
       { cmd: "/research", desc: "Research workspace & theses", widget: "research" },
       { cmd: "/workspace", desc: "Open unified asset workspace", widget: "chart" },
       { cmd: "/briefing", desc: "Daily market briefing", widget: "dailyops" },

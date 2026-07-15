@@ -2,7 +2,7 @@ import { encode } from "@msgpack/msgpack";
 import { type Address, type Hex, hexToBytes, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { HL_CHAIN } from "@/lib/hyperliquid/constants";
-import type { HlApproveAgentAction, HlL1Action, HlSignature } from "@/types/exchange";
+import type { HlApproveAgentAction, HlApproveBuilderFeeAction, HlL1Action, HlSignature } from "@/types/exchange";
 
 const IS_MAINNET = true;
 
@@ -108,6 +108,35 @@ export function buildApproveAgentTypedData(
   return userSignedTypedData(
     "HyperliquidTransaction:ApproveAgent",
     APPROVE_AGENT_TYPES,
+    message as unknown as Record<string, unknown>,
+    signatureChainId,
+  );
+}
+
+const APPROVE_BUILDER_FEE_TYPES = [
+  { name: "hyperliquidChain", type: "string" },
+  { name: "maxFeeRate", type: "string" },
+  { name: "builder", type: "address" },
+  { name: "nonce", type: "uint64" },
+] as const;
+
+export function buildApproveBuilderFeeTypedData(
+  builder: string,
+  maxFeeRate: string,
+  nonce: number,
+  signatureChainId: Hex,
+) {
+  const message: HlApproveBuilderFeeAction = {
+    type: "approveBuilderFee",
+    signatureChainId,
+    hyperliquidChain: HL_CHAIN,
+    maxFeeRate,
+    builder: builder.toLowerCase(),
+    nonce,
+  };
+  return userSignedTypedData(
+    "HyperliquidTransaction:ApproveBuilderFee",
+    APPROVE_BUILDER_FEE_TYPES,
     message as unknown as Record<string, unknown>,
     signatureChainId,
   );

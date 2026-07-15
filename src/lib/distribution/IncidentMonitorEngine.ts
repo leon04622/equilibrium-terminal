@@ -6,6 +6,7 @@ import { useTerminalStore } from "@/store/terminalStore";
 import type { IncidentKind, MarketIncident } from "@/types/information-distribution";
 
 function incident(
+  id: string,
   kind: IncidentKind,
   headline: string,
   detail: string,
@@ -15,7 +16,7 @@ function incident(
   startedAt: number,
 ): MarketIncident {
   return {
-    id: `inc-${kind}-${startedAt}`,
+    id,
     kind,
     headline,
     detail,
@@ -44,6 +45,7 @@ export class IncidentMonitorEngine {
     if (terminal.connectionStatus === "disconnected" || terminal.connectionStatus === "reconnecting") {
       out.push(
         incident(
+          "inc-api_instability",
           "api_instability",
           "Primary stream degraded",
           `Connection ${terminal.connectionStatus} · last message ${terminal.lastMessageAt ? `${Math.round((now - terminal.lastMessageAt) / 1000)}s ago` : "unknown"}`,
@@ -58,6 +60,7 @@ export class IncidentMonitorEngine {
     for (const v of coverage?.venues.filter((x) => x.status === "offline" || x.status === "degraded") ?? []) {
       out.push(
         incident(
+          `inc-venue-${v.name.toLowerCase().replace(/\s+/g, "-")}`,
           v.status === "offline" ? "exchange_outage" : "api_instability",
           `${v.name} ${v.status}`,
           `Venue ${v.kind} · latency ${v.latencyMs ?? "—"}ms`,
@@ -72,6 +75,7 @@ export class IncidentMonitorEngine {
     if (atmosphere.stress.score > 78) {
       out.push(
         incident(
+          "inc-volatility-stress",
           "abnormal_volatility",
           "Volatility stress elevated",
           `Stress ${atmosphere.stress.score.toFixed(0)} · velocity ${atmosphere.stress.velocityRatio.toFixed(2)}×`,
@@ -86,6 +90,7 @@ export class IncidentMonitorEngine {
     if (surveillance?.regime === "liquidation") {
       out.push(
         incident(
+          "inc-liquidation-regime",
           "liquidation_cascade",
           "Liquidation regime active",
           `Stress ${surveillance.stressScore.toFixed(0)} · monitor cascade risk on majors`,
@@ -103,6 +108,7 @@ export class IncidentMonitorEngine {
     if (staleStable?.length) {
       out.push(
         incident(
+          "inc-stablecoin-feed",
           "stablecoin_depeg",
           "Stablecoin feed stress",
           staleStable.join(" · "),
@@ -117,6 +123,7 @@ export class IncidentMonitorEngine {
     for (const sig of coverage?.onChainSignals.filter((s) => s.category === "treasury" && s.notionalUsd && s.notionalUsd > 50_000_000) ?? []) {
       out.push(
         incident(
+          `inc-treasury-${sig.coin ?? "market"}`,
           "treasury_movement",
           sig.headline,
           sig.notionalUsd
@@ -133,6 +140,7 @@ export class IncidentMonitorEngine {
     for (const sig of coverage?.onChainSignals.filter((s) => s.category === "bridge") ?? []) {
       out.push(
         incident(
+          `inc-bridge-${sig.coin ?? "market"}`,
           "bridge_failure",
           sig.headline,
           "Bridge infrastructure signal — verify secondary routes",
@@ -147,6 +155,7 @@ export class IncidentMonitorEngine {
     if (reliability && reliability.data.staleFeedCount > 2) {
       out.push(
         incident(
+          "inc-data-pipeline-stale",
           "chain_congestion",
           "Data pipeline staleness",
           `${reliability.data.staleFeedCount} stale feeds · quality ${reliability.data.qualityScore}`,

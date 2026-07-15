@@ -60,6 +60,7 @@ export interface ProductionConfigState {
   vitals: PlatformInfrastructureVitals;
   serverSaveLogs: ServerSaveLogEntry[];
   siwePending: boolean;
+  siweLastError: string | null;
   platformAuthenticated: boolean;
 
   setSession: (session: UserSessionState | null) => void;
@@ -72,6 +73,7 @@ export interface ProductionConfigState {
   setVitals: (vitals: PlatformInfrastructureVitals) => void;
   appendSaveLog: (entry: Omit<ServerSaveLogEntry, "id" | "at">) => void;
   setSiwePending: (pending: boolean) => void;
+  setSiweLastError: (error: string | null) => void;
   setPlatformAuthenticated: (authenticated: boolean) => void;
   resetPlatformState: () => void;
   primaryRole: () => TeamRole;
@@ -93,6 +95,7 @@ export const useProductionConfigStore = create<ProductionConfigState>()(
     vitals: defaultVitals(),
     serverSaveLogs: [],
     siwePending: false,
+    siweLastError: null,
     platformAuthenticated: false,
 
     setSession: (session) => {
@@ -134,6 +137,7 @@ export const useProductionConfigStore = create<ProductionConfigState>()(
         return { serverSaveLogs };
       }),
     setSiwePending: (siwePending) => set({ siwePending }),
+    setSiweLastError: (siweLastError) => set({ siweLastError }),
     setPlatformAuthenticated: (platformAuthenticated) => set({ platformAuthenticated }),
     resetPlatformState: () =>
       set({
@@ -148,6 +152,7 @@ export const useProductionConfigStore = create<ProductionConfigState>()(
         vitals: defaultVitals(),
         serverSaveLogs: [],
         siwePending: false,
+        siweLastError: null,
         platformAuthenticated: false,
       }),
 

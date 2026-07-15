@@ -45,7 +45,12 @@ export function MarketCoverageConsole() {
   const { dataQuality, coverageScore } = snapshot;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div
+      data-crossmarket-panel="marketcoverage"
+      data-crossmarket-region="panel"
+      data-panel-id="marketcoverage"
+      className="flex h-full flex-col overflow-hidden"
+    >
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <Globe2 className="h-3 w-3 text-cyan-500" />
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>MARKET COVERAGE</span>
@@ -76,10 +81,11 @@ export function MarketCoverageConsole() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {activeTab === "coverage" ? (
-          <section>
+          <section data-crossmarket-region="venues">
             {snapshot.venues.map((v) => (
               <div
                 key={v.id}
+                data-crossmarket-region="venue-row"
                 className={cn(terminalSkin.borderB, "flex justify-between gap-1 py-0.5")}
               >
                 <span className={cn(TERMINAL_TYPO.micro, "text-slate-400")}>{v.name}</span>

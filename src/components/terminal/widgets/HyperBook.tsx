@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import { cn, formatPrice, formatSize, formatSpreadBps } from "@/lib/utils";
 import { terminalSkin, TERMINAL_LAYOUT, TERMINAL_TYPO } from "@/lib/theme";
 import type { OrderBookLevel } from "@/types/hyperliquid";
+import { subscribePaused } from "@/lib/runtime/workspaceScroll";
 import { terminalBus } from "@/store/eventBus";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
 
@@ -13,7 +14,10 @@ const WALL_RATIO = 2.4;
 export type DepthDisplayMode = "raw" | "cumulative";
 
 function subscribeBook(callback: () => void) {
-  return useHyperliquidStore.subscribe((s) => s.bookVersion, () => callback());
+  return subscribePaused(
+    (onChange) => useHyperliquidStore.subscribe((s) => s.bookVersion, onChange),
+    getBookVersion,
+  )(callback);
 }
 
 function getBookVersion() {
@@ -228,8 +232,11 @@ export function HyperBook() {
   const [depthMode, setDepthMode] = useState<DepthDisplayMode>("raw");
 
   useEffect(() => {
-    return terminalBus.on("asset:select", () => {});
-  }, []);
+    return terminalBus.on("asset:select", () => {
+      setDepthMode("raw");
+      clearMidFlash();
+    });
+  }, [clearMidFlash]);
 
   useEffect(() => {
     if (midFlash === null) return;
@@ -275,7 +282,7 @@ export function HyperBook() {
   const maxAskBar = Math.max(...askRows.filter(Boolean).map((r) => r!.barSize), 1);
 
   return (
-    <div data-book-panel="hyperbook" className={cn("flex h-full flex-col", terminalSkin.canvas)}>
+    <div data-book-panel="hyperbook" data-live-panel className={cn("flex h-full flex-col", terminalSkin.canvas)}>
       <div
         className={cn(
           "flex shrink-0 items-center justify-between border-b-[0.5px] border-slate-800 px-1 py-0.5",

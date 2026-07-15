@@ -1,7 +1,10 @@
 export { SessionClockEngine } from "@/lib/daily/SessionClockEngine";
 export { LiveDeskClockEngine } from "@/lib/daily/LiveDeskClockEngine";
 export { DailyBriefingEngine } from "@/lib/daily/DailyBriefingEngine";
+export { DailyBriefingOutlookEngine } from "@/lib/daily/DailyBriefingOutlookEngine";
 export { MarketStateLayer } from "@/lib/daily/MarketStateLayer";
+export { MarketStateClassificationEngine } from "@/lib/daily/MarketStateClassificationEngine";
+export { MarketStateHistoryEngine } from "@/lib/daily/MarketStateHistoryEngine";
 export { MarketMemoryArchive } from "@/lib/daily/MarketMemoryArchive";
 export { AlertPrioritizer } from "@/lib/daily/AlertPrioritizer";
 export { RoutineCatalog, OPERATIONAL_ROUTINES } from "@/lib/daily/RoutineCatalog";

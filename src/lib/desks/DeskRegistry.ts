@@ -1,5 +1,6 @@
 import type { Layout } from "react-grid-layout";
 import type { TerminalMode } from "@/types/adaptive-workspace";
+import { WEDGE_V1_LAYOUT } from "@/lib/wedge/WedgeManifest";
 
 /**
  * Operational desks are purpose-built workspace environments — each one
@@ -46,21 +47,10 @@ function gi(
 }
 
 /**
- * PHASE 1 — EXECUTION DESK
- * Rapid execution, liquidity monitoring, spread/order-flow awareness.
- * Liquidity ladder + chart + DOM across the top band; ticket / positions /
- * slippage / execution-intel in the action row; execution tape full-width.
+ * PHASE 1 — EXECUTION DESK (Bloomberg-style default)
+ * Book · chart · ladder dominate; ticket/positions; morning context below.
  */
-const EXECUTION_DESK: Layout[] = [
-  gi("hyperbook", 0, 0, 3, 14),
-  gi("chart", 3, 0, 6, 14),
-  gi("domladder", 9, 0, 3, 14),
-  gi("ticket", 0, 14, 3, 10),
-  gi("positions", 3, 14, 3, 10),
-  gi("slippageradar", 6, 14, 3, 10),
-  gi("execintel", 9, 14, 3, 10),
-  gi("intelligence", 0, 24, 12, 6),
-];
+const EXECUTION_DESK: Layout[] = WEDGE_V1_LAYOUT.map((l) => ({ ...l }));
 
 /**
  * PHASE 2 — MACRO DESK
@@ -69,13 +59,14 @@ const EXECUTION_DESK: Layout[] = [
  * intel / newswire / coverage, with market-context + tape underneath.
  */
 const MACRO_DESK: Layout[] = [
-  gi("macro", 0, 0, 4, 12),
+  gi("crossvenue", 0, 0, 4, 10),
+  gi("macro", 0, 10, 4, 12),
   gi("chart", 4, 0, 8, 12),
-  gi("globaldesk", 0, 12, 4, 10),
-  gi("newswire", 4, 12, 4, 10),
-  gi("marketcoverage", 8, 12, 4, 10),
-  gi("decision", 0, 22, 6, 8),
-  gi("intelligence", 6, 22, 6, 8),
+  gi("globaldesk", 0, 22, 4, 10),
+  gi("newswire", 4, 22, 4, 10),
+  gi("marketcoverage", 8, 22, 4, 10),
+  gi("decision", 0, 32, 6, 8),
+  gi("intelligence", 6, 32, 6, 8),
 ];
 
 /**
@@ -85,13 +76,14 @@ const MACRO_DESK: Layout[] = [
  * row of slippage / surveillance / memory / alerts, tape full-width.
  */
 const VOLATILITY_DESK: Layout[] = [
-  gi("chart", 0, 0, 6, 12),
+  gi("screener", 0, 0, 4, 10),
+  gi("chart", 4, 0, 8, 12),
   gi("derivdesk", 6, 0, 6, 12),
-  gi("slippageradar", 0, 12, 3, 9),
-  gi("surveillance", 3, 12, 3, 9),
-  gi("memorydesk", 6, 12, 3, 9),
-  gi("alerts", 9, 12, 3, 9),
-  gi("intelligence", 0, 21, 12, 6),
+  gi("slippageradar", 0, 10, 3, 9),
+  gi("tradesurveillance", 3, 10, 3, 9),
+  gi("surveillance", 6, 10, 3, 9),
+  gi("alerts", 9, 10, 3, 9),
+  gi("intelligence", 0, 19, 12, 6),
 ];
 
 /**
@@ -100,12 +92,13 @@ const VOLATILITY_DESK: Layout[] = [
  * long-form notes, replay analysis, narrative tracking.
  */
 const RESEARCH_DESK: Layout[] = [
-  gi("researchdesk", 0, 0, 5, 13),
+  gi("instrumentmaster", 0, 0, 4, 10),
+  gi("researchdesk", 0, 10, 5, 13),
   gi("chart", 5, 0, 7, 13),
-  gi("knowledgegraph", 0, 13, 4, 10),
-  gi("research", 4, 13, 4, 10),
-  gi("traderjournal", 8, 13, 4, 10),
-  gi("decision", 0, 23, 12, 7),
+  gi("knowledgegraph", 0, 23, 4, 10),
+  gi("research", 4, 23, 4, 10),
+  gi("traderjournal", 8, 23, 4, 10),
+  gi("decision", 0, 33, 12, 7),
 ];
 
 /**
@@ -115,7 +108,9 @@ const RESEARCH_DESK: Layout[] = [
  */
 const PORTFOLIO_DESK: Layout[] = [
   gi("portfoliodesk", 0, 0, 5, 13),
-  gi("chart", 5, 0, 7, 13),
+  gi("liveblotter", 5, 0, 3, 7),
+  gi("settlementledger", 8, 0, 3, 7),
+  gi("chart", 5, 7, 6, 13),
   gi("positions", 0, 13, 7, 10),
   gi("derivdesk", 7, 13, 5, 10),
   gi("reliability", 0, 23, 12, 7),
@@ -153,7 +148,7 @@ export const DESKS: Record<DeskId, DeskDefinition> = {
   execution: {
     id: "execution",
     label: "EXECUTION",
-    tagline: "Liquidity · DOM · order flow",
+    tagline: "Operator OS · morning workflow · execution",
     glyph: "EX",
     accent: "text-cyan-300 border-cyan-600/70",
     mode: "execution",

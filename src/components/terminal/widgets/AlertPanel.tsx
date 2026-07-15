@@ -131,7 +131,7 @@ export function AlertPanel() {
       <div className="min-h-0 flex-1 overflow-auto">
         {triggers.length === 0 ? (
           <p className={cn(TERMINAL_TYPO.dataSm, "p-1 text-slate-500")}>
-            EVAL · OI · FUNDING · WHALE · LIQ CLUSTER
+            EVAL · OI · FUNDING · WHALE · LIQ · SPREAD · VOL
           </p>
         ) : (
           ordered.map((a) => <AlertRow key={a.id} alert={a} beginner={beginner} />)

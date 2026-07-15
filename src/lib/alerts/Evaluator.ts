@@ -71,6 +71,9 @@ function severityFor(type: MarketEventType): AlertSeverity {
   switch (type) {
     case "LIQUIDATION_CLUSTER_HIT":
       return "critical";
+    case "HL_SPREAD_WIDE":
+    case "HL_VOL_SPIKE":
+      return "watch";
     case "ON_CHAIN_WHALE_TRANSFER":
     case "HL_OPEN_INTEREST_SPIKE":
       return "watch";
@@ -90,6 +93,10 @@ function titleFor(event: MarketEvent): string {
       return `Whale ${event.meta?.side ?? "flow"} · ${event.coin}`;
     case "LIQUIDATION_CLUSTER_HIT":
       return `Liq cluster · ${event.coin}`;
+    case "HL_SPREAD_WIDE":
+      return `Spread wide · ${event.coin}`;
+    case "HL_VOL_SPIKE":
+      return `Vol spike · ${event.coin}`;
     default:
       return `Alert · ${event.coin}`;
   }
@@ -106,6 +113,10 @@ function summaryFor(event: MarketEvent): string {
       return `$${Math.round(m.notionalUsd ?? 0).toLocaleString()} @ ${m.px?.toFixed(2) ?? "—"}`;
     case "LIQUIDATION_CLUSTER_HIT":
       return `${m.clusterCount ?? 0} prints / $${Math.round(m.clusterNotionalUsd ?? 0).toLocaleString()}`;
+    case "HL_SPREAD_WIDE":
+      return `${m.spreadBps?.toFixed(1) ?? "?"} bps @ mid ${m.midPx?.toFixed(2) ?? "—"}`;
+    case "HL_VOL_SPIKE":
+      return `Mid moved ${m.midMoveBps?.toFixed(1) ?? "?"} bps · spread ${m.spreadBps?.toFixed(1) ?? "?"} bps`;
     default:
       return event.type;
   }

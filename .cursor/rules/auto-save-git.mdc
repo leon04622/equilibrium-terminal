@@ -1,0 +1,16 @@
+---
+description: Commit and push project changes after completing work unless the user opts out
+alwaysApply: true
+---
+
+# Auto-save to git
+
+After completing a meaningful batch of work (features, fixes, refactors, deploy prep):
+
+1. **Commit** all relevant project changes before ending the session, unless the user explicitly says not to commit.
+2. **Push** to the configured remote when one exists and the user has asked to save/publish/sync.
+3. **Never commit** secrets: `.env`, `.env.local`, credentials, API keys, or tokens.
+4. **Include** source, scripts, config templates (e.g. `.env.example`), and Cursor rules — not build artifacts (`.next/`, `node_modules/`).
+5. Use concise commit messages focused on **why**, matching existing repo style.
+
+If `git remote` is missing, commit locally and tell the user to add `origin` before push.

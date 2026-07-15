@@ -4,8 +4,13 @@ import { Maximize2, Minimize2, GripVertical, HelpCircle, Sparkles } from "lucide
 import { cn } from "@/lib/utils";
 import { INSTITUTIONAL_INTERACTION, STATUS_INDICATOR, type PanelStatus } from "@/lib/theme/institutional";
 import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
+import { resolvePanelEmphasis } from "@/lib/theme/equilibrium-visual";
 import { PanelLoadingState } from "@/components/terminal/PanelLoadingState";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
+import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
+import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
+import { useTerminalStore } from "@/store/terminalStore";
+import { isBloombergChrome } from "@/lib/theme/bloomberg";
 import type { PanelEmphasis } from "@/store/useAdaptiveWorkspaceStore";
 import type { ExplainLabel, ExplainLabelAnchor, ExplainLabelTone } from "@/types/operator-guide";
 
@@ -63,6 +68,28 @@ const LABEL_TONE: Record<ExplainLabelTone, string> = {
   warn: "border-amber-500/60 bg-amber-950/85 text-amber-200",
 };
 
+const STREAM_PANELS = new Set([
+  "hyperbook",
+  "chart",
+  "intelligence",
+  "ticket",
+  "positions",
+  "domladder",
+  "slippageradar",
+  "alerts",
+  "surveillance",
+  "newswire",
+  "paperblotter",
+  "macro",
+]);
+
+function streamPanelStatus(panelId: string, connectionStatus: string): PanelStatus {
+  if (!STREAM_PANELS.has(panelId)) return "idle";
+  if (connectionStatus === "connected") return "live";
+  if (connectionStatus === "reconnecting") return "watch";
+  return "offline";
+}
+
 function ExplainLabelOverlay({ labels }: { labels: ExplainLabel[] }) {
   if (!labels.length) return null;
   return (
@@ -93,9 +120,9 @@ export function PanelShell({
   className,
   dragHandleClassName,
   maximized,
-  emphasis = "medium",
-  loading,
-  status = "idle",
+  emphasis: emphasisProp = "medium",
+  loading: loadingProp,
+  status: statusProp = "idle",
   onToggleMaximize,
   onClone,
 }: PanelShellProps) {
@@ -104,6 +131,21 @@ export function PanelShell({
   const highlightPanelId = useOperatorGuideStore((s) => s.highlightPanelId);
   const focusModeActive = useOperatorGuideStore((s) => s.focusModeActive);
   const focusLabels = useOperatorGuideStore((s) => s.focusLabels);
+  const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
+  const bloomberg = isBloombergChrome(beginnerMode);
+  const connectionStatus = useTerminalStore((s) => s.connectionStatus);
+  const selectedAsset = useTerminalStore((s) => s.selectedAsset);
+  const adaptiveEmphasis = useAdaptiveWorkspaceStore((s) =>
+    panelId ? s.panelEmphasis[panelId] : undefined,
+  );
+  const emphasis = panelId ? resolvePanelEmphasis(panelId, adaptiveEmphasis) : emphasisProp;
+  const status = panelId ? streamPanelStatus(panelId, connectionStatus) : statusProp;
+  // Only block panel chrome when the feed is fully offline — connecting/idle panels
+  // render their own skeletons so operators are not stuck on a blanket SYNC overlay.
+  const loading =
+    loadingProp ??
+    (panelId ? connectionStatus === "disconnected" && STREAM_PANELS.has(panelId) : false);
+  const displaySubtitle = subtitle ?? selectedAsset?.symbol;
   const isGuideFocus = Boolean(panelId && guideTargetId === panelId);
   const isLessonHighlight = Boolean(panelId && highlightPanelId === panelId);
 
@@ -112,7 +154,9 @@ export function PanelShell({
   const focusTargetId = highlightPanelId ?? guideTargetId;
   const isFocusTarget = Boolean(panelId && focusTargetId === panelId);
   const focusSpotlight = focusModeActive && isFocusTarget;
-  const focusDimmed = focusModeActive && Boolean(focusTargetId) && !isFocusTarget;
+  // Academy live bridges set highlightPanelId — keep all panels readable; region ring handles focus.
+  const focusDimmed =
+    focusModeActive && Boolean(focusTargetId) && !isFocusTarget && !highlightPanelId;
 
   const openExplain = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -130,24 +174,12 @@ export function PanelShell({
   // the first mousedown, which previously caused a "click twice" feel.
   const stopDrag = (e: React.MouseEvent | React.PointerEvent) => e.stopPropagation();
 
-  const onShellClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!explainMode || !panelId) return;
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("button, input, textarea, select, a, [role='button']") ||
-      target.closest(".panel-drag-handle")
-    ) {
-      return;
-    }
-    openExplain(e);
-  };
-
   return (
     <div
-      onClick={onShellClick}
       data-focus-dimmed={focusDimmed ? "true" : undefined}
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-none transition-all duration-300 ease-out",
+        "flex h-full flex-col overflow-hidden rounded-none eq-panel-shell",
+        "transition-[box-shadow,opacity,filter,transform] duration-300 ease-out",
         terminalSkin.border,
         terminalSkin.panel,
         EMPHASIS_SHELL[emphasis],
@@ -156,8 +188,8 @@ export function PanelShell({
           "cursor-help hover:ring-1 hover:ring-cyan-700/45 hover:shadow-[inset_0_0_0_1px_rgba(0,229,255,0.08)]",
         isGuideFocus &&
           "ring-2 ring-cyan-500/70 shadow-[inset_0_0_12px_rgba(0,229,255,0.12)] z-[2]",
-        isLessonHighlight &&
-          "ring-2 ring-amber-400/80 shadow-[0_0_18px_rgba(251,191,36,0.25)] z-[3]",
+        // Academy live bridges use a floating region ring — avoid a second amber shell ring.
+        isLessonHighlight && "relative z-[4]",
         // PHASE 5 — quiet unrelated systems: dim, desaturate and soften.
         focusDimmed && "opacity-[0.22] saturate-[0.4] blur-[1.5px] z-0",
         // PHASE 2 — spotlight the active learning area.
@@ -183,13 +215,13 @@ export function PanelShell({
           />
           <div className="min-w-0 leading-none">
             <p className={cn(TERMINAL_TYPO.label, "truncate", EMPHASIS_TITLE[emphasis])}>{title}</p>
-            {subtitle ? (
-              <p className={cn(TERMINAL_TYPO.micro, "truncate text-slate-600")}>{subtitle}</p>
+            {displaySubtitle ? (
+              <p className={cn(TERMINAL_TYPO.micro, "truncate text-slate-600")}>{displaySubtitle}</p>
             ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {panelId ? (
+          {panelId && !bloomberg ? (
             <>
               <button
                 type="button"
@@ -236,7 +268,12 @@ export function PanelShell({
           {onToggleMaximize ? (
             <button
               type="button"
-              onClick={onToggleMaximize}
+              onMouseDown={stopDrag}
+              onPointerDown={stopDrag}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMaximize();
+              }}
               className={cn(TERMINAL_TYPO.micro, INSTITUTIONAL_INTERACTION.panelButton)}
               aria-label={maximized ? "Restore panel" : "Maximize panel"}
             >

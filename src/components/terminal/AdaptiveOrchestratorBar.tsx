@@ -11,6 +11,8 @@ import { MODE_CHROME, TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
 import { useWedgeStore } from "@/store/useWedgeStore";
+import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
+import { isBloombergChrome } from "@/lib/theme/bloomberg";
 import type { FocusMode, TerminalMode } from "@/types/adaptive-workspace";
 
 /** V1 wedge: execution-first modes; full palette when Advanced is on. */
@@ -57,7 +59,10 @@ export function AdaptiveOrchestratorBar({
   const clearFocus = useAdaptiveWorkspaceStore((s) => s.clearFocus);
   const ingest = useAdaptiveWorkspaceStore((s) => s.ingestOrchestration);
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);
+  const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
   const modes = deskFocusMode ? WEDGE_MODES : FULL_MODES;
+
+  if (isBloombergChrome(beginnerMode)) return null;
 
   const commitOrchestration = (nextMode: TerminalMode, nextFocus: FocusMode) => {
     const result = LayoutOrchestrator.orchestrate(baseLayout, nextMode, nextFocus);
@@ -74,51 +79,51 @@ export function AdaptiveOrchestratorBar({
   const overloadPct = cognitive ? Math.round(cognitive.overloadRisk * 100) : 0;
   const chrome = MODE_CHROME[mode];
 
+  const cycleMode = () => {
+    const idx = modes.indexOf(mode);
+    const next = modes[(idx + 1) % modes.length]!;
+    setMode(next);
+    commitOrchestration(next, focusMode);
+  };
+
+  const cycleFocus = () => {
+    const idx = FOCUS_OPTIONS.findIndex((o) => o.id === focusMode);
+    const next = FOCUS_OPTIONS[(idx + 1) % FOCUS_OPTIONS.length]!;
+    if (next.id === "none") clearFocus();
+    else setFocusMode(next.id);
+    commitOrchestration(mode, next.id);
+  };
+
+  const focusLabel = FOCUS_OPTIONS.find((o) => o.id === focusMode)?.label ?? "—";
+
   return (
     <div className="flex shrink-0 items-center gap-1 border-l border-slate-800 pl-2">
       <LayoutGrid className={cn("h-3 w-3 shrink-0", chrome.accent)} aria-hidden />
-      <select
-        value={mode}
-        onChange={(e) => {
-          const next = e.target.value as TerminalMode;
-          setMode(next);
-          commitOrchestration(next, "none");
-        }}
+      <button
+        type="button"
+        onClick={cycleMode}
         className={cn(
           TERMINAL_TYPO.micro,
-          "max-w-[7rem] border-0 bg-transparent py-0 outline-none",
+          "max-w-[7rem] truncate border px-1 py-0.5 uppercase",
           chrome.accent,
         )}
-        title="Terminal mode"
+        title={`Layout mode: ${MODE_LABELS[mode]}. Click to cycle.`}
       >
-        {modes.map((m) => (
-          <option key={m} value={m}>
-            {MODE_LABELS[m]}
-          </option>
-        ))}
-      </select>
+        {MODE_LABELS[mode]}
+      </button>
 
       <Focus className="h-3 w-3 shrink-0 text-slate-600" aria-hidden />
-      <select
-        value={focusMode}
-        onChange={(e) => {
-          const f = e.target.value as FocusMode;
-          if (f === "none") clearFocus();
-          else setFocusMode(f);
-          commitOrchestration(mode, f);
-        }}
+      <button
+        type="button"
+        onClick={cycleFocus}
         className={cn(
           TERMINAL_TYPO.micro,
-          "max-w-[6rem] border-0 bg-transparent py-0 text-slate-500 outline-none",
+          "max-w-[6rem] truncate border border-slate-800 px-1 py-0.5 uppercase text-slate-500 hover:text-slate-300",
         )}
-        title="Focus mode"
+        title={`Focus: ${focusLabel}. Click to cycle.`}
       >
-        {FOCUS_OPTIONS.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        {focusLabel}
+      </button>
 
       <button
         type="button"

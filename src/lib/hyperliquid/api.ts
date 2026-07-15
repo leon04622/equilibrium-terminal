@@ -1,5 +1,6 @@
-import type { HlClearinghouseState } from "@/types/account";
+import type { HlClearinghouseState, HlSpotClearinghouseState } from "@/types/account";
 import type { HlAllMids, HlPerpMeta, HlSpotMeta } from "@/types/hyperliquid";
+import type { HlReferralState } from "@/types/hyperliquid-referral";
 import { HL_INFO_HTTP_URL } from "@/lib/hyperliquid/constants";
 
 async function postInfo<T>(body: Record<string, unknown>): Promise<T> {
@@ -23,6 +24,10 @@ export function fetchSpotMeta(): Promise<HlSpotMeta> {
 
 export function fetchClearinghouseState(user: string): Promise<HlClearinghouseState> {
   return postInfo<HlClearinghouseState>({ type: "clearinghouseState", user });
+}
+
+export function fetchSpotClearinghouseState(user: string): Promise<HlSpotClearinghouseState> {
+  return postInfo<HlSpotClearinghouseState>({ type: "spotClearinghouseState", user });
 }
 
 export function fetchAllMids(): Promise<HlAllMids> {
@@ -53,4 +58,57 @@ export async function verifyAgentForMaster(
   } catch {
     return false;
   }
+}
+
+export async function fetchMaxBuilderFee(user: string, builder: string): Promise<number> {
+  const value = await postInfo<number | string>({
+    type: "maxBuilderFee",
+    user: user.toLowerCase(),
+    builder: builder.toLowerCase(),
+  });
+  if (typeof value === "number") return value;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function fetchBuilderReferralState(builder: string): Promise<HlReferralState> {
+  return postInfo<HlReferralState>({
+    type: "referral",
+    user: builder.toLowerCase(),
+  });
+}
+
+export interface HlFrontendOpenOrder {
+  coin: string;
+  side: "B" | "A";
+  limitPx: string;
+  sz: string;
+  oid: number;
+  timestamp: number;
+  origSz: string;
+  orderType?: string;
+  reduceOnly?: boolean;
+}
+
+export interface HlUserFill {
+  coin: string;
+  px: string;
+  sz: string;
+  side: "B" | "A";
+  time: number;
+  closedPnl: string;
+  fee: string;
+  crossed: boolean;
+  dir: string;
+  hash: string;
+  oid: number;
+  tid: number;
+}
+
+export function fetchFrontendOpenOrders(user: string): Promise<HlFrontendOpenOrder[]> {
+  return postInfo<HlFrontendOpenOrder[]>({ type: "frontendOpenOrders", user });
+}
+
+export function fetchUserFills(user: string): Promise<HlUserFill[]> {
+  return postInfo<HlUserFill[]>({ type: "userFills", user });
 }

@@ -6,6 +6,7 @@ import { terminalSkin, TERMINAL_TYPO } from "@/lib/theme";
 import { budgetStatus } from "@/lib/performance/PerformanceBudgets";
 import { usePerformanceStore } from "@/store/usePerformanceStore";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
+import { BuilderRevenuePanel } from "@/components/terminal/BuilderRevenuePanel";
 
 function frictionTone(score: number): "up" | "warn" | "down" {
   if (score >= 70) return "down";
@@ -308,6 +309,10 @@ export function DiagnosticsDashboard() {
             </div>
           ))
         )}
+      </div>
+
+      <div className="mt-2 shrink-0">
+        <BuilderRevenuePanel />
       </div>
     </div>
   );

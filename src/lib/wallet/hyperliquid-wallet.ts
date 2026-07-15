@@ -5,10 +5,15 @@ import { AGENT_NAME } from "@/lib/hyperliquid/agent-session";
 import { HL_SIGNATURE_CHAIN_ID } from "@/lib/hyperliquid/constants";
 import {
   buildApproveAgentTypedData,
+  buildApproveBuilderFeeTypedData,
   normalizeWalletSignature,
   toSignatureChainId,
 } from "@/lib/hyperliquid/signing";
-import type { HlApproveAgentAction, HlSignature } from "@/types/exchange";
+import type { HlApproveAgentAction, HlApproveBuilderFeeAction, HlSignature } from "@/types/exchange";
+import {
+  BUILDER_MAX_FEE_RATE,
+  EQUILIBRIUM_BUILDER_ADDRESS,
+} from "@/lib/hyperliquid/builder";
 
 const SWITCH_POLL_MS = 200;
 const SWITCH_MAX_ATTEMPTS = 40;
@@ -85,6 +90,53 @@ export async function signApproveAgentWithWallet(
     domain: typedData.domain,
     types: typedData.types,
     primaryType: "HyperliquidTransaction:ApproveAgent",
+    message: {
+      ...action,
+      nonce: BigInt(nonce),
+    },
+  });
+
+  return {
+    signature: normalizeWalletSignature(signatureHex),
+    action,
+  };
+}
+
+export async function signApproveBuilderFeeWithWallet(
+  master: Address,
+  nonce: number,
+): Promise<{ signature: HlSignature; action: HlApproveBuilderFeeAction }> {
+  await ensureWalletOnHyperliquidSigningChain();
+
+  const client = await getWalletClient(wagmiConfig, { chainId: HL_SIGNATURE_CHAIN_ID });
+  if (!client) throw new Error("Connect wallet first");
+
+  const activeChainId = await client.getChainId();
+  if (activeChainId !== HL_SIGNATURE_CHAIN_ID) {
+    throw new Error("Switch your wallet to Arbitrum One, then authorize again");
+  }
+
+  const signatureChainId = toSignatureChainId(HL_SIGNATURE_CHAIN_ID);
+  const action: HlApproveBuilderFeeAction = {
+    type: "approveBuilderFee",
+    signatureChainId,
+    hyperliquidChain: "Mainnet",
+    maxFeeRate: BUILDER_MAX_FEE_RATE,
+    builder: EQUILIBRIUM_BUILDER_ADDRESS,
+    nonce,
+  };
+  const typedData = buildApproveBuilderFeeTypedData(
+    EQUILIBRIUM_BUILDER_ADDRESS,
+    BUILDER_MAX_FEE_RATE,
+    nonce,
+    signatureChainId,
+  );
+
+  const signatureHex = await client.signTypedData({
+    account: master,
+    domain: typedData.domain,
+    types: typedData.types,
+    primaryType: "HyperliquidTransaction:ApproveBuilderFee",
     message: {
       ...action,
       nonce: BigInt(nonce),
