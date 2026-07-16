@@ -11,12 +11,12 @@ const EAGER_PANEL_IDS = new Set<string>([
   ...Array.from(NEVER_HIDE_PANEL_IDS),
 ]);
 
-const VISIBILITY_MARGIN_PX = 640;
+const VISIBILITY_MARGIN_PX = 800;
 
 interface DeferredPanelContentProps {
   panelId: string;
   forceMount?: boolean;
-  /** Execution desk mounts all panels immediately — small grid, no OOM risk. */
+  /** Execution desk — mount every panel immediately (small grid). */
   deskFocusMode?: boolean;
   children: ReactNode;
 }
@@ -45,16 +45,16 @@ function scheduleIdleMount(fn: () => void): void {
   idleScheduled = true;
 
   const drain = (deadline?: IdleDeadline) => {
-    let budget = deadline?.timeRemaining() ?? 10;
+    let budget = deadline?.timeRemaining() ?? 12;
     while (idleQueue.length > 0 && budget > 2) {
       idleQueue.shift()?.();
-      budget -= 5;
+      budget -= 4;
     }
     if (idleQueue.length > 0) {
       if (typeof requestIdleCallback === "function") {
-        requestIdleCallback(drain, { timeout: 1_500 });
+        requestIdleCallback(drain, { timeout: 800 });
       } else {
-        window.setTimeout(() => drain(), 100);
+        window.setTimeout(() => drain(), 50);
       }
       return;
     }
@@ -62,9 +62,9 @@ function scheduleIdleMount(fn: () => void): void {
   };
 
   if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(drain, { timeout: 2_500 });
+    requestIdleCallback(drain, { timeout: 1_200 });
   } else {
-    window.setTimeout(() => drain(), 200);
+    window.setTimeout(() => drain(), 80);
   }
 }
 
@@ -72,25 +72,23 @@ function shouldMountImmediately(panelId: string, forceMount?: boolean, deskFocus
   return Boolean(forceMount) || Boolean(deskFocusMode) || EAGER_PANEL_IDS.has(panelId);
 }
 
-/**
- * Defers heavy widget trees until a panel scrolls near the workspace viewport.
- * Prevents mounting 50+ consoles at once (primary OOM cause on full workspace).
- */
-export function DeferredPanelContent({
+function DeferredPanelMount({
   panelId,
   forceMount,
-  deskFocusMode,
   children,
-}: DeferredPanelContentProps) {
+}: {
+  panelId: string;
+  forceMount?: boolean;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(() => shouldMountImmediately(panelId, forceMount, deskFocusMode));
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (shouldMountImmediately(panelId, forceMount, deskFocusMode)) {
-      if (!mounted) setMounted(true);
+    if (forceMount) {
+      setMounted(true);
       return;
     }
-    if (mounted) return;
 
     const el = ref.current;
     if (!el) return;
@@ -139,8 +137,8 @@ export function DeferredPanelContent({
 
     const recheckTimer = window.setInterval(() => {
       if (checkVisible()) window.clearInterval(recheckTimer);
-    }, 200);
-    const stopRecheck = window.setTimeout(() => window.clearInterval(recheckTimer), 6_000);
+    }, 150);
+    const stopRecheck = window.setTimeout(() => window.clearInterval(recheckTimer), 3_000);
 
     scheduleIdleMount(() => {
       if (!cancelled && ref.current && isNearVisible(ref.current, scrollRoot, VISIBILITY_MARGIN_PX)) {
@@ -157,11 +155,32 @@ export function DeferredPanelContent({
       scrollRoot?.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [forceMount, deskFocusMode, mounted, panelId]);
+  }, [forceMount, panelId]);
 
   return (
     <div ref={ref} className="h-full min-h-0">
       {mounted ? children : <PanelLoadingState label="STANDBY" />}
     </div>
+  );
+}
+
+/**
+ * Defers heavy widget trees until a panel scrolls near the workspace viewport.
+ * Execution desk bypasses deferral entirely — panels render on first paint.
+ */
+export function DeferredPanelContent({
+  panelId,
+  forceMount,
+  deskFocusMode,
+  children,
+}: DeferredPanelContentProps) {
+  if (shouldMountImmediately(panelId, forceMount, deskFocusMode)) {
+    return <div className="h-full min-h-0">{children}</div>;
+  }
+
+  return (
+    <DeferredPanelMount panelId={panelId} forceMount={forceMount}>
+      {children}
+    </DeferredPanelMount>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect } from "react";
 import { hydrateChartAnalyticsPrefs } from "@/lib/charting/chartPrefs";
 import {
   getCachedCandleHistory,
+  getCachedCandleHistoryStale,
   isCacheFresh,
   setCachedCandleHistory,
 } from "@/lib/charting/candleHistoryCache";
@@ -24,6 +25,7 @@ import type { ChartTimeframe } from "@/types/chart-analytics";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
 const prefetchInflight = new Set<string>();
+const PRIORITY_PREFETCH_TFS: ChartTimeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 function applySeries(candles: NormalizedCandle[]): void {
   chartReplayEngine.goLive();
@@ -72,12 +74,8 @@ function isActiveLoadKey(loadKey: string): boolean {
   return loadKey === `${coin}:${tf}`;
 }
 
-function scheduleIdle(task: () => void): void {
-  if (typeof requestIdleCallback !== "undefined") {
-    requestIdleCallback(() => task(), { timeout: 2500 });
-  } else {
-    window.setTimeout(task, 16);
-  }
+function runSoon(task: () => void): void {
+  queueMicrotask(task);
 }
 
 async function refreshHistoryInBackground(
@@ -115,15 +113,10 @@ export function prefetchChartHistory(coin: string, tf: ChartTimeframe): void {
     });
 }
 
-function prefetchAllTimeframes(coin: string, activeTf: ChartTimeframe): void {
-  let index = 0;
-  const step = () => {
-    const tf = CHART_TIMEFRAMES[index++];
-    if (!tf) return;
+function prefetchPriorityTimeframes(coin: string, activeTf: ChartTimeframe): void {
+  for (const tf of PRIORITY_PREFETCH_TFS) {
     if (tf !== activeTf) prefetchChartHistory(coin, tf);
-    if (index < CHART_TIMEFRAMES.length) scheduleIdle(step);
-  };
-  scheduleIdle(step);
+  }
 }
 
 /** Loads Hyperliquid candle history and merges live WS updates into the chart buffer. */
@@ -143,20 +136,27 @@ export function useChartHistory(enabled = true): void {
     chartReplayEngine.goLive();
     sealHistoryAndResetLive(hlInterval);
 
-    const cached = getCachedCandleHistory(selectedCoin, timeframe);
-    if (cached?.length) {
-      applySeries(ChartDataEngine.viewport(cached));
-    } else {
-      chartReplayEngine.setBuffer([]);
-      useChartAnalyticsStore.getState().setDisplayCandles([]);
+    const fresh = getCachedCandleHistory(selectedCoin, timeframe);
+    const stale = getCachedCandleHistoryStale(selectedCoin, timeframe);
+    const immediate = fresh ?? stale;
+
+    if (immediate?.length) {
+      applySeries(ChartDataEngine.viewport(immediate));
+      if (!fresh) {
+        useChartAnalyticsStore.getState().setHistoryLoading(true);
+      }
+      return;
+    }
+
+    if (chartReplayEngine.getBuffer().length === 0) {
       useChartAnalyticsStore.getState().setHistoryLoading(true);
     }
   }, [enabled, selectedCoin, timeframe]);
 
   useEffect(() => {
     if (!enabled) return;
-    prefetchAllTimeframes(selectedCoin, timeframe);
-  }, [enabled, selectedCoin]);
+    prefetchPriorityTimeframes(selectedCoin, timeframe);
+  }, [enabled, selectedCoin, timeframe]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -181,7 +181,7 @@ export function useChartHistory(enabled = true): void {
       }
 
       if (cacheHit) {
-        scheduleIdle(() => {
+        runSoon(() => {
           if (!cancelled) void refreshHistoryInBackground(coin, tf, loadKey, hlInterval);
         });
         return;
@@ -193,9 +193,11 @@ export function useChartHistory(enabled = true): void {
         if (preview.length > 0) {
           applySeries(ChartDataEngine.viewport(preview));
           sealHistoryAndResetLive(hlInterval);
+        } else if (chartReplayEngine.getBuffer().length === 0) {
+          useChartAnalyticsStore.getState().setHistoryLoading(false);
         }
 
-        scheduleIdle(() => {
+        runSoon(() => {
           if (!cancelled) void refreshHistoryInBackground(coin, tf, loadKey, hlInterval);
         });
       } catch (e) {

@@ -32,8 +32,8 @@ import { StreamReconnectBanner } from "@/components/terminal/StreamReconnectBann
 import { KeyboardShortcutOverlay } from "@/components/terminal/KeyboardShortcutOverlay";
 import { WorkspaceHeaderTelemetry } from "@/components/terminal/WorkspaceHeaderTelemetry";
 import {
-  LazyPositionsTable,
-  LazyTradeTicket,
+  PositionsTable,
+  TradeTicket,
   WidgetByType,
 } from "@/components/terminal/widgetRegistry";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
@@ -318,9 +318,9 @@ const WorkspaceGrid = memo(function WorkspaceGrid({
                 deskFocusMode={deskFocusMode}
               >
                 {panel.id === "ticket" ? (
-                  <LazyTradeTicket />
+                  <TradeTicket />
                 ) : panel.id === "positions" ? (
-                  <LazyPositionsTable />
+                  <PositionsTable />
                 ) : (
                   widgetContent(panel.type)
                 )}

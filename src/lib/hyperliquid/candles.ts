@@ -164,18 +164,15 @@ export async function loadChartCandleHistory(
 ): Promise<NormalizedCandle[]> {
   if (chartTimeframeToHlInterval(timeframe) == null) return [];
 
-  try {
-    const direct = await fetchCandleHistory(coin, timeframe, barCount);
-    if (direct.length > 0) return direct;
-  } catch {
-    /* browser CORS or transient network */
-  }
+  const [direct, viaApi] = await Promise.allSettled([
+    fetchCandleHistory(coin, timeframe, barCount),
+    fetchCandleHistoryViaApi(coin, timeframe, barCount),
+  ]);
 
-  try {
-    const viaApi = await fetchCandleHistoryViaApi(coin, timeframe, barCount);
-    if (viaApi.length > 0) return viaApi;
-  } catch {
-    /* same-origin route may be unavailable */
+  for (const result of [direct, viaApi]) {
+    if (result.status === "fulfilled" && result.value.length > 0) {
+      return result.value;
+    }
   }
 
   return [];

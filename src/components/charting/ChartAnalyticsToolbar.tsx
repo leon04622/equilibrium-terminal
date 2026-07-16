@@ -28,7 +28,9 @@ export function ChartAnalyticsToolbar({ coin }: { coin: string }) {
   const last = book?.mid;
 
   const selectTimeframe = (tf: ChartTimeframe) => {
-    if (tf !== timeframe) setTimeframe(tf);
+    if (tf === timeframe) return;
+    prefetchChartHistory(coin, tf);
+    setTimeframe(tf);
   };
 
   return (

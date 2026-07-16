@@ -579,6 +579,10 @@ export function ChartWidget() {
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
             <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
           </div>
+        ) : historyLoading ? (
+          <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-[#131722]/80 px-1.5 py-0.5">
+            <span className="text-[9px] uppercase tracking-widest text-slate-500">Updating {timeframe}…</span>
+          </div>
         ) : null}
         <div ref={containerRef} className="absolute inset-0" />
       </div>

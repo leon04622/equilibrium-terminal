@@ -41,6 +41,24 @@ export function isCacheFresh(coin: string, tf: ChartTimeframe): boolean {
   return getCachedCandleHistory(coin, tf) != null;
 }
 
+/** Stale-while-revalidate: return cached bars even past TTL so TF switches stay instant. */
+export function getCachedCandleHistoryStale(
+  coin: string,
+  tf: ChartTimeframe,
+): NormalizedCandle[] | null {
+  const key = cacheKey(coin, tf);
+  const mem = MEMORY.get(key);
+  if (mem && mem.candles.length > 0) return mem.candles;
+
+  const blob = readSession();
+  const hit = blob[key];
+  if (hit && hit.candles.length > 0) {
+    MEMORY.set(key, hit);
+    return hit.candles;
+  }
+  return null;
+}
+
 export function getCachedCandleHistory(
   coin: string,
   tf: ChartTimeframe,
