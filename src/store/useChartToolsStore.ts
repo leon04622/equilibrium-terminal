@@ -18,14 +18,17 @@ import {
   sanitizeIndicatorSettings,
   type IndicatorParamValues,
 } from "@/lib/charting/indicatorParams";
-import type {
-  ChartDrawTool,
-  ChartHorizontalLine,
-  ChartIndicatorId,
-  ChartTicketPreview,
+import {
+  DEFAULT_DRAWING_PREFS,
+  type ChartDrawTool,
+  type ChartDrawingPrefs,
+  type ChartHorizontalLine,
+  type ChartIndicatorId,
+  type ChartTicketPreview,
+  type ChartTrendLine,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v4";
+const STORAGE_KEY = "eq-chart-tools-v5";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
@@ -34,6 +37,8 @@ interface Persisted {
   indicatorDisplay: Record<string, IndicatorDisplaySettings>;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
+  trendLinesByCoin: Record<string, ChartTrendLine[]>;
+  drawingPrefs: ChartDrawingPrefs;
 }
 
 function defaultFavorites(): ChartIndicatorId[] {
@@ -54,11 +59,14 @@ function loadPersist(): Persisted {
     indicatorDisplay: {},
     showPositionLines: true,
     linesByCoin: {},
+    trendLinesByCoin: {},
+    drawingPrefs: { ...DEFAULT_DRAWING_PREFS },
   };
   if (typeof window === "undefined") return fallback;
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("eq-chart-tools-v4") ??
       localStorage.getItem("eq-chart-tools-v3") ??
       localStorage.getItem("eq-chart-tools-v2") ??
       localStorage.getItem("eq-chart-tools-v1");
@@ -75,6 +83,8 @@ function loadPersist(): Persisted {
       indicatorDisplay: sanitizeIndicatorDisplay(parsed.indicatorDisplay),
       showPositionLines: parsed.showPositionLines !== false,
       linesByCoin: parsed.linesByCoin ?? {},
+      trendLinesByCoin: parsed.trendLinesByCoin ?? {},
+      drawingPrefs: { ...DEFAULT_DRAWING_PREFS, ...parsed.drawingPrefs },
     };
   } catch {
     return fallback;
@@ -98,6 +108,8 @@ function snapshot(state: ChartToolsState): Persisted {
     indicatorDisplay: state.indicatorDisplay,
     showPositionLines: state.showPositionLines,
     linesByCoin: state.linesByCoin,
+    trendLinesByCoin: state.trendLinesByCoin,
+    drawingPrefs: state.drawingPrefs,
   };
 }
 
@@ -109,8 +121,10 @@ export interface ChartToolsState {
   indicatorsModalOpen: boolean;
   settingsTargetId: string | null;
   drawTool: ChartDrawTool;
+  drawingPrefs: ChartDrawingPrefs;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
+  trendLinesByCoin: Record<string, ChartTrendLine[]>;
   ticketPreview: ChartTicketPreview | null;
 
   setIndicatorsModalOpen: (open: boolean) => void;
@@ -121,10 +135,19 @@ export interface ChartToolsState {
   removeIndicator: (id: ChartIndicatorId) => void;
   toggleFavorite: (id: ChartIndicatorId) => void;
   setDrawTool: (tool: ChartDrawTool) => void;
+  toggleDrawingPref: (key: keyof ChartDrawingPrefs) => void;
   setShowPositionLines: (on: boolean) => void;
   addHorizontalLine: (coin: string, price: number, label?: string) => void;
+  addTrendLine: (
+    coin: string,
+    time1: number,
+    price1: number,
+    time2: number,
+    price2: number,
+  ) => void;
   removeHorizontalLine: (coin: string, id: string) => void;
   clearHorizontalLines: (coin: string) => void;
+  clearDrawings: (coin: string) => void;
   linesForCoin: (coin: string) => ChartHorizontalLine[];
   setTicketPreview: (preview: ChartTicketPreview | null) => void;
 }
@@ -140,8 +163,10 @@ export const useChartToolsStore = create<ChartToolsState>()(
     indicatorsModalOpen: false,
     settingsTargetId: null,
     drawTool: "none",
+    drawingPrefs: persisted.drawingPrefs,
     showPositionLines: persisted.showPositionLines,
     linesByCoin: persisted.linesByCoin,
+    trendLinesByCoin: persisted.trendLinesByCoin,
     ticketPreview: null,
 
     setIndicatorsModalOpen: (indicatorsModalOpen) =>
@@ -222,6 +247,15 @@ export const useChartToolsStore = create<ChartToolsState>()(
 
     setDrawTool: (drawTool) => set({ drawTool }),
 
+    toggleDrawingPref: (key) => {
+      const drawingPrefs = {
+        ...get().drawingPrefs,
+        [key]: !get().drawingPrefs[key],
+      };
+      set({ drawingPrefs });
+      savePersist({ ...snapshot(get()), drawingPrefs });
+    },
+
     setShowPositionLines: (showPositionLines) => {
       set({ showPositionLines });
       savePersist({ ...snapshot(get()), showPositionLines });
@@ -240,10 +274,31 @@ export const useChartToolsStore = create<ChartToolsState>()(
       };
       const linesByCoin = {
         ...get().linesByCoin,
-        [coin]: [...(get().linesByCoin[coin] ?? []), line].slice(-12),
+        [coin]: [...(get().linesByCoin[coin] ?? []), line].slice(-24),
       };
-      set({ linesByCoin, drawTool: "none" });
+      const nextDrawTool = get().drawingPrefs.stayInDrawingMode ? get().drawTool : "none";
+      set({ linesByCoin, drawTool: nextDrawTool });
       savePersist({ ...snapshot(get()), linesByCoin });
+    },
+
+    addTrendLine: (coin, time1, price1, time2, price2) => {
+      const line: ChartTrendLine = {
+        id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        coin,
+        time1,
+        price1,
+        time2,
+        price2,
+        color: "#787b86",
+        createdAt: Date.now(),
+      };
+      const trendLinesByCoin = {
+        ...get().trendLinesByCoin,
+        [coin]: [...(get().trendLinesByCoin[coin] ?? []), line].slice(-24),
+      };
+      const nextDrawTool = get().drawingPrefs.stayInDrawingMode ? get().drawTool : "none";
+      set({ trendLinesByCoin, drawTool: nextDrawTool });
+      savePersist({ ...snapshot(get()), trendLinesByCoin });
     },
 
     removeHorizontalLine: (coin, id) => {
@@ -259,6 +314,13 @@ export const useChartToolsStore = create<ChartToolsState>()(
       const linesByCoin = { ...get().linesByCoin, [coin]: [] };
       set({ linesByCoin });
       savePersist({ ...snapshot(get()), linesByCoin });
+    },
+
+    clearDrawings: (coin) => {
+      const linesByCoin = { ...get().linesByCoin, [coin]: [] };
+      const trendLinesByCoin = { ...get().trendLinesByCoin, [coin]: [] };
+      set({ linesByCoin, trendLinesByCoin });
+      savePersist({ ...snapshot(get()), linesByCoin, trendLinesByCoin });
     },
 
     setTicketPreview: (ticketPreview) => {

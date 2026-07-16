@@ -15,6 +15,8 @@ import {
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
+import { ChartDrawingToolbar } from "@/components/charting/ChartDrawingToolbar";
+import { ChartDrawingsOverlay } from "@/components/charting/ChartDrawingsOverlay";
 import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
@@ -22,7 +24,7 @@ import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
-import { ChartStudiesBar } from "@/components/charting/ChartStudiesBar";
+import { snapPriceToCandle } from "@/lib/charting/chartDrawing";
 import type { ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
   applyOverlayIndicators,
@@ -124,6 +126,9 @@ export function ChartWidget() {
   const candleFpRef = useRef("");
   const didFitRef = useRef(false);
   const drawToolRef = useRef(useChartToolsStore.getState().drawTool);
+  const drawingPrefsRef = useRef(useChartToolsStore.getState().drawingPrefs);
+  const trendDraftRef = useRef<{ time: number; price: number } | null>(null);
+  const [trendDraft, setTrendDraft] = useState<{ time: number; price: number } | null>(null);
 
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
   const candleVersion = useTerminalStore((s) => s.candleVersion);
@@ -139,12 +144,27 @@ export function ChartWidget() {
   const indicatorDisplay = useChartToolsStore((s) => s.indicatorDisplay);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const userLineCount = useChartToolsStore((s) => s.linesByCoin[selectedCoin]?.length ?? 0);
+  const trendLineCount = useChartToolsStore((s) => s.trendLinesByCoin[selectedCoin]?.length ?? 0);
+  const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
   const paperCount = useDeskExecutionStore((s) => s.paperPositions.length);
   const deskMode = useDeskExecutionStore((s) => s.mode);
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
+  useEffect(() => {
+    trendDraftRef.current = null;
+    setTrendDraft(null);
+  }, [selectedCoin, timeframe]);
+
+  const drawTool = useChartToolsStore((s) => s.drawTool);
+  useEffect(() => {
+    if (drawTool !== "trendline") {
+      trendDraftRef.current = null;
+      setTrendDraft(null);
+    }
+  }, [drawTool]);
+
   const indicatorsKey = useMemo(
     () => indicatorSettingsFingerprint(indicators, indicatorSettings, indicatorDisplay),
     [indicators, indicatorSettings, indicatorDisplay],
@@ -159,6 +179,7 @@ export function ChartWidget() {
   useEffect(() => {
     return useChartToolsStore.subscribe((s) => {
       drawToolRef.current = s.drawTool;
+      drawingPrefsRef.current = s.drawingPrefs;
     });
   }, []);
 
@@ -217,7 +238,9 @@ export function ChartWidget() {
     }
 
     for (const line of tools.linesForCoin(coin)) {
-      addLine(line.price, line.color, line.label, LineStyle.Solid);
+      if (!tools.drawingPrefs.hideDrawings) {
+        addLine(line.price, line.color, line.label, LineStyle.Solid);
+      }
     }
   }, []);
 
@@ -471,6 +494,8 @@ export function ChartWidget() {
     positionsVersion,
     showPositionLines,
     userLineCount,
+    trendLineCount,
+    hideDrawings,
     ticketLimit,
     ticketStop,
     paperCount,
@@ -544,11 +569,37 @@ export function ChartWidget() {
     };
 
     const clickHandler = (param: MouseEventParams<Time>) => {
-      if (drawToolRef.current !== "hline" || !param.point) return;
-      const price = series.coordinateToPrice(param.point.y);
-      if (price == null || !Number.isFinite(price)) return;
+      const tool = drawToolRef.current;
+      if (tool === "none" || tool === "crosshair" || !param.point) return;
+      if (drawingPrefsRef.current.lockDrawings) return;
+
+      const priceRaw = series.coordinateToPrice(param.point.y);
+      const time = crosshairTimeToUnix(param);
+      if (priceRaw == null || !Number.isFinite(priceRaw) || time == null) return;
+
       const coin = useTerminalStore.getState().selectedCoin;
-      useChartToolsStore.getState().addHorizontalLine(coin, price as number, "LINE");
+      const candles = useChartAnalyticsStore.getState().displayCandles;
+      const price = drawingPrefsRef.current.magnet
+        ? snapPriceToCandle(candles, time, priceRaw as number)
+        : (priceRaw as number);
+      const store = useChartToolsStore.getState();
+
+      if (tool === "hline") {
+        store.addHorizontalLine(coin, price);
+        return;
+      }
+
+      if (tool === "trendline") {
+        const draft = trendDraftRef.current;
+        if (!draft) {
+          trendDraftRef.current = { time, price };
+          setTrendDraft({ time, price });
+          return;
+        }
+        store.addTrendLine(coin, draft.time, draft.price, time, price);
+        trendDraftRef.current = null;
+        setTrendDraft(null);
+      }
     };
 
     chart.subscribeCrosshairMove(crossHandler);
@@ -572,35 +623,44 @@ export function ChartWidget() {
       onClick={(e) => e.stopPropagation()}
     >
       <ChartAnalyticsToolbar coin={selectedCoin} />
-      <ChartStudiesBar coin={selectedCoin} />
-      <div className="relative flex min-h-0 flex-1 flex-col" style={{ contain: "layout paint" }}>
-        <div className="relative min-h-0 flex-1">
-          <ChartIndicatorLegend values={legend} coin={selectedCoin} candles={displayCandles} />
-          {historyLoading && displayLen === 0 ? (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
-              <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
-            </div>
-          ) : historyLoading ? (
-            <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-[#131722]/80 px-1.5 py-0.5">
-              <span className="text-[9px] uppercase tracking-widest text-slate-500">Updating {timeframe}…</span>
-            </div>
-          ) : null}
-          <div ref={containerRef} className="absolute inset-0" />
-          <VolumeProfileOverlay
-            candles={displayCandles}
-            visible={volProfileWanted}
-          />
+      <div className="relative flex min-h-0 flex-1" style={{ contain: "layout paint" }}>
+        <ChartDrawingToolbar coin={selectedCoin} />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <ChartIndicatorLegend values={legend} coin={selectedCoin} candles={displayCandles} />
+            {historyLoading && displayLen === 0 ? (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
+              </div>
+            ) : historyLoading ? (
+              <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-[#131722]/80 px-1.5 py-0.5">
+                <span className="text-[9px] uppercase tracking-widest text-slate-500">Updating {timeframe}…</span>
+              </div>
+            ) : null}
+            <div ref={containerRef} className="absolute inset-0" />
+            <ChartDrawingsOverlay
+              coin={selectedCoin}
+              chartRef={chartRef}
+              seriesRef={seriesRef}
+              containerRef={containerRef}
+              draftPoint={trendDraft}
+            />
+            <VolumeProfileOverlay
+              candles={displayCandles}
+              visible={volProfileWanted}
+            />
+          </div>
+          {paneIds.map((id) => (
+            <ChartIndicatorPane
+              key={id}
+              indicatorId={id}
+              candles={displayCandles}
+              mainChartRef={chartRef}
+            />
+          ))}
+          <IndicatorsModal />
+          <IndicatorSettingsModal />
         </div>
-        {paneIds.map((id) => (
-          <ChartIndicatorPane
-            key={id}
-            indicatorId={id}
-            candles={displayCandles}
-            mainChartRef={chartRef}
-          />
-        ))}
-        <IndicatorsModal />
-        <IndicatorSettingsModal />
       </div>
     </div>
   );
