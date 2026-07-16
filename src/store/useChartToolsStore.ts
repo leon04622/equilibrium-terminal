@@ -145,6 +145,12 @@ export interface ChartToolsState {
     time2: number,
     price2: number,
   ) => void;
+  updateTrendLine: (
+    coin: string,
+    id: string,
+    patch: Partial<Pick<ChartTrendLine, "time1" | "price1" | "time2" | "price2">>,
+  ) => void;
+  updateHorizontalLine: (coin: string, id: string, price: number) => void;
   removeHorizontalLine: (coin: string, id: string) => void;
   clearHorizontalLines: (coin: string) => void;
   clearDrawings: (coin: string) => void;
@@ -299,6 +305,28 @@ export const useChartToolsStore = create<ChartToolsState>()(
       const nextDrawTool = get().drawingPrefs.stayInDrawingMode ? get().drawTool : "none";
       set({ trendLinesByCoin, drawTool: nextDrawTool });
       savePersist({ ...snapshot(get()), trendLinesByCoin });
+    },
+
+    updateTrendLine: (coin, id, patch) => {
+      const lines = get().trendLinesByCoin[coin] ?? [];
+      const idx = lines.findIndex((l) => l.id === id);
+      if (idx < 0) return;
+      const next = [...lines];
+      next[idx] = { ...next[idx]!, ...patch };
+      const trendLinesByCoin = { ...get().trendLinesByCoin, [coin]: next };
+      set({ trendLinesByCoin });
+      savePersist({ ...snapshot(get()), trendLinesByCoin });
+    },
+
+    updateHorizontalLine: (coin, id, price) => {
+      const lines = get().linesByCoin[coin] ?? [];
+      const idx = lines.findIndex((l) => l.id === id);
+      if (idx < 0) return;
+      const next = [...lines];
+      next[idx] = { ...next[idx]!, price };
+      const linesByCoin = { ...get().linesByCoin, [coin]: next };
+      set({ linesByCoin });
+      savePersist({ ...snapshot(get()), linesByCoin });
     },
 
     removeHorizontalLine: (coin, id) => {

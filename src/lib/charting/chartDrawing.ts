@@ -140,3 +140,86 @@ export function extendLineThroughBox(
   }
   return [minP, maxP];
 }
+
+export const DRAWING_HANDLE_HIT_PX = 12;
+export const DRAWING_LINE_HIT_PX = 8;
+
+export function distanceToInfiniteLine(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.001) return Math.hypot(px - ax, py - ay);
+  return Math.abs(dy * px - dx * py + bx * ay - by * ax) / len;
+}
+
+export function chartPointToPixel(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  time: number,
+  price: number,
+): PixelPoint | null {
+  const x = chart.timeScale().timeToCoordinate(time as UTCTimestamp);
+  const y = series.priceToCoordinate(price);
+  if (x == null || y == null) return null;
+  return { x, y };
+}
+
+export type DrawingHit =
+  | { type: "trend-endpoint"; lineId: string; endpoint: 1 | 2 }
+  | { type: "trend-body"; lineId: string }
+  | { type: "hline"; lineId: string };
+
+/** Find topmost drawing under a chart pixel (HL-style hit priority). */
+export function findDrawingHit(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  x: number,
+  y: number,
+  trendLines: { id: string; time1: number; price1: number; time2: number; price2: number }[],
+  hlines: { id: string; price: number }[],
+): DrawingHit | null {
+  for (let i = trendLines.length - 1; i >= 0; i--) {
+    const line = trendLines[i]!;
+    const c1 = chartPointToPixel(chart, series, line.time1, line.price1);
+    const c2 = chartPointToPixel(chart, series, line.time2, line.price2);
+    if (c1 && Math.hypot(x - c1.x, y - c1.y) <= DRAWING_HANDLE_HIT_PX) {
+      return { type: "trend-endpoint", lineId: line.id, endpoint: 1 };
+    }
+    if (c2 && Math.hypot(x - c2.x, y - c2.y) <= DRAWING_HANDLE_HIT_PX) {
+      return { type: "trend-endpoint", lineId: line.id, endpoint: 2 };
+    }
+  }
+
+  for (let i = trendLines.length - 1; i >= 0; i--) {
+    const line = trendLines[i]!;
+    const c1 = chartPointToPixel(chart, series, line.time1, line.price1);
+    const c2 = chartPointToPixel(chart, series, line.time2, line.price2);
+    if (!c1 || !c2) continue;
+    if (
+      Math.hypot(x - c1.x, y - c1.y) <= DRAWING_HANDLE_HIT_PX ||
+      Math.hypot(x - c2.x, y - c2.y) <= DRAWING_HANDLE_HIT_PX
+    ) {
+      continue;
+    }
+    if (distanceToInfiniteLine(x, y, c1.x, c1.y, c2.x, c2.y) <= DRAWING_LINE_HIT_PX) {
+      return { type: "trend-body", lineId: line.id };
+    }
+  }
+
+  for (let i = hlines.length - 1; i >= 0; i--) {
+    const line = hlines[i]!;
+    const hy = series.priceToCoordinate(line.price);
+    if (hy != null && Math.abs(y - hy) <= DRAWING_LINE_HIT_PX) {
+      return { type: "hline", lineId: line.id };
+    }
+  }
+
+  return null;
+}
