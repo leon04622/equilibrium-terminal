@@ -55,6 +55,23 @@ export type ChartDrawTool =
 
 export type LineExtend = "segment" | "both" | "right" | "left";
 
+export type DrawingLineStyle = "solid" | "dashed" | "dotted";
+
+export const DRAWING_STROKE_WIDTHS = [1, 2, 3, 4] as const;
+
+export const DRAWING_COLOR_PRESETS = [
+  "#62eec4",
+  "#2962ff",
+  "#f23645",
+  "#ff9800",
+  "#9c27b0",
+  "#787b86",
+  "#26a69a",
+  "#ef5350",
+  "#f5c84c",
+  "#d1d4dc",
+] as const;
+
 export type ChartDrawing =
   | {
       id: string;
@@ -65,6 +82,9 @@ export type ChartDrawing =
       extend: LineExtend;
       variant: "trend" | "ray" | "info" | "extended" | "angle" | "regression";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -74,6 +94,9 @@ export type ChartDrawing =
       price: number;
       fromTime?: number;
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -82,6 +105,9 @@ export type ChartDrawing =
       kind: "vline";
       time: number;
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -91,6 +117,9 @@ export type ChartDrawing =
       time: number;
       price: number;
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -102,6 +131,9 @@ export type ChartDrawing =
       p3: ChartPoint;
       variant: "parallel" | "flat" | "disjoint";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -113,6 +145,9 @@ export type ChartDrawing =
       p3: ChartPoint;
       variant: "standard" | "schiff" | "modified" | "inside";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -123,6 +158,9 @@ export type ChartDrawing =
       p2: ChartPoint;
       variant: "retracement" | "extension" | "channel" | "timezone" | "fan" | "time" | "circles";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -133,6 +171,9 @@ export type ChartDrawing =
       p2: ChartPoint;
       variant: "box" | "fan" | "square";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -144,6 +185,9 @@ export type ChartDrawing =
       variant: "rectangle" | "circle" | "brush" | "highlighter";
       path?: ChartPoint[];
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -154,6 +198,9 @@ export type ChartDrawing =
       text: string;
       variant: "text" | "note" | "callout";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -163,6 +210,9 @@ export type ChartDrawing =
       points: ChartPoint[];
       variant: "xabcd" | "hs" | "elliott";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -173,6 +223,9 @@ export type ChartDrawing =
       p2: ChartPoint;
       variant: "long" | "short" | "measure";
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     }
   | {
@@ -182,6 +235,9 @@ export type ChartDrawing =
       point: ChartPoint;
       emoji: string;
       color: string;
+      strokeWidth?: number;
+      lineStyle?: DrawingLineStyle;
+      locked?: boolean;
       createdAt: number;
     };
 

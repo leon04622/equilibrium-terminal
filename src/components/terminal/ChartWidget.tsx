@@ -16,6 +16,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ChartDrawingToolbar } from "@/components/charting/ChartDrawingToolbar";
+import { ChartDrawingSelectionToolbar } from "@/components/charting/ChartDrawingSelectionToolbar";
 import { ChartDrawingsOverlay, type DrawingDraft, type DrawingEditStart, type DrawingLiveEdit } from "@/components/charting/ChartDrawingsOverlay";
 import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
@@ -32,6 +33,7 @@ import {
   specForTool,
 } from "@/lib/charting/drawingEngine";
 import { findTopDrawingHit } from "@/lib/charting/drawingRender";
+import { isDrawingLocked } from "@/lib/charting/drawingStyle";
 import type { ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
   applyOverlayIndicators,
@@ -276,6 +278,7 @@ export function ChartWidget() {
   const indicatorDisplay = useChartToolsStore((s) => s.indicatorDisplay);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const drawingCount = useChartToolsStore((s) => s.drawingsByCoin[selectedCoin]?.length ?? 0);
+  const chartDrawings = useChartToolsStore((s) => s.drawingsByCoin[selectedCoin]);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
@@ -315,6 +318,10 @@ export function ChartWidget() {
   const dragCaptureActive = isActiveDrawCapture(drawTool);
   const canEditDrawings = !hideDrawings && !lockDrawings && !drawingToolActive;
   const blockChartPan = drawingToolActive || editingDrawing;
+  const selectedDrawing = useMemo(() => {
+    if (!selectedDrawingId) return null;
+    return (chartDrawings ?? []).find((d) => d.id === selectedDrawingId) ?? null;
+  }, [chartDrawings, selectedDrawingId]);
 
   const indicatorsKey = useMemo(
     () => indicatorSettingsFingerprint(indicators, indicatorSettings, indicatorDisplay),
@@ -849,18 +856,22 @@ export function ChartWidget() {
     (start: DrawingEditStart, e: React.PointerEvent) => {
       if (drawingPrefsRef.current.lockDrawings) return;
 
+      setSelectedDrawingId(start.drawingId);
+
+      if (isDrawingLocked(start.snapshot)) {
+        e.preventDefault();
+        return;
+      }
+
       const pt = resolveChartPoint(e.clientX, e.clientY);
       if (!pt) return;
 
-      const wasSelected = selectedDrawingIdRef.current === start.drawingId;
       const originX = e.clientX;
       const originY = e.clientY;
       let dragging = false;
 
       const session: DrawingEditSession =
         start.part === "body" ? { ...start, anchor: pt } : start;
-
-      setSelectedDrawingId(start.drawingId);
 
       const onMove = (ev: PointerEvent) => {
         const movePt = resolveChartPoint(ev.clientX, ev.clientY);
@@ -884,10 +895,7 @@ export function ChartWidget() {
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
 
-        if (!dragging) {
-          if (wasSelected) deleteDrawing(start.drawingId);
-          return;
-        }
+        if (!dragging) return;
 
         const active = editSessionRef.current;
         editSessionRef.current = null;
@@ -903,7 +911,7 @@ export function ChartWidget() {
       window.addEventListener("pointercancel", onUp);
       e.preventDefault();
     },
-    [applyLiveEdit, commitEdit, deleteDrawing, resolveChartPoint],
+    [applyLiveEdit, commitEdit, resolveChartPoint],
   );
 
   useEffect(() => {
@@ -1133,6 +1141,17 @@ export function ChartWidget() {
               editable={canEditDrawings}
               onEditStart={onEditStart}
             />
+            {canEditDrawings && selectedDrawing ? (
+              <ChartDrawingSelectionToolbar
+                coin={selectedCoin}
+                drawing={liveEdit?.drawing?.id === selectedDrawing.id ? liveEdit.drawing : selectedDrawing}
+                chartRef={chartRef}
+                seriesRef={seriesRef}
+                containerRef={containerRef}
+                onDelete={() => deleteDrawing(selectedDrawing.id)}
+                onDismiss={() => setSelectedDrawingId(null)}
+              />
+            ) : null}
             <VolumeProfileOverlay
               candles={displayCandles}
               visible={volProfileWanted}

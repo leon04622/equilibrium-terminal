@@ -16,6 +16,7 @@ import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
 
 import { colorForDrawTool, effectiveDrawingColor, fibLevelColor, SELECTED_COLOR } from "@/lib/charting/drawingColors";
+import { drawingStrokeDash, drawingStrokeWidth, isDrawingLocked } from "@/lib/charting/drawingStyle";
 
 const EMPTY_DRAWINGS: ChartDrawing[] = [];
 const HIT_STROKE_PX = 14;
@@ -41,10 +42,6 @@ export interface DrawingDraft {
 
 function strokeColor(selected: boolean, base: string): string {
   return selected ? SELECTED_COLOR : base;
-}
-
-function strokeWidth(selected: boolean): number {
-  return selected ? 2 : 1.5;
 }
 
 function EndpointHandle({
@@ -150,7 +147,8 @@ function renderLineDrawing(
         x2={seg[1].x}
         y2={seg[1].y}
         stroke={color}
-        strokeWidth={strokeWidth(selected)}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
+        strokeDasharray={drawingStrokeDash(drawing.lineStyle)}
         strokeLinecap="round"
         className="pointer-events-none"
       />
@@ -224,7 +222,15 @@ function renderHline(
       }
     >
       <line x1={x1} y1={y} x2={x2} y2={y} stroke="transparent" strokeWidth={HIT_STROKE_PX} />
-      <line x1={x1} y1={y} x2={x2} y2={y} stroke={color} strokeWidth={strokeWidth(selected)} />
+      <line
+        x1={x1}
+        y1={y}
+        x2={x2}
+        y2={y}
+        stroke={color}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
+        strokeDasharray={drawingStrokeDash(drawing.lineStyle)}
+      />
     </g>
   );
 }
@@ -255,7 +261,7 @@ function renderVline(
       }
     >
       <line x1={x} y1={0} x2={x} y2={height} stroke="transparent" strokeWidth={HIT_STROKE_PX} />
-      <line x1={x} y1={0} x2={x} y2={height} stroke={color} strokeWidth={strokeWidth(selected)} />
+      <line x1={x} y1={0} x2={x} y2={height} stroke={color} strokeWidth={drawingStrokeWidth(drawing, selected)} />
     </g>
   );
 }
@@ -287,8 +293,8 @@ function renderCross(
           : undefined
       }
     >
-      <line x1={0} y1={px.y} x2={width} y2={px.y} stroke={color} strokeWidth={strokeWidth(selected)} />
-      <line x1={px.x} y1={0} x2={px.x} y2={height} stroke={color} strokeWidth={strokeWidth(selected)} />
+      <line x1={0} y1={px.y} x2={width} y2={px.y} stroke={color} strokeWidth={drawingStrokeWidth(drawing, selected)} />
+      <line x1={px.x} y1={0} x2={px.x} y2={height} stroke={color} strokeWidth={drawingStrokeWidth(drawing, selected)} />
       <circle cx={px.x} cy={px.y} r={HIT_STROKE_PX} fill="transparent" />
     </g>
   );
@@ -334,7 +340,7 @@ function renderChannel(
           x2={seg1[1].x}
           y2={seg1[1].y}
           stroke={color}
-          strokeWidth={strokeWidth(selected)}
+          strokeWidth={drawingStrokeWidth(drawing, selected)}
         />
       ) : null}
       {seg2 ? (
@@ -344,7 +350,7 @@ function renderChannel(
           x2={seg2[1].x}
           y2={seg2[1].y}
           stroke={color}
-          strokeWidth={strokeWidth(selected)}
+          strokeWidth={drawingStrokeWidth(drawing, selected)}
         />
       ) : null}
       {pts.map((p, i) =>
@@ -428,7 +434,7 @@ function renderPitchfork(
               x2={seg[1].x}
               y2={seg[1].y}
               stroke={color}
-              strokeWidth={strokeWidth(selected)}
+              strokeWidth={drawingStrokeWidth(drawing, selected)}
             />
           ) : null,
       )}
@@ -615,7 +621,7 @@ function renderFib(
           x2={baseSeg[1].x}
           y2={baseSeg[1].y}
           stroke={color}
-          strokeWidth={strokeWidth(selected)}
+          strokeWidth={drawingStrokeWidth(drawing, selected)}
         />
       ) : null}
       {elements}
@@ -673,7 +679,7 @@ function renderGann(
         height={y2 - y1}
         fill={drawing.variant === "box" ? `${color}18` : "none"}
         stroke={color}
-        strokeWidth={strokeWidth(selected)}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
       />,
     );
     const steps = 4;
@@ -814,7 +820,7 @@ function renderRect(
           ry={ry}
           fill={`${color}15`}
           stroke={color}
-          strokeWidth={strokeWidth(selected)}
+          strokeWidth={drawingStrokeWidth(drawing, selected)}
           className={editable ? "pointer-events-auto cursor-grab" : "pointer-events-none"}
           onPointerDown={
             editable
@@ -858,7 +864,7 @@ function renderRect(
         height={h}
         fill={`${color}15`}
         stroke={color}
-        strokeWidth={strokeWidth(selected)}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
         className={editable ? "pointer-events-auto cursor-grab" : "pointer-events-none"}
         onPointerDown={
           editable
@@ -970,7 +976,7 @@ function renderPattern(
         d={d}
         fill="none"
         stroke={color}
-        strokeWidth={strokeWidth(selected)}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
         className={editable ? "pointer-events-auto cursor-grab" : "pointer-events-none"}
         onPointerDown={
           editable
@@ -1036,7 +1042,7 @@ function renderPosition(
         height={h}
         fill={fill}
         stroke={stroke}
-        strokeWidth={strokeWidth(selected)}
+        strokeWidth={drawingStrokeWidth(drawing, selected)}
         strokeDasharray={isMeasure ? "5 4" : undefined}
         className={editable ? "pointer-events-auto cursor-grab" : "pointer-events-none"}
         onPointerDown={
@@ -1393,7 +1399,7 @@ export function ChartDrawingsOverlay({
           size.width,
           size.height,
           selectedDrawingId === drawing.id,
-          editable,
+          editable && !isDrawingLocked(drawing),
           onEditStart,
         ),
       )}
