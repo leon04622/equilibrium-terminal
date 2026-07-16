@@ -53,6 +53,8 @@ import type { NormalizedCandle } from "@/types/terminal-schema";
 
 type DrawingEditSession = DrawingEditStart & { anchor?: ChartPoint };
 
+const SELECT_DRAG_THRESHOLD = 5;
+
 function applyEditToDrawing(
   drawing: ChartDrawing,
   part: "body" | "endpoint",
@@ -253,7 +255,12 @@ export function ChartWidget() {
   const [draft, setDraft] = useState<DrawingDraft | null>(null);
   const [liveEdit, setLiveEdit] = useState<DrawingLiveEdit | null>(null);
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
+  const selectedDrawingIdRef = useRef<string | null>(null);
   const [editingDrawing, setEditingDrawing] = useState(false);
+
+  useEffect(() => {
+    selectedDrawingIdRef.current = selectedDrawingId;
+  }, [selectedDrawingId]);
 
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
   const candleVersion = useTerminalStore((s) => s.candleVersion);
@@ -340,20 +347,63 @@ export function ChartWidget() {
     });
   }, [blockChartPan]);
 
+  const deleteDrawing = useCallback((id: string) => {
+    const coin = useTerminalStore.getState().selectedCoin;
+    useChartToolsStore.getState().removeDrawing(coin, id);
+    setSelectedDrawingId((cur) => (cur === id ? null : cur));
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (drawingSessionRef.current || draft) {
-        clearDrawingDraft();
+      if (e.key === "Escape") {
+        if (drawingSessionRef.current || draft) {
+          clearDrawingDraft();
+        }
+        if (editSessionRef.current) {
+          clearEditSession();
+          setSelectedDrawingId(null);
+        }
+        return;
       }
-      if (editSessionRef.current) {
-        clearEditSession();
-        setSelectedDrawingId(null);
+
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!canEditDrawings || !selectedDrawingIdRef.current) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
       }
+      e.preventDefault();
+      deleteDrawing(selectedDrawingIdRef.current);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearDrawingDraft, clearEditSession, draft]);
+  }, [canEditDrawings, clearDrawingDraft, clearEditSession, deleteDrawing, draft]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !canEditDrawings) return;
+
+    const onPointerDown = (ev: PointerEvent) => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      if (!chart || !series) return;
+      const rect = el.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const coin = useTerminalStore.getState().selectedCoin;
+      const drawings = useChartToolsStore.getState().drawingsByCoin[coin] ?? [];
+      const hit = findTopDrawingHit(drawings, chart, series, x, y, rect.width, rect.height);
+      if (!hit) setSelectedDrawingId(null);
+    };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    return () => el.removeEventListener("pointerdown", onPointerDown);
+  }, [canEditDrawings]);
 
   const syncPriceLines = useCallback((series: ISeriesApi<"Candlestick">) => {
     for (const pl of priceLinesRef.current) {
@@ -802,29 +852,47 @@ export function ChartWidget() {
       const pt = resolveChartPoint(e.clientX, e.clientY);
       if (!pt) return;
 
+      const wasSelected = selectedDrawingIdRef.current === start.drawingId;
+      const originX = e.clientX;
+      const originY = e.clientY;
+      let dragging = false;
+
       const session: DrawingEditSession =
         start.part === "body" ? { ...start, anchor: pt } : start;
 
-      editSessionRef.current = session;
       setSelectedDrawingId(start.drawingId);
-      setEditingDrawing(true);
-      applyLiveEdit(session, pt);
 
       const onMove = (ev: PointerEvent) => {
         const movePt = resolveChartPoint(ev.clientX, ev.clientY);
+        if (!movePt) return;
+
+        if (!dragging) {
+          if (Math.hypot(ev.clientX - originX, ev.clientY - originY) < SELECT_DRAG_THRESHOLD) return;
+          dragging = true;
+          editSessionRef.current = session;
+          setEditingDrawing(true);
+          applyLiveEdit(session, movePt);
+          return;
+        }
+
         const active = editSessionRef.current;
-        if (!movePt || !active) return;
-        applyLiveEdit(active, movePt);
+        if (active) applyLiveEdit(active, movePt);
       };
 
       const onUp = (ev: PointerEvent) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+
+        if (!dragging) {
+          if (wasSelected) deleteDrawing(start.drawingId);
+          return;
+        }
+
         const active = editSessionRef.current;
         editSessionRef.current = null;
         setLiveEdit(null);
         setEditingDrawing(false);
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
 
         const endPt = resolveChartPoint(ev.clientX, ev.clientY);
         if (active && endPt) commitEdit(active, endPt);
@@ -835,7 +903,7 @@ export function ChartWidget() {
       window.addEventListener("pointercancel", onUp);
       e.preventDefault();
     },
-    [applyLiveEdit, commitEdit, resolveChartPoint],
+    [applyLiveEdit, commitEdit, deleteDrawing, resolveChartPoint],
   );
 
   useEffect(() => {

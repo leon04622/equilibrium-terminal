@@ -15,9 +15,9 @@ import {
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
 
+import { colorForDrawTool, effectiveDrawingColor, fibLevelColor, SELECTED_COLOR } from "@/lib/charting/drawingColors";
+
 const EMPTY_DRAWINGS: ChartDrawing[] = [];
-const PREVIEW_COLOR = "#5b9cf6";
-const SELECTED_COLOR = "#62eec4";
 const HIT_STROKE_PX = 14;
 
 export interface DrawingLiveEdit {
@@ -119,7 +119,7 @@ function renderLineDrawing(
   editable: boolean,
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void,
 ): ReactNode {
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const seg = linePixels(chart, series, drawing.p1, drawing.p2, width, height, drawing.extend);
   const c1 = toPixel(chart, series, drawing.p1);
   const c2 = toPixel(chart, series, drawing.p2);
@@ -206,7 +206,7 @@ function renderHline(
 ): ReactNode {
   const y = series.priceToCoordinate(drawing.price);
   if (y == null) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const x1 = drawing.fromTime != null ? chart.timeScale().timeToCoordinate(drawing.fromTime as UTCTimestamp) ?? 0 : 0;
   const x2 = width;
 
@@ -239,7 +239,7 @@ function renderVline(
 ): ReactNode {
   const x = chart.timeScale().timeToCoordinate(drawing.time as UTCTimestamp);
   if (x == null) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
 
   return (
     <g
@@ -272,7 +272,7 @@ function renderCross(
 ): ReactNode {
   const px = toPixel(chart, series, { time: drawing.time, price: drawing.price });
   if (!px) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
 
   return (
     <g
@@ -305,7 +305,7 @@ function renderChannel(
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void,
 ): ReactNode {
   const [a, b, c, d] = channelLines(drawing);
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const pts = [a, b, c, d].map((p) => toPixel(chart, series, p));
   if (pts.some((p) => !p)) return null;
 
@@ -407,7 +407,7 @@ function renderPitchfork(
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void,
 ): ReactNode {
   const [apex, left, right] = pitchforkLines(drawing);
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const handles = [drawing.p1, drawing.p2, drawing.p3];
 
   const lines = [
@@ -482,29 +482,31 @@ function renderFib(
   const c1 = toPixel(chart, series, drawing.p1);
   const c2 = toPixel(chart, series, drawing.p2);
   if (!c1 || !c2) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const minX = Math.min(c1.x, c2.x);
   const maxX = Math.max(c1.x, c2.x);
 
   const elements: ReactNode[] = [];
 
   if (drawing.variant === "timezone" || drawing.variant === "time") {
-    for (const level of FIB_LEVELS) {
+    FIB_LEVELS.forEach((level, i) => {
       const t = drawing.p1.time + (drawing.p2.time - drawing.p1.time) * level;
       const x = chart.timeScale().timeToCoordinate(t as UTCTimestamp);
-      if (x == null) continue;
+      if (x == null) return;
+      const levelColor = selected ? SELECTED_COLOR : fibLevelColor(i);
       elements.push(
-        <line key={level} x1={x} y1={0} x2={x} y2={height} stroke={color} strokeWidth={1} opacity={0.7} />,
+        <line key={level} x1={x} y1={0} x2={x} y2={height} stroke={levelColor} strokeWidth={1} opacity={0.7} />,
       );
-    }
+    });
   } else if (drawing.variant === "fan") {
-    for (const level of FIB_LEVELS) {
+    FIB_LEVELS.forEach((level, i) => {
       const pt = {
         time: drawing.p1.time + (drawing.p2.time - drawing.p1.time) * level,
         price: drawing.p1.price + (drawing.p2.price - drawing.p1.price) * level,
       };
       const seg = linePixels(chart, series, drawing.p1, pt, width, height, "right");
-      if (!seg) continue;
+      if (!seg) return;
+      const levelColor = selected ? SELECTED_COLOR : fibLevelColor(i);
       elements.push(
         <line
           key={level}
@@ -512,18 +514,19 @@ function renderFib(
           y1={seg[0].y}
           x2={seg[1].x}
           y2={seg[1].y}
-          stroke={color}
+          stroke={levelColor}
           strokeWidth={1}
           opacity={0.8}
         />,
       );
-    }
+    });
   } else if (drawing.variant === "circles") {
     const cx = (c1.x + c2.x) / 2;
     const cy = (c1.y + c2.y) / 2;
     const rx = Math.abs(c2.x - c1.x) / 2;
     const ry = Math.abs(c2.y - c1.y) / 2;
-    for (const level of FIB_LEVELS) {
+    FIB_LEVELS.forEach((level, i) => {
+      const levelColor = selected ? SELECTED_COLOR : fibLevelColor(i);
       elements.push(
         <ellipse
           key={level}
@@ -532,26 +535,27 @@ function renderFib(
           rx={rx * level || 1}
           ry={ry * level || 1}
           fill="none"
-          stroke={color}
+          stroke={levelColor}
           strokeWidth={1}
           opacity={0.75}
         />,
       );
-    }
+    });
   } else {
-    for (const level of FIB_LEVELS) {
+    FIB_LEVELS.forEach((level, i) => {
       const price = drawing.p2.price + (drawing.p1.price - drawing.p2.price) * level;
       const y = series.priceToCoordinate(price);
-      if (y == null) continue;
+      if (y == null) return;
+      const levelColor = selected ? SELECTED_COLOR : fibLevelColor(i);
       elements.push(
         <g key={level}>
-          <line x1={minX} y1={y} x2={maxX} y2={y} stroke={color} strokeWidth={1} opacity={0.85} />
-          <text x={maxX + 4} y={y + 3} fill={color} fontSize={9} className="select-none">
+          <line x1={minX} y1={y} x2={maxX} y2={y} stroke={levelColor} strokeWidth={1} opacity={0.85} />
+          <text x={maxX + 4} y={y + 3} fill={levelColor} fontSize={9} className="select-none">
             {(level * 100).toFixed(1)}%
           </text>
         </g>,
       );
-    }
+    });
     if (drawing.variant === "channel") {
       const off = (drawing.p2.price - drawing.p1.price) * 0.382;
       const p3 = offsetPoint(drawing.p1, drawing.p1, drawing.p2, off);
@@ -652,7 +656,7 @@ function renderGann(
   const c1 = toPixel(chart, series, drawing.p1);
   const c2 = toPixel(chart, series, drawing.p2);
   if (!c1 || !c2) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const x1 = Math.min(c1.x, c2.x);
   const x2 = Math.max(c1.x, c2.x);
   const y1 = Math.min(c1.y, c2.y);
@@ -758,7 +762,7 @@ function renderRect(
   const c1 = toPixel(chart, series, drawing.p1);
   const c2 = toPixel(chart, series, drawing.p2);
   if (!c1 || !c2) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const x1 = Math.min(c1.x, c2.x);
   const y1 = Math.min(c1.y, c2.y);
   const w = Math.abs(c2.x - c1.x);
@@ -899,7 +903,7 @@ function renderText(
 ): ReactNode {
   const px = toPixel(chart, series, drawing.point);
   if (!px) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const isCallout = drawing.variant === "callout";
   const isNote = drawing.variant === "note";
 
@@ -957,7 +961,7 @@ function renderPattern(
 ): ReactNode {
   const coords = drawing.points.map((p) => toPixel(chart, series, p));
   if (coords.some((c) => !c)) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
   const d = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c!.x} ${c!.y}`).join(" ");
 
   return (
@@ -1017,7 +1021,7 @@ function renderPosition(
   const fill =
     isLong ? "#26a69a33" : isShort ? "#ef535033" : "#787b8622";
   const stroke =
-    isLong ? "#26a69a" : isShort ? "#ef5350" : strokeColor(selected, drawing.color);
+    isLong ? "#26a69a" : isShort ? "#ef5350" : strokeColor(selected, effectiveDrawingColor(drawing));
   const x1 = Math.min(c1.x, c2.x);
   const y1 = Math.min(c1.y, c2.y);
   const w = Math.abs(c2.x - c1.x);
@@ -1087,7 +1091,7 @@ function renderIcon(
 ): ReactNode {
   const px = toPixel(chart, series, drawing.point);
   if (!px) return null;
-  const color = strokeColor(selected, drawing.color);
+  const color = strokeColor(selected, effectiveDrawingColor(drawing));
 
   return (
     <g
@@ -1165,6 +1169,8 @@ function renderDraftPreview(
   }
   const pathPoints = draft.pathPoints ?? (draft.cursor ? [...(draft.pathPoints ?? []), draft.cursor] : draft.pathPoints);
 
+  const previewColor = colorForDrawTool(draft.tool);
+
   if (pathPoints && pathPoints.length >= 2) {
     const d = pathPoints
       .map((pt, i) => {
@@ -1176,7 +1182,7 @@ function renderDraftPreview(
       <path
         d={d}
         fill="none"
-        stroke={PREVIEW_COLOR}
+        stroke={previewColor}
         strokeWidth={draft.tool === "shape-highlighter" ? 8 : 2}
         strokeDasharray="5 4"
         opacity={draft.tool === "shape-highlighter" ? 0.35 : 1}
@@ -1189,7 +1195,7 @@ function renderDraftPreview(
   const previewDrawing = {
     id: "draft",
     coin: "",
-    color: PREVIEW_COLOR,
+    color: previewColor,
     createdAt: 0,
   } as ChartDrawing;
 
@@ -1197,15 +1203,15 @@ function renderDraftPreview(
     const px = toPixel(chart, series, points[0]!);
     if (!px) return null;
     if (draft.tool === "line-vline") {
-      return <line x1={px.x} y1={0} x2={px.x} y2={height} stroke={PREVIEW_COLOR} strokeDasharray="5 4" />;
+      return <line x1={px.x} y1={0} x2={px.x} y2={height} stroke={previewColor} strokeDasharray="5 4" />;
     }
     if (draft.tool === "line-hline" || draft.tool === "line-hray") {
       const y = series.priceToCoordinate(points[0]!.price);
       return y != null ? (
-        <line x1={0} y1={y} x2={width} y2={y} stroke={PREVIEW_COLOR} strokeDasharray="5 4" />
+        <line x1={0} y1={y} x2={width} y2={y} stroke={previewColor} strokeDasharray="5 4" />
       ) : null;
     }
-    return <circle cx={px.x} cy={px.y} r={4} fill={PREVIEW_COLOR} />;
+    return <circle cx={px.x} cy={px.y} r={4} fill={previewColor} />;
   }
 
   const temp = {
@@ -1302,9 +1308,9 @@ function renderDraftPreview(
     const d = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c!.x} ${c!.y}`).join(" ");
     return (
       <g>
-        <path d={d} fill="none" stroke={PREVIEW_COLOR} strokeDasharray="5 4" />
+        <path d={d} fill="none" stroke={previewColor} strokeDasharray="5 4" />
         {coords.map((c, i) => (
-          <circle key={i} cx={c!.x} cy={c!.y} r={4} fill={PREVIEW_COLOR} />
+          <circle key={i} cx={c!.x} cy={c!.y} r={4} fill={previewColor} />
         ))}
       </g>
     );

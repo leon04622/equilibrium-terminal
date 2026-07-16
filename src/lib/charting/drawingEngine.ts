@@ -1,5 +1,6 @@
 import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
 import type { ChartPoint } from "@/lib/charting/chartDrawing";
+import { colorForDrawTool } from "@/lib/charting/drawingColors";
 
 export type DrawInteraction =
   | "select"
@@ -98,7 +99,7 @@ export function createDrawing(
   text?: string,
 ): ChartDrawing | null {
   if (!points.length) return null;
-  const color = LINE_COLOR;
+  const color = colorForDrawTool(tool);
   const createdAt = Date.now();
 
   switch (tool) {
