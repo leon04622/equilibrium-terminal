@@ -1,6 +1,5 @@
 "use client";
 
-import { CandlestickChart, Link2, Pause, Play, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { CHART_TIMEFRAMES, TIMEFRAME_LABEL } from "@/lib/charting/chartTimeframes";
@@ -11,20 +10,12 @@ import { useTerminalStore } from "@/store/terminalStore";
 import type { ChartTimeframe } from "@/types/chart-analytics";
 
 export function ChartAnalyticsToolbar({ coin }: { coin: string }) {
-  const snapshot = useChartAnalyticsStore((s) => s.snapshot);
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
   const historyLoading = useChartAnalyticsStore((s) => s.historyLoading);
   const setTimeframe = useChartAnalyticsStore((s) => s.setTimeframe);
-  const setLinked = useChartAnalyticsStore((s) => s.setLinked);
-  const replayPlay = useChartAnalyticsStore((s) => s.replayPlay);
-  const replayPause = useChartAnalyticsStore((s) => s.replayPause);
-  const replayLive = useChartAnalyticsStore((s) => s.replayLive);
-  const replayScrub = useChartAnalyticsStore((s) => s.replayScrub);
 
   const connection = useTerminalStore((s) => s.connectionStatus);
   const book = useTerminalStore((s) => s.book);
-  const replay = snapshot?.replay;
-  const linked = snapshot?.sync.linked ?? true;
   const live = connection === "connected";
   const last = book?.mid;
 
@@ -82,48 +73,7 @@ export function ChartAnalyticsToolbar({ coin }: { coin: string }) {
         ))}
       </div>
 
-      <span className="shrink-0 text-slate-700">|</span>
-      <CandlestickChart className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
-      <span className="shrink-0 text-slate-700">|</span>
       <IndicatorsToolbarButton />
-
-      <div className="flex shrink-0 items-center gap-2 text-[10px] text-slate-500">
-        <button
-          type="button"
-          onClick={() => setLinked(!linked)}
-          className={cn("flex items-center gap-0.5", linked ? "text-[#5b9cf6]" : "text-slate-600")}
-          title="Linked chart sync"
-        >
-          <Link2 className="h-3 w-3" />
-          SYNC
-        </button>
-        <button
-          type="button"
-          onClick={replayLive}
-          className={cn("flex items-center gap-0.5", replay?.mode === "live" ? "text-[#5b9cf6]" : "")}
-          title="Live"
-        >
-          <Radio className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={replayPlay} className="text-slate-600 hover:text-slate-400" title="Replay">
-          <Play className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={replayPause} className="text-slate-600 hover:text-slate-400" title="Pause">
-          <Pause className="h-3 w-3" />
-        </button>
-        {replay && replay.rangeEnd > replay.rangeStart ? (
-          <input
-            type="range"
-            min={replay.rangeStart}
-            max={replay.rangeEnd}
-            value={replay.playheadTime ?? replay.rangeEnd}
-            onChange={(e) => replayScrub(Number(e.target.value))}
-            className="h-1 w-16 accent-[#2962ff]"
-            title="Scrub replay"
-          />
-        ) : null}
-        <span className="tabular-nums text-slate-600">{snapshot?.barCount ?? 0} bars</span>
-      </div>
     </div>
   );
 }

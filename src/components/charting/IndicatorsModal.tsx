@@ -176,20 +176,34 @@ export function IndicatorsModal() {
 export function IndicatorsToolbarButton() {
   const setOpen = useChartToolsStore((s) => s.setIndicatorsModalOpen);
   const count = useChartToolsStore((s) => s.indicators.length);
+  const active = count > 0;
 
   return (
     <button
       type="button"
       onClick={() => setOpen(true)}
       className={cn(
-        "flex shrink-0 items-center gap-1 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-[#2a2e39] hover:text-slate-200",
-        count > 0 && "text-[#5b9cf6]",
+        "ml-auto flex shrink-0 items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-medium transition-colors",
+        active
+          ? "border-[#2962ff]/50 bg-[#2962ff]/20 text-[#5b9cf6] hover:bg-[#2962ff]/30"
+          : "border-[#363a45] bg-[#1e222d] text-slate-200 hover:border-[#2962ff]/40 hover:bg-[#2a2e39] hover:text-white",
       )}
-      title="Indicators"
+      title="Add or manage chart indicators"
     >
-      <span className="font-serif text-[12px] italic leading-none text-slate-400">ƒx</span>
+      <span
+        className={cn(
+          "font-serif text-[14px] italic leading-none",
+          active ? "text-[#5b9cf6]" : "text-slate-300",
+        )}
+      >
+        ƒx
+      </span>
       <span>Indicators</span>
-      {count > 0 ? <span className="tabular-nums text-slate-500">({count})</span> : null}
+      {active ? (
+        <span className="rounded bg-[#2962ff]/25 px-1.5 py-0.5 text-[10px] tabular-nums text-[#5b9cf6]">
+          {count}
+        </span>
+      ) : null}
     </button>
   );
 }
