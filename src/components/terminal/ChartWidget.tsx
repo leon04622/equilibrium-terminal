@@ -150,7 +150,11 @@ export function ChartWidget() {
     [indicators, indicatorSettings, indicatorDisplay],
   );
   const paneIds = useMemo(() => paneIndicatorIds(indicators), [indicators]);
-  const toggleOverlay = useChartAnalyticsStore((s) => s.toggleOverlay);
+  const volProfileWanted = useMemo(
+    () => volumeProfileActive(indicators, indicatorDisplay),
+    [indicators, indicatorDisplay],
+  );
+  const setOverlayEnabled = useChartAnalyticsStore((s) => s.setOverlayEnabled);
 
   useEffect(() => {
     return useChartToolsStore.subscribe((s) => {
@@ -556,10 +560,8 @@ export function ChartWidget() {
   }, []);
 
   useEffect(() => {
-    const wantProfile = volumeProfileActive(indicators, indicatorDisplay);
-    const hasProfile = useChartAnalyticsStore.getState().overlays.includes("volume_profile");
-    if (wantProfile !== hasProfile) toggleOverlay("volume_profile");
-  }, [indicators, indicatorDisplay, toggleOverlay]);
+    setOverlayEnabled("volume_profile", volProfileWanted);
+  }, [volProfileWanted, setOverlayEnabled]);
 
   return (
     <div
@@ -586,7 +588,7 @@ export function ChartWidget() {
           <div ref={containerRef} className="absolute inset-0" />
           <VolumeProfileOverlay
             candles={displayCandles}
-            visible={volumeProfileActive(indicators, indicatorDisplay)}
+            visible={volProfileWanted}
           />
         </div>
         {paneIds.map((id) => (

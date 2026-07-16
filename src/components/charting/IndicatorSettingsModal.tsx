@@ -7,6 +7,7 @@ import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
 import {
   DEFAULT_INDICATOR_DISPLAY,
   defaultIndicatorDisplay,
+  indicatorDisplayEqual,
   resolveIndicatorDisplay,
   type IndicatorDisplaySettings,
 } from "@/lib/charting/indicatorDisplay";
@@ -53,8 +54,12 @@ export function IndicatorSettingsModal() {
 
   useEffect(() => {
     if (!targetId) return;
-    setDraftInputs(resolveIndicatorParams(targetId, savedInputs ?? defaultIndicatorParams(targetId)));
-    setDraftDisplay(resolveIndicatorDisplay(targetId, savedDisplay));
+    const nextInputs = resolveIndicatorParams(targetId, savedInputs ?? defaultIndicatorParams(targetId));
+    const nextDisplay = resolveIndicatorDisplay(targetId, savedDisplay);
+    setDraftInputs((prev) =>
+      JSON.stringify(prev) === JSON.stringify(nextInputs) ? prev : nextInputs,
+    );
+    setDraftDisplay((prev) => (indicatorDisplayEqual(prev, nextDisplay) ? prev : nextDisplay));
     setTab(hasIndicatorSettings(targetId) ? "inputs" : "style");
     setDefaultsOpen(false);
   }, [targetId, savedInputs, savedDisplay]);

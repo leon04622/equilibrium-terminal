@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Eye, EyeOff, MoreHorizontal, Settings2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
@@ -62,7 +62,7 @@ function OhlcField({ label, value, accent }: { label: string; value: string; acc
   );
 }
 
-function IndicatorLegendRow({
+const IndicatorLegendRow = memo(function IndicatorLegendRow({
   id,
   candles,
 }: {
@@ -71,13 +71,17 @@ function IndicatorLegendRow({
 }) {
   const [hovered, setHovered] = useState(false);
   const inputSettings = useChartToolsStore((s) => s.indicatorSettings[id]);
-  const display = useChartToolsStore((s) => resolveIndicatorDisplay(id, s.indicatorDisplay[id]));
+  const displayRaw = useChartToolsStore((s) => s.indicatorDisplay[id]);
+  const display = useMemo(() => resolveIndicatorDisplay(id, displayRaw), [id, displayRaw]);
   const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
   const removeIndicator = useChartToolsStore((s) => s.removeIndicator);
   const updateIndicatorDisplay = useChartToolsStore((s) => s.updateIndicatorDisplay);
 
   const title = indicatorLegendTitle(id, inputSettings);
-  const values = indicatorLegendValues(id, candles, inputSettings, display);
+  const values = useMemo(
+    () => indicatorLegendValues(id, candles, inputSettings, display),
+    [id, candles, inputSettings, display],
+  );
   const showValues = display.valuesInLegend && !hovered;
 
   const toggleVisible = () => {
@@ -143,7 +147,7 @@ function IndicatorLegendRow({
       )}
     </div>
   );
-}
+});
 
 export function ChartIndicatorLegend({
   values,
@@ -156,7 +160,7 @@ export function ChartIndicatorLegend({
 }) {
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
   const indicators = useChartToolsStore((s) => s.indicators);
-  const legendIds = chartLegendIndicatorIds(indicators);
+  const legendIds = useMemo(() => chartLegendIndicatorIds(indicators), [indicators]);
 
   return (
     <div

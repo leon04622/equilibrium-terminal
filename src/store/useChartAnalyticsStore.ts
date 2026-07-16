@@ -62,6 +62,8 @@ export interface ChartAnalyticsState {
 
   toggleOverlay: (layer: ChartOverlayLayer) => void;
 
+  setOverlayEnabled: (layer: ChartOverlayLayer, enabled: boolean) => void;
+
   setLinked: (linked: boolean) => void;
 
   replayPlay: () => void;
@@ -148,6 +150,14 @@ export const useChartAnalyticsStore = create<ChartAnalyticsState>()(
 
       set({ overlays: next });
 
+    },
+
+    setOverlayEnabled: (layer, enabled) => {
+      const cur = get().overlays;
+      const has = cur.includes(layer);
+      if (enabled === has) return;
+      const next = enabled ? [...cur, layer] : cur.filter((l) => l !== layer);
+      set({ overlays: next });
     },
 
 

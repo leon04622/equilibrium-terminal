@@ -7,6 +7,7 @@ import {
 } from "@/lib/charting/indicatorCatalog";
 import {
   defaultIndicatorDisplay,
+  indicatorDisplayEqual,
   resolveIndicatorDisplay,
   sanitizeIndicatorDisplay,
   type IndicatorDisplaySettings,
@@ -159,9 +160,14 @@ export const useChartToolsStore = create<ChartToolsState>()(
     },
 
     updateIndicatorDisplay: (id, values) => {
+      const prev = get().indicatorDisplay[id];
+      const resolved = resolveIndicatorDisplay(id, { ...prev, ...values });
+      const before = resolveIndicatorDisplay(id, prev);
+      if (indicatorDisplayEqual(before, resolved)) return;
+
       const next = {
         ...get().indicatorDisplay,
-        [id]: resolveIndicatorDisplay(id, { ...get().indicatorDisplay[id], ...values }),
+        [id]: resolved,
       };
       set({ indicatorDisplay: next });
       savePersist({ ...snapshot(get()), indicatorDisplay: next });

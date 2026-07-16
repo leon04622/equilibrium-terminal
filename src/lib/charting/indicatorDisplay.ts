@@ -37,6 +37,19 @@ export function resolveIndicatorDisplay(
   };
 }
 
+export function indicatorDisplayEqual(
+  a: IndicatorDisplaySettings,
+  b: IndicatorDisplaySettings,
+): boolean {
+  return (
+    a.visible === b.visible &&
+    a.color === b.color &&
+    a.lineWidth === b.lineWidth &&
+    a.labelsOnScale === b.labelsOnScale &&
+    a.valuesInLegend === b.valuesInLegend
+  );
+}
+
 export function sanitizeIndicatorDisplay(
   raw: unknown,
 ): Record<string, IndicatorDisplaySettings> {
