@@ -15,6 +15,7 @@ import {
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
+import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
 import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
@@ -22,7 +23,7 @@ import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsM
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
 import { ChartStudiesBar } from "@/components/charting/ChartStudiesBar";
-import { ChartLegend, type ChartLegendValues } from "@/components/terminal/ChartLegend";
+import type { ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
   applyOverlayIndicators,
   clearOverlayIndicators,
@@ -135,6 +136,7 @@ export function ChartWidget() {
   const eventMarkerCount = useChartAnalyticsStore((s) => s.snapshot?.eventMarkers.length ?? 0);
   const indicators = useChartToolsStore((s) => s.indicators);
   const indicatorSettings = useChartToolsStore((s) => s.indicatorSettings);
+  const indicatorDisplay = useChartToolsStore((s) => s.indicatorDisplay);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const userLineCount = useChartToolsStore((s) => s.linesByCoin[selectedCoin]?.length ?? 0);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
@@ -144,8 +146,8 @@ export function ChartWidget() {
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
   const indicatorsKey = useMemo(
-    () => indicatorSettingsFingerprint(indicators, indicatorSettings),
-    [indicators, indicatorSettings],
+    () => indicatorSettingsFingerprint(indicators, indicatorSettings, indicatorDisplay),
+    [indicators, indicatorSettings, indicatorDisplay],
   );
   const paneIds = useMemo(() => paneIndicatorIds(indicators), [indicators]);
   const toggleOverlay = useChartAnalyticsStore((s) => s.toggleOverlay);
@@ -330,6 +332,7 @@ export function ChartWidget() {
       const candles = resolveCandles();
       const enabledIndicators = useChartToolsStore.getState().indicators;
       const settings = useChartToolsStore.getState().indicatorSettings;
+      const display = useChartToolsStore.getState().indicatorDisplay;
       const fp = candleFingerprint(candles, timeframe);
 
       if (candles.length === 0) {
@@ -367,7 +370,14 @@ export function ChartWidget() {
             { time: t, value: last.volume, color: EQ_CHART.volumeUp },
           );
           lastLegendRef.current = nextLegend;
-          applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current, settings);
+          applyOverlayIndicators(
+            chart,
+            candles,
+            enabledIndicators,
+            indicatorSeriesRef.current,
+            settings,
+            display,
+          );
           syncPriceLines(series);
           return;
         }
@@ -421,7 +431,14 @@ export function ChartWidget() {
         series.setMarkers([]);
       }
 
-      applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current, settings);
+      applyOverlayIndicators(
+        chart,
+        candles,
+        enabledIndicators,
+        indicatorSeriesRef.current,
+        settings,
+        display,
+      );
 
       syncPriceLines(series);
     };
@@ -539,10 +556,10 @@ export function ChartWidget() {
   }, []);
 
   useEffect(() => {
-    const wantProfile = volumeProfileActive(indicators);
+    const wantProfile = volumeProfileActive(indicators, indicatorDisplay);
     const hasProfile = useChartAnalyticsStore.getState().overlays.includes("volume_profile");
     if (wantProfile !== hasProfile) toggleOverlay("volume_profile");
-  }, [indicators, toggleOverlay]);
+  }, [indicators, indicatorDisplay, toggleOverlay]);
 
   return (
     <div
@@ -556,7 +573,7 @@ export function ChartWidget() {
       <ChartStudiesBar coin={selectedCoin} />
       <div className="relative flex min-h-0 flex-1 flex-col" style={{ contain: "layout paint" }}>
         <div className="relative min-h-0 flex-1">
-          <ChartLegend values={legend} coin={selectedCoin} />
+          <ChartIndicatorLegend values={legend} coin={selectedCoin} candles={displayCandles} />
           {historyLoading && displayLen === 0 ? (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
               <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
@@ -569,7 +586,7 @@ export function ChartWidget() {
           <div ref={containerRef} className="absolute inset-0" />
           <VolumeProfileOverlay
             candles={displayCandles}
-            visible={volumeProfileActive(indicators)}
+            visible={volumeProfileActive(indicators, indicatorDisplay)}
           />
         </div>
         {paneIds.map((id) => (

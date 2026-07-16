@@ -1,6 +1,10 @@
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID, indicatorPane } from "@/lib/charting/indicatorCatalog";
+import {
+  resolveIndicatorDisplay,
+  type IndicatorDisplaySettings,
+} from "@/lib/charting/indicatorDisplay";
 import type { IndicatorParamValues } from "@/lib/charting/indicatorParams";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
@@ -24,18 +28,25 @@ function ensureLine(
   map: OverlaySeriesMap,
   key: string,
   color: string,
-  width: 1 | 2 = 1,
+  width: 1 | 2 | 3 = 1,
+  lastValueVisible = true,
 ): ISeriesApi<"Line"> {
   let series = map.get(key) as ISeriesApi<"Line"> | undefined;
   if (!series) {
     series = chart.addLineSeries({
       color,
-      lineWidth: width,
+      lineWidth: width <= 2 ? (width as 1 | 2) : 2,
       priceLineVisible: false,
-      lastValueVisible: true,
+      lastValueVisible,
       crosshairMarkerVisible: false,
     });
     map.set(key, series);
+  } else {
+    series.applyOptions({
+      color,
+      lineWidth: width <= 2 ? (width as 1 | 2) : 2,
+      lastValueVisible,
+    });
   }
   return series;
 }
@@ -46,6 +57,7 @@ export function applyOverlayIndicators(
   activeIds: string[],
   map: OverlaySeriesMap,
   settings: Record<string, IndicatorParamValues> = {},
+  display: Record<string, IndicatorDisplaySettings> = {},
 ): void {
   const overlayIds = activeIds.filter((id) => indicatorPane(id) === "overlay");
   const keep = new Set<string>();
@@ -53,13 +65,24 @@ export function applyOverlayIndicators(
   for (const id of overlayIds) {
     const meta = INDICATOR_BY_ID[id];
     if (!meta?.implemented) continue;
+
+    const disp = resolveIndicatorDisplay(id, display[id]);
+    if (!disp.visible) continue;
+
+    if (id === "vol_profile_fixed" || id === "vol_profile_visible") continue;
+
     const output = computeIndicatorOutput(id, candles, meta, settings[id]);
     if (!output) continue;
+
+    const lineWidth = disp.lineWidth;
+    const labelsOnScale = disp.labelsOnScale;
 
     if (output.type === "line" || output.type === "dots") {
       const key = seriesKey(id, output.key);
       keep.add(key);
-      ensureLine(chart, map, key, output.color).setData(output.data);
+      ensureLine(chart, map, key, disp.color ?? output.color, lineWidth, labelsOnScale).setData(
+        output.data,
+      );
     } else if (output.type === "bands") {
       const colors = output.colors ?? [meta.color, meta.color, meta.color];
       const parts: Array<["upper" | "middle" | "lower", typeof output.bands.upper]> = [
@@ -70,14 +93,24 @@ export function applyOverlayIndicators(
       parts.forEach(([part, data], i) => {
         const key = seriesKey(id, part);
         keep.add(key);
-        ensureLine(chart, map, key, colors[i] ?? meta.color, part === "middle" ? 1 : 1).setData(data);
+        ensureLine(
+          chart,
+          map,
+          key,
+          disp.color ?? colors[i] ?? meta.color,
+          lineWidth,
+          labelsOnScale && part === "middle",
+        ).setData(data);
       });
     } else if (output.type === "multi") {
       for (const s of output.series) {
         const key = seriesKey(id, s.key);
         keep.add(key);
-        const width = s.lineWidth && s.lineWidth <= 2 ? (s.lineWidth as 1 | 2) : 1;
-        ensureLine(chart, map, key, s.color, width).setData(s.data);
+        const width =
+          s.lineWidth && s.lineWidth <= 2 ? (s.lineWidth as 1 | 2) : lineWidth <= 2 ? lineWidth : 2;
+        ensureLine(chart, map, key, disp.color ?? s.color, width as 1 | 2 | 3, labelsOnScale).setData(
+          s.data,
+        );
       }
     }
   }
@@ -95,6 +128,13 @@ export function paneIndicatorIds(activeIds: string[]): string[] {
   return activeIds.filter((id) => indicatorPane(id) === "pane" && INDICATOR_BY_ID[id]?.implemented);
 }
 
-export function volumeProfileActive(activeIds: string[]): boolean {
-  return activeIds.includes("vol_profile_fixed") || activeIds.includes("vol_profile_visible");
+export function volumeProfileActive(
+  activeIds: string[],
+  display: Record<string, IndicatorDisplaySettings> = {},
+): boolean {
+  const ids = ["vol_profile_fixed", "vol_profile_visible"] as const;
+  return ids.some((id) => {
+    if (!activeIds.includes(id)) return false;
+    return resolveIndicatorDisplay(id, display[id]).visible;
+  });
 }

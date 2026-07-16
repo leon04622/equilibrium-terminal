@@ -1,4 +1,8 @@
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import {
+  resolveIndicatorDisplay,
+  type IndicatorDisplaySettings,
+} from "@/lib/charting/indicatorDisplay";
 
 export type IndicatorParamKey =
   | "period"
@@ -157,27 +161,71 @@ export function resolveIndicatorParams(
 export function indicatorSettingsFingerprint(
   indicators: string[],
   settings: Record<string, IndicatorParamValues>,
+  display: Record<string, IndicatorDisplaySettings> = {},
 ): string {
   return indicators
     .map((id) => {
       const p = resolveIndicatorParams(id, settings[id]);
-      return `${id}:${JSON.stringify(p)}`;
+      const d = resolveIndicatorDisplay(id, display[id]);
+      return `${id}:${JSON.stringify(p)}:${JSON.stringify(d)}`;
     })
     .join("|");
 }
 
 /** Short label for the studies bar chip, e.g. "SMA (50)". */
 export function indicatorChipLabel(id: string, saved?: IndicatorParamValues): string {
+  return indicatorLegendTitle(id, saved);
+}
+
+const LEGEND_SHORT: Record<string, string> = {
+  ema: "EMA",
+  ema_9: "EMA",
+  ema_50: "EMA",
+  sma: "MA",
+  smma: "SMMA",
+  wma: "WMA",
+  hma: "HMA",
+  vwma: "VWMA",
+  tema: "TEMA",
+  dema: "DEMA",
+  vwap: "VWAP",
+  vol_profile_visible: "VPVR",
+  vol_profile_fixed: "VPFR",
+  bb: "BB",
+  rsi: "RSI",
+  macd: "MACD",
+  stoch: "Stoch",
+  stoch_rsi: "Stoch RSI",
+  atr: "ATR",
+  adx: "ADX",
+  supertrend: "SuperTrend",
+  ichimoku: "Ichimoku",
+  linreg: "LinReg",
+};
+
+/** Hyperliquid-style legend title, e.g. "EMA 200 close 0". */
+export function indicatorLegendTitle(id: string, saved?: IndicatorParamValues): string {
   const meta = INDICATOR_BY_ID[id];
-  if (!meta) return id;
+  if (!meta) return id.toUpperCase();
+
+  const short = LEGEND_SHORT[id] ?? meta.name.split(" ")[0] ?? id.toUpperCase();
   const specs = paramSpecsFor(id);
-  if (specs.length === 0) return meta.name;
+
+  if (id === "vwap" || id.startsWith("vol_profile")) return short;
+  if (specs.length === 0) return short;
+
   const params = resolveIndicatorParams(id, saved);
+
   if (specs.length === 1 && specs[0]!.key === "period") {
-    return `${meta.name} (${params.period})`;
+    return `${short} ${params.period} close 0`;
   }
+
+  if (id === "macd") {
+    return `${short} ${params.fastPeriod} ${params.slowPeriod} ${params.signalPeriod}`;
+  }
+
   const parts = specs.map((s) => params[s.key]).filter((v) => v != null);
-  return parts.length ? `${meta.name} (${parts.join(", ")})` : meta.name;
+  return parts.length ? `${short} ${parts.join(" ")}` : short;
 }
 
 export function sanitizeIndicatorSettings(

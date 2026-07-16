@@ -6,6 +6,12 @@ import {
   migrateIndicatorId,
 } from "@/lib/charting/indicatorCatalog";
 import {
+  defaultIndicatorDisplay,
+  resolveIndicatorDisplay,
+  sanitizeIndicatorDisplay,
+  type IndicatorDisplaySettings,
+} from "@/lib/charting/indicatorDisplay";
+import {
   hasIndicatorSettings,
   resolveIndicatorParams,
   sanitizeIndicatorSettings,
@@ -18,12 +24,13 @@ import type {
   ChartTicketPreview,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v3";
+const STORAGE_KEY = "eq-chart-tools-v4";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
   favorites: ChartIndicatorId[];
   indicatorSettings: Record<string, IndicatorParamValues>;
+  indicatorDisplay: Record<string, IndicatorDisplaySettings>;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
 }
@@ -43,6 +50,7 @@ function loadPersist(): Persisted {
     indicators: ["ema"],
     favorites: defaultFavorites(),
     indicatorSettings: {},
+    indicatorDisplay: {},
     showPositionLines: true,
     linesByCoin: {},
   };
@@ -50,6 +58,7 @@ function loadPersist(): Persisted {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("eq-chart-tools-v3") ??
       localStorage.getItem("eq-chart-tools-v2") ??
       localStorage.getItem("eq-chart-tools-v1");
     if (!raw) return fallback;
@@ -62,6 +71,7 @@ function loadPersist(): Persisted {
       indicators: indicators.length ? indicators : ["ema"],
       favorites: favorites.length ? favorites : defaultFavorites(),
       indicatorSettings: sanitizeIndicatorSettings(parsed.indicatorSettings),
+      indicatorDisplay: sanitizeIndicatorDisplay(parsed.indicatorDisplay),
       showPositionLines: parsed.showPositionLines !== false,
       linesByCoin: parsed.linesByCoin ?? {},
     };
@@ -84,6 +94,7 @@ function snapshot(state: ChartToolsState): Persisted {
     indicators: state.indicators,
     favorites: state.favorites,
     indicatorSettings: state.indicatorSettings,
+    indicatorDisplay: state.indicatorDisplay,
     showPositionLines: state.showPositionLines,
     linesByCoin: state.linesByCoin,
   };
@@ -93,6 +104,7 @@ export interface ChartToolsState {
   indicators: ChartIndicatorId[];
   favorites: ChartIndicatorId[];
   indicatorSettings: Record<string, IndicatorParamValues>;
+  indicatorDisplay: Record<string, IndicatorDisplaySettings>;
   indicatorsModalOpen: boolean;
   settingsTargetId: string | null;
   drawTool: ChartDrawTool;
@@ -103,6 +115,7 @@ export interface ChartToolsState {
   setIndicatorsModalOpen: (open: boolean) => void;
   setSettingsTarget: (id: string | null) => void;
   updateIndicatorSettings: (id: ChartIndicatorId, values: IndicatorParamValues) => void;
+  updateIndicatorDisplay: (id: ChartIndicatorId, values: Partial<IndicatorDisplaySettings>) => void;
   toggleIndicator: (id: ChartIndicatorId) => void;
   removeIndicator: (id: ChartIndicatorId) => void;
   toggleFavorite: (id: ChartIndicatorId) => void;
@@ -122,6 +135,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
     indicators: persisted.indicators,
     favorites: persisted.favorites,
     indicatorSettings: persisted.indicatorSettings,
+    indicatorDisplay: persisted.indicatorDisplay,
     indicatorsModalOpen: false,
     settingsTargetId: null,
     drawTool: "none",
@@ -144,29 +158,52 @@ export const useChartToolsStore = create<ChartToolsState>()(
       savePersist({ ...snapshot(get()), indicatorSettings: next });
     },
 
+    updateIndicatorDisplay: (id, values) => {
+      const next = {
+        ...get().indicatorDisplay,
+        [id]: resolveIndicatorDisplay(id, { ...get().indicatorDisplay[id], ...values }),
+      };
+      set({ indicatorDisplay: next });
+      savePersist({ ...snapshot(get()), indicatorDisplay: next });
+    },
+
     toggleIndicator: (id) => {
       const def = INDICATOR_BY_ID[id];
       if (!def?.implemented) return;
       const cur = get().indicators;
       const adding = !cur.includes(id);
       const next = adding ? [...cur, id] : cur.filter((x) => x !== id);
+      const nextDisplay = adding
+        ? {
+            ...get().indicatorDisplay,
+            [id]: get().indicatorDisplay[id] ?? defaultIndicatorDisplay(id),
+          }
+        : get().indicatorDisplay;
       set({
         indicators: next,
+        indicatorDisplay: nextDisplay,
         indicatorsModalOpen: adding && hasIndicatorSettings(id) ? false : get().indicatorsModalOpen,
         settingsTargetId: adding && hasIndicatorSettings(id) ? id : get().settingsTargetId,
       });
-      savePersist({ ...snapshot(get()), indicators: next });
+      savePersist({ ...snapshot(get()), indicators: next, indicatorDisplay: nextDisplay });
     },
 
     removeIndicator: (id) => {
       const next = get().indicators.filter((x) => x !== id);
-      const { [id]: _, ...restSettings } = get().indicatorSettings;
+      const { [id]: _s, ...restSettings } = get().indicatorSettings;
+      const { [id]: _d, ...restDisplay } = get().indicatorDisplay;
       set({
         indicators: next,
         indicatorSettings: restSettings,
+        indicatorDisplay: restDisplay,
         settingsTargetId: get().settingsTargetId === id ? null : get().settingsTargetId,
       });
-      savePersist({ ...snapshot(get()), indicators: next, indicatorSettings: restSettings });
+      savePersist({
+        ...snapshot(get()),
+        indicators: next,
+        indicatorSettings: restSettings,
+        indicatorDisplay: restDisplay,
+      });
     },
 
     toggleFavorite: (id) => {
