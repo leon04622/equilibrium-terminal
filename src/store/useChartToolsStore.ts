@@ -18,17 +18,20 @@ import {
   sanitizeIndicatorSettings,
   type IndicatorParamValues,
 } from "@/lib/charting/indicatorParams";
+import { migrateLegacyDrawings } from "@/lib/charting/drawingEngine";
 import {
   DEFAULT_DRAWING_PREFS,
   type ChartDrawTool,
+  type ChartDrawing,
   type ChartDrawingPrefs,
   type ChartHorizontalLine,
   type ChartIndicatorId,
   type ChartTicketPreview,
   type ChartTrendLine,
+  type MagnetMode,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v5";
+const STORAGE_KEY = "eq-chart-tools-v7";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
@@ -36,9 +39,11 @@ interface Persisted {
   indicatorSettings: Record<string, IndicatorParamValues>;
   indicatorDisplay: Record<string, IndicatorDisplaySettings>;
   showPositionLines: boolean;
+  drawingsByCoin: Record<string, ChartDrawing[]>;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
   trendLinesByCoin: Record<string, ChartTrendLine[]>;
   drawingPrefs: ChartDrawingPrefs;
+  drawingFavorites: string[];
 }
 
 function defaultFavorites(): ChartIndicatorId[] {
@@ -51,6 +56,27 @@ function sanitizeIndicators(ids: unknown): ChartIndicatorId[] {
   return migrated.filter((id) => INDICATOR_BY_ID[id]?.implemented);
 }
 
+function migrateDrawingsByCoin(parsed: Partial<Persisted>): Record<string, ChartDrawing[]> {
+  if (parsed.drawingsByCoin && Object.keys(parsed.drawingsByCoin).length > 0) {
+    return parsed.drawingsByCoin;
+  }
+
+  const linesByCoin = parsed.linesByCoin ?? {};
+  const trendLinesByCoin = parsed.trendLinesByCoin ?? {};
+  const coins = Array.from(new Set([...Object.keys(linesByCoin), ...Object.keys(trendLinesByCoin)]));
+  if (coins.length === 0) return {};
+
+  const out: Record<string, ChartDrawing[]> = {};
+  for (const coin of coins) {
+    out[coin] = migrateLegacyDrawings(
+      coin,
+      linesByCoin[coin] ?? [],
+      trendLinesByCoin[coin] ?? [],
+    );
+  }
+  return out;
+}
+
 function loadPersist(): Persisted {
   const fallback: Persisted = {
     indicators: ["ema"],
@@ -58,15 +84,18 @@ function loadPersist(): Persisted {
     indicatorSettings: {},
     indicatorDisplay: {},
     showPositionLines: true,
+    drawingsByCoin: {},
     linesByCoin: {},
     trendLinesByCoin: {},
     drawingPrefs: { ...DEFAULT_DRAWING_PREFS },
+    drawingFavorites: [],
   };
   if (typeof window === "undefined") return fallback;
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
-      localStorage.getItem("eq-chart-tools-v4") ??
+      localStorage.getItem("eq-chart-tools-v6") ??
+      localStorage.getItem("eq-chart-tools-v5") ??
       localStorage.getItem("eq-chart-tools-v3") ??
       localStorage.getItem("eq-chart-tools-v2") ??
       localStorage.getItem("eq-chart-tools-v1");
@@ -76,19 +105,36 @@ function loadPersist(): Persisted {
     const favorites = Array.isArray(parsed.favorites)
       ? parsed.favorites.filter((id) => INDICATOR_BY_ID[id])
       : defaultFavorites();
+    const linesByCoin = parsed.linesByCoin ?? {};
+    const trendLinesByCoin = parsed.trendLinesByCoin ?? {};
     return {
       indicators: indicators.length ? indicators : ["ema"],
       favorites: favorites.length ? favorites : defaultFavorites(),
       indicatorSettings: sanitizeIndicatorSettings(parsed.indicatorSettings),
       indicatorDisplay: sanitizeIndicatorDisplay(parsed.indicatorDisplay),
       showPositionLines: parsed.showPositionLines !== false,
-      linesByCoin: parsed.linesByCoin ?? {},
-      trendLinesByCoin: parsed.trendLinesByCoin ?? {},
-      drawingPrefs: { ...DEFAULT_DRAWING_PREFS, ...parsed.drawingPrefs },
+      drawingsByCoin: migrateDrawingsByCoin(parsed),
+      linesByCoin,
+      trendLinesByCoin,
+      drawingPrefs: normalizeDrawingPrefs(parsed.drawingPrefs),
+      drawingFavorites: Array.isArray(parsed.drawingFavorites)
+        ? parsed.drawingFavorites.filter((id) => typeof id === "string")
+        : [],
     };
   } catch {
     return fallback;
   }
+}
+
+function normalizeDrawingPrefs(raw: Partial<ChartDrawingPrefs> | undefined): ChartDrawingPrefs {
+  const prefs = { ...DEFAULT_DRAWING_PREFS, ...raw };
+  if (!raw?.magnetMode && raw?.magnet === true) {
+    prefs.magnetMode = "strong";
+  }
+  if (prefs.magnetMode !== "off" && prefs.magnetMode !== "weak" && prefs.magnetMode !== "strong") {
+    prefs.magnetMode = "off";
+  }
+  return prefs;
 }
 
 function savePersist(state: Persisted): void {
@@ -107,9 +153,11 @@ function snapshot(state: ChartToolsState): Persisted {
     indicatorSettings: state.indicatorSettings,
     indicatorDisplay: state.indicatorDisplay,
     showPositionLines: state.showPositionLines,
+    drawingsByCoin: state.drawingsByCoin,
     linesByCoin: state.linesByCoin,
     trendLinesByCoin: state.trendLinesByCoin,
     drawingPrefs: state.drawingPrefs,
+    drawingFavorites: state.drawingFavorites,
   };
 }
 
@@ -122,7 +170,9 @@ export interface ChartToolsState {
   settingsTargetId: string | null;
   drawTool: ChartDrawTool;
   drawingPrefs: ChartDrawingPrefs;
+  drawingFavorites: string[];
   showPositionLines: boolean;
+  drawingsByCoin: Record<string, ChartDrawing[]>;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
   trendLinesByCoin: Record<string, ChartTrendLine[]>;
   ticketPreview: ChartTicketPreview | null;
@@ -135,7 +185,9 @@ export interface ChartToolsState {
   removeIndicator: (id: ChartIndicatorId) => void;
   toggleFavorite: (id: ChartIndicatorId) => void;
   setDrawTool: (tool: ChartDrawTool) => void;
-  toggleDrawingPref: (key: keyof ChartDrawingPrefs) => void;
+  toggleDrawingPref: (key: keyof Omit<ChartDrawingPrefs, "magnetMode" | "magnet">) => void;
+  setMagnetMode: (mode: MagnetMode) => void;
+  toggleDrawingFavorite: (toolId: string) => void;
   setShowPositionLines: (on: boolean) => void;
   addHorizontalLine: (coin: string, price: number, label?: string) => void;
   addTrendLine: (
@@ -153,7 +205,11 @@ export interface ChartToolsState {
   updateHorizontalLine: (coin: string, id: string, price: number) => void;
   removeHorizontalLine: (coin: string, id: string) => void;
   clearHorizontalLines: (coin: string) => void;
+  addDrawing: (coin: string, drawing: ChartDrawing) => void;
+  updateDrawing: (coin: string, id: string, drawing: ChartDrawing) => void;
+  removeDrawing: (coin: string, id: string) => void;
   clearDrawings: (coin: string) => void;
+  drawingsForCoin: (coin: string) => ChartDrawing[];
   linesForCoin: (coin: string) => ChartHorizontalLine[];
   setTicketPreview: (preview: ChartTicketPreview | null) => void;
 }
@@ -170,7 +226,9 @@ export const useChartToolsStore = create<ChartToolsState>()(
     settingsTargetId: null,
     drawTool: "none",
     drawingPrefs: persisted.drawingPrefs,
+    drawingFavorites: persisted.drawingFavorites,
     showPositionLines: persisted.showPositionLines,
+    drawingsByCoin: persisted.drawingsByCoin,
     linesByCoin: persisted.linesByCoin,
     trendLinesByCoin: persisted.trendLinesByCoin,
     ticketPreview: null,
@@ -262,12 +320,58 @@ export const useChartToolsStore = create<ChartToolsState>()(
       savePersist({ ...snapshot(get()), drawingPrefs });
     },
 
+    setMagnetMode: (magnetMode) => {
+      const drawingPrefs = { ...get().drawingPrefs, magnetMode };
+      set({ drawingPrefs });
+      savePersist({ ...snapshot(get()), drawingPrefs });
+    },
+
+    toggleDrawingFavorite: (toolId) => {
+      const cur = get().drawingFavorites;
+      const drawingFavorites = cur.includes(toolId)
+        ? cur.filter((id) => id !== toolId)
+        : [...cur, toolId];
+      set({ drawingFavorites });
+      savePersist({ ...snapshot(get()), drawingFavorites });
+    },
+
     setShowPositionLines: (showPositionLines) => {
       set({ showPositionLines });
       savePersist({ ...snapshot(get()), showPositionLines });
     },
 
+    drawingsForCoin: (coin) => get().drawingsByCoin[coin] ?? [],
     linesForCoin: (coin) => get().linesByCoin[coin] ?? [],
+
+    addDrawing: (coin, drawing) => {
+      const drawingsByCoin = {
+        ...get().drawingsByCoin,
+        [coin]: [...(get().drawingsByCoin[coin] ?? []), drawing].slice(-48),
+      };
+      const nextDrawTool = get().drawingPrefs.stayInDrawingMode ? get().drawTool : "none";
+      set({ drawingsByCoin, drawTool: nextDrawTool });
+      savePersist({ ...snapshot(get()), drawingsByCoin });
+    },
+
+    updateDrawing: (coin, id, drawing) => {
+      const drawings = get().drawingsByCoin[coin] ?? [];
+      const idx = drawings.findIndex((d) => d.id === id);
+      if (idx < 0) return;
+      const next = [...drawings];
+      next[idx] = drawing;
+      const drawingsByCoin = { ...get().drawingsByCoin, [coin]: next };
+      set({ drawingsByCoin });
+      savePersist({ ...snapshot(get()), drawingsByCoin });
+    },
+
+    removeDrawing: (coin, id) => {
+      const drawingsByCoin = {
+        ...get().drawingsByCoin,
+        [coin]: (get().drawingsByCoin[coin] ?? []).filter((d) => d.id !== id),
+      };
+      set({ drawingsByCoin });
+      savePersist({ ...snapshot(get()), drawingsByCoin });
+    },
 
     addHorizontalLine: (coin, price, label = "LINE") => {
       const line: ChartHorizontalLine = {
@@ -345,10 +449,9 @@ export const useChartToolsStore = create<ChartToolsState>()(
     },
 
     clearDrawings: (coin) => {
-      const linesByCoin = { ...get().linesByCoin, [coin]: [] };
-      const trendLinesByCoin = { ...get().trendLinesByCoin, [coin]: [] };
-      set({ linesByCoin, trendLinesByCoin });
-      savePersist({ ...snapshot(get()), linesByCoin, trendLinesByCoin });
+      const drawingsByCoin = { ...get().drawingsByCoin, [coin]: [] };
+      set({ drawingsByCoin });
+      savePersist({ ...snapshot(get()), drawingsByCoin });
     },
 
     setTicketPreview: (ticketPreview) => {

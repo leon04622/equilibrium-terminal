@@ -16,7 +16,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ChartDrawingToolbar } from "@/components/charting/ChartDrawingToolbar";
-import { ChartDrawingsOverlay, type DrawingEditStart, type DrawingLiveEdit } from "@/components/charting/ChartDrawingsOverlay";
+import { ChartDrawingsOverlay, type DrawingDraft, type DrawingEditStart, type DrawingLiveEdit } from "@/components/charting/ChartDrawingsOverlay";
 import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
@@ -25,6 +25,13 @@ import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsM
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
 import { resolveDrawPoint, type ChartPoint } from "@/lib/charting/chartDrawing";
+import {
+  createDrawing,
+  isActiveDrawCapture,
+  isDrawingTool,
+  specForTool,
+} from "@/lib/charting/drawingEngine";
+import { findTopDrawingHit } from "@/lib/charting/drawingRender";
 import type { ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
   applyOverlayIndicators,
@@ -41,13 +48,116 @@ import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import { useTerminalStore } from "@/store/terminalStore";
-import type { ChartHorizontalLine, ChartTrendLine } from "@/types/chart-tools";
+import type { ChartDrawTool, ChartDrawing, MagnetMode } from "@/types/chart-tools";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
-type DrawingEditSession =
-  | { kind: "trend-endpoint"; lineId: string; endpoint: 1 | 2; snapshot: ChartTrendLine }
-  | { kind: "trend-body"; lineId: string; snapshot: ChartTrendLine; anchor: ChartPoint }
-  | { kind: "hline"; lineId: string; snapshot: ChartHorizontalLine };
+type DrawingEditSession = DrawingEditStart & { anchor?: ChartPoint };
+
+function applyEditToDrawing(
+  drawing: ChartDrawing,
+  part: "body" | "endpoint",
+  endpointIndex: number | undefined,
+  anchor: ChartPoint | undefined,
+  pt: ChartPoint,
+): ChartDrawing {
+  if (part === "endpoint" && endpointIndex !== undefined) {
+    switch (drawing.kind) {
+      case "line":
+        return endpointIndex === 0 ? { ...drawing, p1: pt } : { ...drawing, p2: pt };
+      case "hline":
+        return { ...drawing, price: pt.price };
+      case "vline":
+        return { ...drawing, time: pt.time };
+      case "cross":
+        return { ...drawing, time: pt.time, price: pt.price };
+      case "channel":
+        if (endpointIndex === 0) return { ...drawing, p1: pt };
+        if (endpointIndex === 1) return { ...drawing, p2: pt };
+        return { ...drawing, p3: pt };
+      case "pitchfork":
+        if (endpointIndex === 0) return { ...drawing, p1: pt };
+        if (endpointIndex === 1) return { ...drawing, p2: pt };
+        return { ...drawing, p3: pt };
+      case "fib":
+      case "gann":
+      case "rect":
+      case "position":
+        return endpointIndex === 0 ? { ...drawing, p1: pt } : { ...drawing, p2: pt };
+      case "text":
+      case "icon":
+        return { ...drawing, point: pt };
+      case "pattern": {
+        const points = [...drawing.points];
+        points[endpointIndex] = pt;
+        return { ...drawing, points };
+      }
+      default:
+        return drawing;
+    }
+  }
+
+  if (part === "body" && anchor) {
+    const dTime = pt.time - anchor.time;
+    const dPrice = pt.price - anchor.price;
+    const shift = (p: ChartPoint): ChartPoint => ({
+      time: p.time + dTime,
+      price: p.price + dPrice,
+    });
+
+    switch (drawing.kind) {
+      case "line":
+        return { ...drawing, p1: shift(drawing.p1), p2: shift(drawing.p2) };
+      case "hline":
+        return { ...drawing, price: drawing.price + dPrice };
+      case "vline":
+        return { ...drawing, time: drawing.time + dTime };
+      case "cross":
+        return { ...drawing, time: drawing.time + dTime, price: drawing.price + dPrice };
+      case "channel":
+        return {
+          ...drawing,
+          p1: shift(drawing.p1),
+          p2: shift(drawing.p2),
+          p3: shift(drawing.p3),
+        };
+      case "pitchfork":
+        return {
+          ...drawing,
+          p1: shift(drawing.p1),
+          p2: shift(drawing.p2),
+          p3: shift(drawing.p3),
+        };
+      case "fib":
+      case "gann":
+      case "rect":
+      case "position":
+        return { ...drawing, p1: shift(drawing.p1), p2: shift(drawing.p2) };
+      case "text":
+      case "icon":
+        return { ...drawing, point: shift(drawing.point) };
+      case "pattern":
+        return { ...drawing, points: drawing.points.map(shift) };
+      default:
+        return drawing;
+    }
+  }
+
+  return drawing;
+}
+
+function dragDistance(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  a: ChartPoint,
+  b: ChartPoint,
+): number {
+  const x1 = chart.timeScale().timeToCoordinate(a.time as UTCTimestamp);
+  const x2 = chart.timeScale().timeToCoordinate(b.time as UTCTimestamp);
+  const y1 = series.priceToCoordinate(a.price);
+  const y2 = series.priceToCoordinate(b.price);
+  if (x1 == null || x2 == null || y1 == null || y2 == null) return 0;
+  return Math.hypot(x2 - x1, y2 - y1);
+}
 
 function crosshairTimeToUnix(param: MouseEventParams<Time>): number | null {
   const time = param.time;
@@ -135,14 +245,12 @@ export function ChartWidget() {
   const drawToolRef = useRef(useChartToolsStore.getState().drawTool);
   const drawingPrefsRef = useRef(useChartToolsStore.getState().drawingPrefs);
   const drawingSessionRef = useRef<{
-    active: boolean;
-    tool: "trendline" | "hline";
-    start: ChartPoint;
+    tool: ChartDrawTool;
+    points: ChartPoint[];
+    pathPoints?: ChartPoint[];
   } | null>(null);
   const editSessionRef = useRef<DrawingEditSession | null>(null);
-  const [draftStart, setDraftStart] = useState<ChartPoint | null>(null);
-  const [draftEnd, setDraftEnd] = useState<ChartPoint | null>(null);
-  const [previewTool, setPreviewTool] = useState<"trendline" | "hline" | null>(null);
+  const [draft, setDraft] = useState<DrawingDraft | null>(null);
   const [liveEdit, setLiveEdit] = useState<DrawingLiveEdit | null>(null);
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [editingDrawing, setEditingDrawing] = useState(false);
@@ -160,8 +268,7 @@ export function ChartWidget() {
   const indicatorSettings = useChartToolsStore((s) => s.indicatorSettings);
   const indicatorDisplay = useChartToolsStore((s) => s.indicatorDisplay);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
-  const userLineCount = useChartToolsStore((s) => s.linesByCoin[selectedCoin]?.length ?? 0);
-  const trendLineCount = useChartToolsStore((s) => s.trendLinesByCoin[selectedCoin]?.length ?? 0);
+  const drawingCount = useChartToolsStore((s) => s.drawingsByCoin[selectedCoin]?.length ?? 0);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
@@ -172,9 +279,7 @@ export function ChartWidget() {
 
   const clearDrawingDraft = useCallback(() => {
     drawingSessionRef.current = null;
-    setDraftStart(null);
-    setDraftEnd(null);
-    setPreviewTool(null);
+    setDraft(null);
   }, []);
 
   const clearEditSession = useCallback(() => {
@@ -190,14 +295,17 @@ export function ChartWidget() {
   }, [selectedCoin, timeframe, clearDrawingDraft, clearEditSession]);
 
   const drawTool = useChartToolsStore((s) => s.drawTool);
+  const drawSpec = specForTool(drawTool);
   const lockDrawings = useChartToolsStore((s) => s.drawingPrefs.lockDrawings);
   useEffect(() => {
-    if (drawTool !== "trendline" && drawTool !== "hline") {
+    if (!isDrawingTool(drawTool)) {
       clearDrawingDraft();
     }
   }, [drawTool, clearDrawingDraft]);
 
-  const drawingToolActive = drawTool === "trendline" || drawTool === "hline";
+  const drawingToolActive =
+    isDrawingTool(drawTool) || drawSpec.interaction === "erase" || drawSpec.interaction === "zoom";
+  const dragCaptureActive = isActiveDrawCapture(drawTool);
   const canEditDrawings = !hideDrawings && !lockDrawings && !drawingToolActive;
   const blockChartPan = drawingToolActive || editingDrawing;
 
@@ -235,7 +343,7 @@ export function ChartWidget() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (drawingSessionRef.current?.active || draftStart) {
+      if (drawingSessionRef.current || draft) {
         clearDrawingDraft();
       }
       if (editSessionRef.current) {
@@ -245,7 +353,7 @@ export function ChartWidget() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearDrawingDraft, clearEditSession, draftStart]);
+  }, [clearDrawingDraft, clearEditSession, draft]);
 
   const syncPriceLines = useCallback((series: ISeriesApi<"Candlestick">) => {
     for (const pl of priceLinesRef.current) {
@@ -551,8 +659,7 @@ export function ChartWidget() {
   }, [
     positionsVersion,
     showPositionLines,
-    userLineCount,
-    trendLineCount,
+    drawingCount,
     hideDrawings,
     ticketLimit,
     ticketStop,
@@ -632,7 +739,7 @@ export function ChartWidget() {
     };
   }, []);
 
-  const resolveChartPoint = useCallback((clientX: number, clientY: number, magnet?: boolean): ChartPoint | null => {
+  const resolveChartPoint = useCallback((clientX: number, clientY: number, magnetMode?: MagnetMode): ChartPoint | null => {
     const chart = chartRef.current;
     const series = seriesRef.current;
     const layer = drawCaptureRef.current ?? containerRef.current;
@@ -648,66 +755,45 @@ export function ChartWidget() {
       x,
       y,
       candles,
-      magnet ?? drawingPrefsRef.current.magnet,
+      magnetMode ?? drawingPrefsRef.current.magnetMode,
     );
   }, []);
 
   const applyLiveEdit = useCallback((session: DrawingEditSession, pt: ChartPoint) => {
-    if (session.kind === "hline") {
-      setLiveEdit({ hline: { id: session.lineId, price: pt.price } });
-      return;
-    }
-
-    const snap = session.snapshot;
-    if (session.kind === "trend-endpoint") {
-      const line: ChartTrendLine =
-        session.endpoint === 1
-          ? { ...snap, time1: pt.time, price1: pt.price }
-          : { ...snap, time2: pt.time, price2: pt.price };
-      setLiveEdit({ trendLine: line });
-      return;
-    }
-
-    const dTime = pt.time - session.anchor.time;
-    const dPrice = pt.price - session.anchor.price;
-    setLiveEdit({
-      trendLine: {
-        ...snap,
-        time1: snap.time1 + dTime,
-        price1: snap.price1 + dPrice,
-        time2: snap.time2 + dTime,
-        price2: snap.price2 + dPrice,
-      },
-    });
+    const next = applyEditToDrawing(
+      session.snapshot,
+      session.part,
+      session.endpointIndex,
+      session.anchor,
+      pt,
+    );
+    setLiveEdit({ drawing: next });
   }, []);
 
   const commitEdit = useCallback((session: DrawingEditSession, pt: ChartPoint) => {
     const coin = useTerminalStore.getState().selectedCoin;
     const store = useChartToolsStore.getState();
-
-    if (session.kind === "hline") {
-      store.updateHorizontalLine(coin, session.lineId, pt.price);
-      return;
-    }
-
-    if (session.kind === "trend-endpoint") {
-      if (session.endpoint === 1) {
-        store.updateTrendLine(coin, session.lineId, { time1: pt.time, price1: pt.price });
-      } else {
-        store.updateTrendLine(coin, session.lineId, { time2: pt.time, price2: pt.price });
-      }
-      return;
-    }
-
-    const dTime = pt.time - session.anchor.time;
-    const dPrice = pt.price - session.anchor.price;
-    store.updateTrendLine(coin, session.lineId, {
-      time1: session.snapshot.time1 + dTime,
-      price1: session.snapshot.price1 + dPrice,
-      time2: session.snapshot.time2 + dTime,
-      price2: session.snapshot.price2 + dPrice,
-    });
+    const next = applyEditToDrawing(
+      session.snapshot,
+      session.part,
+      session.endpointIndex,
+      session.anchor,
+      pt,
+    );
+    store.updateDrawing(coin, session.drawingId, next);
   }, []);
+
+  const commitDrawing = useCallback(
+    (tool: ChartDrawTool, points: ChartPoint[], text?: string) => {
+      const coin = useTerminalStore.getState().selectedCoin;
+      const store = useChartToolsStore.getState();
+      const drawing = createDrawing(tool, coin, points, text);
+      if (!drawing) return;
+      store.addDrawing(coin, drawing);
+      setSelectedDrawingId(drawing.id);
+    },
+    [],
+  );
 
   const onEditStart = useCallback(
     (start: DrawingEditStart, e: React.PointerEvent) => {
@@ -717,12 +803,10 @@ export function ChartWidget() {
       if (!pt) return;
 
       const session: DrawingEditSession =
-        start.kind === "trend-body"
-          ? { ...start, anchor: pt }
-          : start;
+        start.part === "body" ? { ...start, anchor: pt } : start;
 
       editSessionRef.current = session;
-      setSelectedDrawingId(start.lineId);
+      setSelectedDrawingId(start.drawingId);
       setEditingDrawing(true);
       applyLiveEdit(session, pt);
 
@@ -760,38 +844,129 @@ export function ChartWidget() {
     const series = seriesRef.current;
     if (!layer || !chart || !series || !drawingToolActive) return;
 
+    const layerSize = () => ({
+      width: layer.clientWidth,
+      height: layer.clientHeight,
+    });
+
+    const layerPoint = (ev: PointerEvent) => {
+      const rect = layer.getBoundingClientRect();
+      return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+    };
+
     const onPointerDown = (ev: PointerEvent) => {
       if (drawingPrefsRef.current.lockDrawings) return;
       const tool = drawToolRef.current;
-      if (tool !== "trendline" && tool !== "hline") return;
-
+      const spec = specForTool(tool);
       const pt = resolveChartPoint(ev.clientX, ev.clientY);
       if (!pt) return;
 
-      drawingSessionRef.current = { active: true, tool, start: pt };
-      setDraftStart(pt);
-      setDraftEnd(pt);
-      setPreviewTool(tool);
-      setSelectedDrawingId(null);
-      layer.setPointerCapture(ev.pointerId);
-      ev.preventDefault();
+      if (spec.interaction === "erase") {
+        const { width, height } = layerSize();
+        const { x, y } = layerPoint(ev);
+        const drawings =
+          useChartToolsStore.getState().drawingsByCoin[useTerminalStore.getState().selectedCoin] ?? [];
+        const hit = findTopDrawingHit(drawings, chart, series, x, y, width, height);
+        if (hit) {
+          useChartToolsStore.getState().removeDrawing(useTerminalStore.getState().selectedCoin, hit.drawingId);
+          setSelectedDrawingId((cur) => (cur === hit.drawingId ? null : cur));
+        }
+        ev.preventDefault();
+        return;
+      }
+
+      if (spec.interaction === "zoom") {
+        const range = chart.timeScale().getVisibleRange();
+        if (range && typeof range.from === "number" && typeof range.to === "number") {
+          const clickTime = pt.time;
+          const span = range.to - range.from;
+          const nextSpan = span * 0.5;
+          const ratio = span > 0 ? (clickTime - range.from) / span : 0.5;
+          const from = clickTime - nextSpan * ratio;
+          const to = from + nextSpan;
+          chart.timeScale().setVisibleRange({ from: from as UTCTimestamp, to: to as UTCTimestamp });
+        }
+        ev.preventDefault();
+        return;
+      }
+
+      if (spec.interaction === "click") {
+        let text: string | undefined;
+        if (spec.promptText) {
+          text = window.prompt("Enter text:", "Text") ?? undefined;
+          if (text === undefined) return;
+        }
+        commitDrawing(tool, [pt], text);
+        ev.preventDefault();
+        return;
+      }
+
+      if (spec.interaction === "clicks") {
+        const session = drawingSessionRef.current;
+        if (!session || session.tool !== tool) {
+          drawingSessionRef.current = { tool, points: [pt] };
+          setDraft({ tool, points: [pt], cursor: pt });
+        } else {
+          const points = [...session.points, pt];
+          const needed = spec.clickCount ?? points.length;
+          if (points.length >= needed) {
+            commitDrawing(tool, points);
+            drawingSessionRef.current = null;
+            setDraft(null);
+          } else {
+            drawingSessionRef.current = { tool, points };
+            setDraft({ tool, points, cursor: pt });
+          }
+        }
+        ev.preventDefault();
+        return;
+      }
+
+      if (spec.interaction === "path") {
+        drawingSessionRef.current = { tool, points: [pt], pathPoints: [pt] };
+        setDraft({ tool, points: [pt], pathPoints: [pt], cursor: pt });
+        layer.setPointerCapture(ev.pointerId);
+        ev.preventDefault();
+        return;
+      }
+
+      if (spec.interaction === "drag") {
+        drawingSessionRef.current = { tool, points: [pt] };
+        setDraft({ tool, points: [pt], cursor: pt });
+        layer.setPointerCapture(ev.pointerId);
+        ev.preventDefault();
+      }
     };
 
     const onPointerMove = (ev: PointerEvent) => {
-      if (!drawingSessionRef.current?.active) return;
+      const session = drawingSessionRef.current;
+      if (!session) return;
       const pt = resolveChartPoint(ev.clientX, ev.clientY);
-      if (pt) setDraftEnd(pt);
+      if (!pt) return;
+
+      const spec = specForTool(session.tool);
+      if (spec.interaction === "path") {
+        const pathPoints = [...(session.pathPoints ?? session.points), pt];
+        drawingSessionRef.current = { ...session, pathPoints };
+        setDraft({ tool: session.tool, points: session.points, pathPoints, cursor: pt });
+        return;
+      }
+
+      if (spec.interaction === "drag") {
+        setDraft({ tool: session.tool, points: session.points, cursor: pt });
+      }
     };
 
     const onPointerUp = (ev: PointerEvent) => {
       const session = drawingSessionRef.current;
-      if (!session?.active) return;
+      if (!session) return;
+
+      const spec = specForTool(session.tool);
+      if (spec.interaction !== "drag" && spec.interaction !== "path") return;
 
       const end = resolveChartPoint(ev.clientX, ev.clientY);
       drawingSessionRef.current = null;
-      setDraftStart(null);
-      setDraftEnd(null);
-      setPreviewTool(null);
+      setDraft(null);
 
       if (layer.hasPointerCapture(ev.pointerId)) {
         layer.releasePointerCapture(ev.pointerId);
@@ -799,27 +974,25 @@ export function ChartWidget() {
 
       if (!end) return;
 
-      const coin = useTerminalStore.getState().selectedCoin;
-      const store = useChartToolsStore.getState();
-      const { start, tool } = session;
-
-      if (tool === "hline") {
-        store.addHorizontalLine(coin, end.price);
-        setSelectedDrawingId(store.linesByCoin[coin]?.at(-1)?.id ?? null);
+      if (spec.interaction === "path") {
+        const pathPoints = session.pathPoints ?? [...session.points, end];
+        if (pathPoints.length >= 2) {
+          commitDrawing(session.tool, pathPoints);
+        }
         return;
       }
 
-      const x1 = chart.timeScale().timeToCoordinate(start.time as UTCTimestamp);
-      const x2 = chart.timeScale().timeToCoordinate(end.time as UTCTimestamp);
-      const y1 = series.priceToCoordinate(start.price);
-      const y2 = series.priceToCoordinate(end.price);
-      if (x1 == null || x2 == null || y1 == null || y2 == null) return;
+      const start = session.points[0]!;
+      const minDist = session.tool === "line-hline" ? 0 : 8;
+      if (minDist > 0 && dragDistance(chart, series, start, end) < minDist) return;
 
-      const dist = Math.hypot(x2 - x1, y2 - y1);
-      if (dist < 8) return;
-
-      store.addTrendLine(coin, start.time, start.price, end.time, end.price);
-      setSelectedDrawingId(store.trendLinesByCoin[coin]?.at(-1)?.id ?? null);
+      const points =
+        session.tool === "line-hline"
+          ? [start, { time: start.time, price: end.price }]
+          : session.tool === "line-hray"
+            ? [start, end]
+            : [start, end];
+      commitDrawing(session.tool, points);
     };
 
     layer.addEventListener("pointerdown", onPointerDown);
@@ -832,7 +1005,7 @@ export function ChartWidget() {
       layer.removeEventListener("pointerup", onPointerUp);
       layer.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [drawingToolActive, resolveChartPoint]);
+  }, [commitDrawing, drawingToolActive, resolveChartPoint]);
 
   useEffect(() => {
     setOverlayEnabled("volume_profile", volProfileWanted);
@@ -866,7 +1039,17 @@ export function ChartWidget() {
               ref={drawCaptureRef}
               className={
                 drawingToolActive
-                  ? "absolute inset-0 z-[7] cursor-crosshair touch-none"
+                  ? `absolute inset-0 z-[7] touch-none ${
+                      drawTool === "arrow"
+                        ? "cursor-default"
+                        : drawTool === "eraser"
+                          ? "cursor-not-allowed"
+                          : drawTool === "zoom"
+                            ? "cursor-zoom-in"
+                            : dragCaptureActive || drawSpec.interaction === "click" || drawSpec.interaction === "clicks"
+                              ? "cursor-crosshair"
+                              : "cursor-crosshair"
+                    }`
                   : "pointer-events-none absolute inset-0 z-[7]"
               }
               aria-hidden={!drawingToolActive}
@@ -876,9 +1059,7 @@ export function ChartWidget() {
               chartRef={chartRef}
               seriesRef={seriesRef}
               containerRef={containerRef}
-              draftStart={draftStart}
-              draftEnd={draftEnd}
-              previewTool={previewTool}
+              draft={draft}
               liveEdit={liveEdit}
               selectedDrawingId={selectedDrawingId}
               editable={canEditDrawings}

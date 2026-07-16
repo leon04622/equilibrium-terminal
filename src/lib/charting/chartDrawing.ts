@@ -1,4 +1,5 @@
 import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-charts";
+import type { MagnetMode } from "@/types/chart-tools";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
 export interface ChartPoint {
@@ -44,12 +45,20 @@ export function resolveDrawPoint(
   x: number,
   y: number,
   candles: NormalizedCandle[],
-  magnet: boolean,
+  magnetMode: MagnetMode,
 ): ChartPoint | null {
   const pt = pointFromChart(chart, series, x, y);
   if (!pt) return null;
-  if (!magnet) return pt;
-  return { ...pt, price: snapPriceToCandle(candles, pt.time, pt.price) };
+  if (magnetMode === "off") return pt;
+
+  const snapped = snapPriceToCandle(candles, pt.time, pt.price);
+  if (magnetMode === "strong") return { ...pt, price: snapped };
+
+  const rawY = series.priceToCoordinate(pt.price);
+  const snapY = series.priceToCoordinate(snapped);
+  if (rawY == null || snapY == null) return pt;
+  if (Math.abs(rawY - snapY) <= 10) return { ...pt, price: snapped };
+  return pt;
 }
 
 /** Snap price to nearest OHLC on the candle at the given unix time. */
