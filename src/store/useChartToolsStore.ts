@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
+import {
+  DEFAULT_FAVORITE_IDS,
+  INDICATOR_BY_ID,
+  migrateIndicatorId,
+} from "@/lib/charting/indicatorCatalog";
 import type {
   ChartDrawTool,
   ChartHorizontalLine,
@@ -7,29 +12,49 @@ import type {
   ChartTicketPreview,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v1";
+const STORAGE_KEY = "eq-chart-tools-v2";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
+  favorites: ChartIndicatorId[];
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
 }
 
+function defaultFavorites(): ChartIndicatorId[] {
+  return [...DEFAULT_FAVORITE_IDS];
+}
+
+function sanitizeIndicators(ids: unknown): ChartIndicatorId[] {
+  if (!Array.isArray(ids)) return ["ema"];
+  const migrated = ids.map((id) => migrateIndicatorId(String(id)));
+  return migrated.filter((id) => INDICATOR_BY_ID[id]?.implemented);
+}
+
 function loadPersist(): Persisted {
-  if (typeof window === "undefined") {
-    return { indicators: ["ema21"], showPositionLines: true, linesByCoin: {} };
-  }
+  const fallback: Persisted = {
+    indicators: ["ema"],
+    favorites: defaultFavorites(),
+    showPositionLines: true,
+    linesByCoin: {},
+  };
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { indicators: ["ema21"], showPositionLines: true, linesByCoin: {} };
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem("eq-chart-tools-v1");
+    if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<Persisted>;
+    const indicators = sanitizeIndicators(parsed.indicators);
+    const favorites = Array.isArray(parsed.favorites)
+      ? parsed.favorites.filter((id) => INDICATOR_BY_ID[id])
+      : defaultFavorites();
     return {
-      indicators: Array.isArray(parsed.indicators) ? parsed.indicators : ["ema21"],
+      indicators: indicators.length ? indicators : ["ema"],
+      favorites: favorites.length ? favorites : defaultFavorites(),
       showPositionLines: parsed.showPositionLines !== false,
       linesByCoin: parsed.linesByCoin ?? {},
     };
   } catch {
-    return { indicators: ["ema21"], showPositionLines: true, linesByCoin: {} };
+    return fallback;
   }
 }
 
@@ -44,12 +69,17 @@ function savePersist(state: Persisted): void {
 
 export interface ChartToolsState {
   indicators: ChartIndicatorId[];
+  favorites: ChartIndicatorId[];
+  indicatorsModalOpen: boolean;
   drawTool: ChartDrawTool;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
   ticketPreview: ChartTicketPreview | null;
 
+  setIndicatorsModalOpen: (open: boolean) => void;
   toggleIndicator: (id: ChartIndicatorId) => void;
+  removeIndicator: (id: ChartIndicatorId) => void;
+  toggleFavorite: (id: ChartIndicatorId) => void;
   setDrawTool: (tool: ChartDrawTool) => void;
   setShowPositionLines: (on: boolean) => void;
   addHorizontalLine: (coin: string, price: number, label?: string) => void;
@@ -64,17 +94,48 @@ const persisted = loadPersist();
 export const useChartToolsStore = create<ChartToolsState>()(
   subscribeWithSelector((set, get) => ({
     indicators: persisted.indicators,
+    favorites: persisted.favorites,
+    indicatorsModalOpen: false,
     drawTool: "none",
     showPositionLines: persisted.showPositionLines,
     linesByCoin: persisted.linesByCoin,
     ticketPreview: null,
 
+    setIndicatorsModalOpen: (indicatorsModalOpen) => set({ indicatorsModalOpen }),
+
     toggleIndicator: (id) => {
+      const def = INDICATOR_BY_ID[id];
+      if (!def?.implemented) return;
       const cur = get().indicators;
       const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
       set({ indicators: next });
       savePersist({
         indicators: next,
+        favorites: get().favorites,
+        showPositionLines: get().showPositionLines,
+        linesByCoin: get().linesByCoin,
+      });
+    },
+
+    removeIndicator: (id) => {
+      const next = get().indicators.filter((x) => x !== id);
+      set({ indicators: next });
+      savePersist({
+        indicators: next,
+        favorites: get().favorites,
+        showPositionLines: get().showPositionLines,
+        linesByCoin: get().linesByCoin,
+      });
+    },
+
+    toggleFavorite: (id) => {
+      if (!INDICATOR_BY_ID[id]) return;
+      const cur = get().favorites;
+      const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      set({ favorites: next });
+      savePersist({
+        indicators: get().indicators,
+        favorites: next,
         showPositionLines: get().showPositionLines,
         linesByCoin: get().linesByCoin,
       });
@@ -86,6 +147,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
       set({ showPositionLines });
       savePersist({
         indicators: get().indicators,
+        favorites: get().favorites,
         showPositionLines,
         linesByCoin: get().linesByCoin,
       });
@@ -109,6 +171,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
       set({ linesByCoin, drawTool: "none" });
       savePersist({
         indicators: get().indicators,
+        favorites: get().favorites,
         showPositionLines: get().showPositionLines,
         linesByCoin,
       });
@@ -122,6 +185,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
       set({ linesByCoin });
       savePersist({
         indicators: get().indicators,
+        favorites: get().favorites,
         showPositionLines: get().showPositionLines,
         linesByCoin,
       });
@@ -132,6 +196,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
       set({ linesByCoin });
       savePersist({
         indicators: get().indicators,
+        favorites: get().favorites,
         showPositionLines: get().showPositionLines,
         linesByCoin,
       });

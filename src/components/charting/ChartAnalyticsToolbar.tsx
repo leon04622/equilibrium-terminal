@@ -1,9 +1,10 @@
 "use client";
 
-import { Link2, Pause, Play, Radio } from "lucide-react";
+import { CandlestickChart, Link2, Pause, Play, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
-import { CHART_TIMEFRAMES } from "@/lib/charting/chartTimeframes";
+import { CHART_TIMEFRAMES, TIMEFRAME_LABEL } from "@/lib/charting/chartTimeframes";
+import { IndicatorsToolbarButton } from "@/components/charting/IndicatorsModal";
 import { prefetchChartHistory } from "@/hooks/useChartHistory";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useTerminalStore } from "@/store/terminalStore";
@@ -76,10 +77,15 @@ export function ChartAnalyticsToolbar({ coin }: { coin: string }) {
               historyLoading && timeframe === tf ? "animate-pulse" : "",
             )}
           >
-            {tf}
+            {TIMEFRAME_LABEL[tf]}
           </button>
         ))}
       </div>
+
+      <span className="shrink-0 text-slate-700">|</span>
+      <CandlestickChart className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+      <span className="shrink-0 text-slate-700">|</span>
+      <IndicatorsToolbarButton />
 
       <div className="flex shrink-0 items-center gap-2 text-[10px] text-slate-500">
         <button

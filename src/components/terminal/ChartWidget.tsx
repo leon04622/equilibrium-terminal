@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ColorType,
   createChart,
@@ -16,9 +16,18 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
+import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
+import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
+import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { ChartStudiesBar } from "@/components/charting/ChartStudiesBar";
 import { ChartLegend, type ChartLegendValues } from "@/components/terminal/ChartLegend";
-import { computeEma, computeVwap } from "@/lib/charting/indicators";
+import {
+  applyOverlayIndicators,
+  clearOverlayIndicators,
+  paneIndicatorIds,
+  volumeProfileActive,
+  type OverlaySeriesMap,
+} from "@/lib/charting/applyOverlayIndicators";
 import { EQ_CHART } from "@/lib/theme/equilibrium-visual";
 import { isWorkspaceScrolling, onWorkspaceScrollEnd } from "@/lib/runtime/workspaceScroll";
 import { terminalBus } from "@/store/eventBus";
@@ -27,13 +36,7 @@ import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import { useTerminalStore } from "@/store/terminalStore";
-import {
-  CHART_INDICATOR_META,
-  type ChartIndicatorId,
-} from "@/types/chart-tools";
 import type { NormalizedCandle } from "@/types/terminal-schema";
-
-const ALL_INDICATORS: ChartIndicatorId[] = ["ema9", "ema21", "ema50", "vwap"];
 
 function crosshairTimeToUnix(param: MouseEventParams<Time>): number | null {
   const time = param.time;
@@ -93,31 +96,16 @@ function legendEqual(a: ChartLegendValues | null, b: ChartLegendValues | null): 
   );
 }
 
-function indicatorSeriesData(id: ChartIndicatorId, candles: NormalizedCandle[]) {
-  const meta = CHART_INDICATOR_META[id];
-  if (id === "vwap") return computeVwap(candles);
-  if (meta.period) return computeEma(candles, meta.period);
-  return [];
-}
-
 function clearChartSurface(
   chart: IChartApi | null,
   series: ISeriesApi<"Candlestick"> | null,
   volume: ISeriesApi<"Histogram"> | null,
-  indicatorSeries: React.MutableRefObject<Partial<Record<ChartIndicatorId, ISeriesApi<"Line">>>>,
+  indicatorSeries: React.MutableRefObject<OverlaySeriesMap>,
 ): void {
   series?.setData([]);
   volume?.setData([]);
   series?.setMarkers([]);
-  if (chart) {
-    for (const id of ALL_INDICATORS) {
-      const ls = indicatorSeries.current[id];
-      if (ls) {
-        chart.removeSeries(ls);
-        delete indicatorSeries.current[id];
-      }
-    }
-  }
+  clearOverlayIndicators(chart, indicatorSeries.current);
 }
 
 export function ChartWidget() {
@@ -127,7 +115,7 @@ export function ChartWidget() {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const indicatorSeriesRef = useRef<Partial<Record<ChartIndicatorId, ISeriesApi<"Line">>>>({});
+  const indicatorSeriesRef = useRef<OverlaySeriesMap>(new Map());
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const lastLegendRef = useRef<ChartLegendValues | null>(null);
   const candleFpRef = useRef("");
@@ -138,6 +126,7 @@ export function ChartWidget() {
   const candleVersion = useTerminalStore((s) => s.candleVersion);
   const positionsVersion = useTerminalStore((s) => s.positionsVersion);
   const displayLen = useChartAnalyticsStore((s) => s.displayCandles.length);
+  const displayCandles = useChartAnalyticsStore((s) => s.displayCandles);
   const historyVersion = useChartAnalyticsStore((s) => s.historyVersion);
   const historyLoading = useChartAnalyticsStore((s) => s.historyLoading);
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
@@ -152,6 +141,8 @@ export function ChartWidget() {
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
   const indicatorsKey = indicators.join(",");
+  const paneIds = useMemo(() => paneIndicatorIds(indicators), [indicators]);
+  const toggleOverlay = useChartAnalyticsStore((s) => s.toggleOverlay);
 
   useEffect(() => {
     return useChartToolsStore.subscribe((s) => {
@@ -299,7 +290,7 @@ export function ChartWidget() {
       chartRef.current = null;
       seriesRef.current = null;
       volumeRef.current = null;
-      indicatorSeriesRef.current = {};
+      indicatorSeriesRef.current = new Map();
       priceLinesRef.current = [];
     };
   }, []);
@@ -369,6 +360,7 @@ export function ChartWidget() {
             { time: t, value: last.volume, color: EQ_CHART.volumeUp },
           );
           lastLegendRef.current = nextLegend;
+          applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current);
           syncPriceLines(series);
           return;
         }
@@ -422,32 +414,7 @@ export function ChartWidget() {
         series.setMarkers([]);
       }
 
-      for (const id of ALL_INDICATORS) {
-        const meta = CHART_INDICATOR_META[id];
-        const enabled = enabledIndicators.includes(id);
-        let lineSeries = indicatorSeriesRef.current[id];
-
-        if (!enabled) {
-          if (lineSeries) {
-            chart.removeSeries(lineSeries);
-            delete indicatorSeriesRef.current[id];
-          }
-          continue;
-        }
-
-        if (!lineSeries) {
-          lineSeries = chart.addLineSeries({
-            color: meta.color,
-            lineWidth: id === "ema50" ? 2 : 1,
-            priceLineVisible: false,
-            lastValueVisible: true,
-            crosshairMarkerVisible: false,
-          });
-          indicatorSeriesRef.current[id] = lineSeries;
-        }
-
-        lineSeries.setData(indicatorSeriesData(id, candles));
-      }
+      applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current);
 
       syncPriceLines(series);
     };
@@ -564,6 +531,12 @@ export function ChartWidget() {
     };
   }, []);
 
+  useEffect(() => {
+    const wantProfile = volumeProfileActive(indicators);
+    const hasProfile = useChartAnalyticsStore.getState().overlays.includes("volume_profile");
+    if (wantProfile !== hasProfile) toggleOverlay("volume_profile");
+  }, [indicators, toggleOverlay]);
+
   return (
     <div
       data-chart-panel="chart"
@@ -574,18 +547,33 @@ export function ChartWidget() {
     >
       <ChartAnalyticsToolbar coin={selectedCoin} />
       <ChartStudiesBar coin={selectedCoin} />
-      <div className="relative min-h-0 flex-1" style={{ contain: "layout paint" }}>
-        <ChartLegend values={legend} coin={selectedCoin} />
-        {historyLoading && displayLen === 0 ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
-            <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
-          </div>
-        ) : historyLoading ? (
-          <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-[#131722]/80 px-1.5 py-0.5">
-            <span className="text-[9px] uppercase tracking-widest text-slate-500">Updating {timeframe}…</span>
-          </div>
-        ) : null}
-        <div ref={containerRef} className="absolute inset-0" />
+      <div className="relative flex min-h-0 flex-1 flex-col" style={{ contain: "layout paint" }}>
+        <div className="relative min-h-0 flex-1">
+          <ChartLegend values={legend} coin={selectedCoin} />
+          {historyLoading && displayLen === 0 ? (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
+            </div>
+          ) : historyLoading ? (
+            <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-[#131722]/80 px-1.5 py-0.5">
+              <span className="text-[9px] uppercase tracking-widest text-slate-500">Updating {timeframe}…</span>
+            </div>
+          ) : null}
+          <div ref={containerRef} className="absolute inset-0" />
+          <VolumeProfileOverlay
+            candles={displayCandles}
+            visible={volumeProfileActive(indicators)}
+          />
+        </div>
+        {paneIds.map((id) => (
+          <ChartIndicatorPane
+            key={id}
+            indicatorId={id}
+            candles={displayCandles}
+            mainChartRef={chartRef}
+          />
+        ))}
+        <IndicatorsModal />
       </div>
     </div>
   );

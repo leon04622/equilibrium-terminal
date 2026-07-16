@@ -1,16 +1,12 @@
 "use client";
 
-import { Minus, Trash2 } from "lucide-react";
+import { Minus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
+import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
-import {
-  CHART_INDICATOR_META,
-  type ChartHorizontalLine,
-  type ChartIndicatorId,
-} from "@/types/chart-tools";
+import type { ChartHorizontalLine } from "@/types/chart-tools";
 
-const INDICATORS: ChartIndicatorId[] = ["ema9", "ema21", "ema50", "vwap"];
 const EMPTY_LINES: ChartHorizontalLine[] = [];
 
 export function ChartStudiesBar({ coin }: { coin: string }) {
@@ -18,7 +14,7 @@ export function ChartStudiesBar({ coin }: { coin: string }) {
   const drawTool = useChartToolsStore((s) => s.drawTool);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const userLines = useChartToolsStore((s) => s.linesByCoin[coin] ?? EMPTY_LINES);
-  const toggleIndicator = useChartToolsStore((s) => s.toggleIndicator);
+  const removeIndicator = useChartToolsStore((s) => s.removeIndicator);
   const setDrawTool = useChartToolsStore((s) => s.setDrawTool);
   const setShowPositionLines = useChartToolsStore((s) => s.setShowPositionLines);
   const clearHorizontalLines = useChartToolsStore((s) => s.clearHorizontalLines);
@@ -32,26 +28,28 @@ export function ChartStudiesBar({ coin }: { coin: string }) {
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <span className="text-[10px] text-slate-600">IND</span>
-      {INDICATORS.map((id) => {
-        const meta = CHART_INDICATOR_META[id];
-        const on = indicators.includes(id);
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => toggleIndicator(id)}
-            className={cn(
-              "px-1.5 py-0.5 text-[10px]",
-              on ? "text-slate-100" : "text-slate-600 hover:text-slate-400",
-            )}
-            style={on ? { color: meta.color } : undefined}
-            title={meta.label}
-          >
-            {meta.label.replace("EMA ", "")}
-          </button>
-        );
-      })}
+      {indicators.length > 0 ? (
+        <>
+          <span className="mx-0.5 text-slate-700">|</span>
+          {indicators.map((id) => {
+            const meta = INDICATOR_BY_ID[id];
+            if (!meta) return null;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => removeIndicator(id)}
+                className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-[#2a2e39]"
+                style={{ color: meta.color }}
+                title={`Remove ${meta.name}`}
+              >
+                <span className="max-w-[120px] truncate">{meta.name}</span>
+                <X className="h-2.5 w-2.5 opacity-60" />
+              </button>
+            );
+          })}
+        </>
+      ) : null}
 
       <span className="mx-0.5 text-slate-700">|</span>
 
