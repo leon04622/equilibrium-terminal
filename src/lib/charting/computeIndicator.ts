@@ -1,6 +1,9 @@
 import type { NormalizedCandle } from "@/types/terminal-schema";
-import type { UTCTimestamp } from "lightweight-charts";
 import type { IndicatorDefinition } from "@/lib/charting/indicatorCatalog";
+import {
+  resolveIndicatorParams,
+  type IndicatorParamValues,
+} from "@/lib/charting/indicatorParams";
 import {
   computeAd,
   computeAdx,
@@ -51,28 +54,29 @@ import {
   computeTrueStrengthIndex,
   computeVwma,
   computeWilliamsAlligator,
-  type IndicatorPoint,
   type IndicatorSeriesSet,
 } from "@/lib/charting/indicators";
 
-export type { IndicatorPoint, IndicatorSeriesSet };
+export type { IndicatorSeriesSet };
 
 export function computeIndicatorOutput(
   id: string,
   candles: NormalizedCandle[],
   meta?: IndicatorDefinition,
+  userParams?: IndicatorParamValues,
 ): IndicatorSeriesSet | null {
   if (!candles.length) return null;
 
-  const period = meta?.period ?? 14;
+  const p = resolveIndicatorParams(id, userParams);
+  const period = p.period;
 
   switch (id) {
     case "ema":
       return { type: "line", key: "ema", data: computeEma(candles, period), color: meta?.color ?? "#f59e0b" };
     case "ema_9":
-      return { type: "line", key: "ema9", data: computeEma(candles, 9), color: "#fbbf24" };
+      return { type: "line", key: "ema9", data: computeEma(candles, period), color: "#fbbf24" };
     case "ema_50":
-      return { type: "line", key: "ema50", data: computeEma(candles, 50), color: "#2962ff" };
+      return { type: "line", key: "ema50", data: computeEma(candles, period), color: "#2962ff" };
     case "sma":
       return { type: "line", key: "sma", data: computeSma(candles, period), color: meta?.color ?? "#cbd5e1" };
     case "smma":
@@ -84,7 +88,12 @@ export function computeIndicatorOutput(
     case "vwap":
       return { type: "line", key: "vwap", data: computeVwap(candles), color: meta?.color ?? "#e879f9" };
     case "bb":
-      return { type: "bands", key: "bb", bands: computeBollinger(candles, period), colors: meta?.colors };
+      return {
+        type: "bands",
+        key: "bb",
+        bands: computeBollinger(candles, period, p.stdDev ?? 2),
+        colors: meta?.colors,
+      };
     case "donchian":
       return { type: "bands", key: "donchian", bands: computeDonchian(candles, period), colors: meta?.colors };
     case "keltner":
@@ -96,11 +105,15 @@ export function computeIndicatorOutput(
     case "supertrend":
       return { type: "line", key: "supertrend", data: computeSupertrend(candles, period), color: meta?.color ?? "#22c55e" };
     case "w52_hl":
-      return { type: "multi", key: "w52", series: computeW52HighLow(candles) };
+      return { type: "multi", key: "w52", series: computeW52HighLow(candles, period) };
     case "rsi":
       return { type: "line", key: "rsi", data: computeRsi(candles, period), color: meta?.color ?? "#a855f7" };
     case "macd":
-      return { type: "macd", key: "macd", ...computeMacd(candles) };
+      return {
+        type: "macd",
+        key: "macd",
+        ...computeMacd(candles, p.fastPeriod ?? 12, p.slowPeriod ?? 26, p.signalPeriod ?? 9),
+      };
     case "stoch":
       return { type: "multi", key: "stoch", series: computeStochastic(candles, period) };
     case "stoch_rsi":
@@ -171,7 +184,12 @@ export function computeIndicatorOutput(
     case "elder_ray":
       return { type: "multi", key: "elder_ray", series: computeElderRay(candles, period) };
     case "envelope":
-      return { type: "bands", key: "envelope", bands: computeEnvelope(candles, period), colors: meta?.colors };
+      return {
+        type: "bands",
+        key: "envelope",
+        bands: computeEnvelope(candles, period, p.percent ?? 2.5),
+        colors: meta?.colors,
+      };
     default:
       return null;
   }

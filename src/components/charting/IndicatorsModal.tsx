@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Star, X } from "lucide-react";
+import { Search, Settings2, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
 import {
   INDICATOR_CATALOG,
   sortIndicatorsForModal,
 } from "@/lib/charting/indicatorCatalog";
+import { hasIndicatorSettings } from "@/lib/charting/indicatorParams";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 
 export function IndicatorsModal() {
@@ -15,6 +16,7 @@ export function IndicatorsModal() {
   const active = useChartToolsStore((s) => s.indicators);
   const favorites = useChartToolsStore((s) => s.favorites);
   const setOpen = useChartToolsStore((s) => s.setIndicatorsModalOpen);
+  const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
   const toggleIndicator = useChartToolsStore((s) => s.toggleIndicator);
   const toggleFavorite = useChartToolsStore((s) => s.toggleFavorite);
 
@@ -142,6 +144,19 @@ export function IndicatorsModal() {
                         <span className="ml-1.5 text-[10px] text-slate-600">(soon)</span>
                       ) : null}
                     </button>
+                    {isActive && hasIndicatorSettings(def.id) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpen(false);
+                          setSettingsTarget(def.id);
+                        }}
+                        className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-[#2a2e39] hover:text-[#5b9cf6]"
+                        title="Indicator settings"
+                      >
+                        <Settings2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
                     {isActive ? (
                       <span className="shrink-0 rounded bg-[#2962ff]/20 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[#5b9cf6]">
                         On

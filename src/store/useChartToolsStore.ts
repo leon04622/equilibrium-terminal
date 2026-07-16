@@ -5,6 +5,12 @@ import {
   INDICATOR_BY_ID,
   migrateIndicatorId,
 } from "@/lib/charting/indicatorCatalog";
+import {
+  hasIndicatorSettings,
+  resolveIndicatorParams,
+  sanitizeIndicatorSettings,
+  type IndicatorParamValues,
+} from "@/lib/charting/indicatorParams";
 import type {
   ChartDrawTool,
   ChartHorizontalLine,
@@ -12,11 +18,12 @@ import type {
   ChartTicketPreview,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v2";
+const STORAGE_KEY = "eq-chart-tools-v3";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
   favorites: ChartIndicatorId[];
+  indicatorSettings: Record<string, IndicatorParamValues>;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
 }
@@ -35,12 +42,16 @@ function loadPersist(): Persisted {
   const fallback: Persisted = {
     indicators: ["ema"],
     favorites: defaultFavorites(),
+    indicatorSettings: {},
     showPositionLines: true,
     linesByCoin: {},
   };
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem("eq-chart-tools-v1");
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem("eq-chart-tools-v2") ??
+      localStorage.getItem("eq-chart-tools-v1");
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<Persisted>;
     const indicators = sanitizeIndicators(parsed.indicators);
@@ -50,6 +61,7 @@ function loadPersist(): Persisted {
     return {
       indicators: indicators.length ? indicators : ["ema"],
       favorites: favorites.length ? favorites : defaultFavorites(),
+      indicatorSettings: sanitizeIndicatorSettings(parsed.indicatorSettings),
       showPositionLines: parsed.showPositionLines !== false,
       linesByCoin: parsed.linesByCoin ?? {},
     };
@@ -67,16 +79,30 @@ function savePersist(state: Persisted): void {
   }
 }
 
+function snapshot(state: ChartToolsState): Persisted {
+  return {
+    indicators: state.indicators,
+    favorites: state.favorites,
+    indicatorSettings: state.indicatorSettings,
+    showPositionLines: state.showPositionLines,
+    linesByCoin: state.linesByCoin,
+  };
+}
+
 export interface ChartToolsState {
   indicators: ChartIndicatorId[];
   favorites: ChartIndicatorId[];
+  indicatorSettings: Record<string, IndicatorParamValues>;
   indicatorsModalOpen: boolean;
+  settingsTargetId: string | null;
   drawTool: ChartDrawTool;
   showPositionLines: boolean;
   linesByCoin: Record<string, ChartHorizontalLine[]>;
   ticketPreview: ChartTicketPreview | null;
 
   setIndicatorsModalOpen: (open: boolean) => void;
+  setSettingsTarget: (id: string | null) => void;
+  updateIndicatorSettings: (id: ChartIndicatorId, values: IndicatorParamValues) => void;
   toggleIndicator: (id: ChartIndicatorId) => void;
   removeIndicator: (id: ChartIndicatorId) => void;
   toggleFavorite: (id: ChartIndicatorId) => void;
@@ -95,37 +121,52 @@ export const useChartToolsStore = create<ChartToolsState>()(
   subscribeWithSelector((set, get) => ({
     indicators: persisted.indicators,
     favorites: persisted.favorites,
+    indicatorSettings: persisted.indicatorSettings,
     indicatorsModalOpen: false,
+    settingsTargetId: null,
     drawTool: "none",
     showPositionLines: persisted.showPositionLines,
     linesByCoin: persisted.linesByCoin,
     ticketPreview: null,
 
-    setIndicatorsModalOpen: (indicatorsModalOpen) => set({ indicatorsModalOpen }),
+    setIndicatorsModalOpen: (indicatorsModalOpen) =>
+      set({ indicatorsModalOpen, settingsTargetId: indicatorsModalOpen ? null : get().settingsTargetId }),
+
+    setSettingsTarget: (settingsTargetId) =>
+      set({ settingsTargetId, indicatorsModalOpen: settingsTargetId ? false : get().indicatorsModalOpen }),
+
+    updateIndicatorSettings: (id, values) => {
+      const next = {
+        ...get().indicatorSettings,
+        [id]: resolveIndicatorParams(id, { ...get().indicatorSettings[id], ...values }),
+      };
+      set({ indicatorSettings: next });
+      savePersist({ ...snapshot(get()), indicatorSettings: next });
+    },
 
     toggleIndicator: (id) => {
       const def = INDICATOR_BY_ID[id];
       if (!def?.implemented) return;
       const cur = get().indicators;
-      const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-      set({ indicators: next });
-      savePersist({
+      const adding = !cur.includes(id);
+      const next = adding ? [...cur, id] : cur.filter((x) => x !== id);
+      set({
         indicators: next,
-        favorites: get().favorites,
-        showPositionLines: get().showPositionLines,
-        linesByCoin: get().linesByCoin,
+        indicatorsModalOpen: adding && hasIndicatorSettings(id) ? false : get().indicatorsModalOpen,
+        settingsTargetId: adding && hasIndicatorSettings(id) ? id : get().settingsTargetId,
       });
+      savePersist({ ...snapshot(get()), indicators: next });
     },
 
     removeIndicator: (id) => {
       const next = get().indicators.filter((x) => x !== id);
-      set({ indicators: next });
-      savePersist({
+      const { [id]: _, ...restSettings } = get().indicatorSettings;
+      set({
         indicators: next,
-        favorites: get().favorites,
-        showPositionLines: get().showPositionLines,
-        linesByCoin: get().linesByCoin,
+        indicatorSettings: restSettings,
+        settingsTargetId: get().settingsTargetId === id ? null : get().settingsTargetId,
       });
+      savePersist({ ...snapshot(get()), indicators: next, indicatorSettings: restSettings });
     },
 
     toggleFavorite: (id) => {
@@ -133,24 +174,14 @@ export const useChartToolsStore = create<ChartToolsState>()(
       const cur = get().favorites;
       const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
       set({ favorites: next });
-      savePersist({
-        indicators: get().indicators,
-        favorites: next,
-        showPositionLines: get().showPositionLines,
-        linesByCoin: get().linesByCoin,
-      });
+      savePersist({ ...snapshot(get()), favorites: next });
     },
 
     setDrawTool: (drawTool) => set({ drawTool }),
 
     setShowPositionLines: (showPositionLines) => {
       set({ showPositionLines });
-      savePersist({
-        indicators: get().indicators,
-        favorites: get().favorites,
-        showPositionLines,
-        linesByCoin: get().linesByCoin,
-      });
+      savePersist({ ...snapshot(get()), showPositionLines });
     },
 
     linesForCoin: (coin) => get().linesByCoin[coin] ?? [],
@@ -169,12 +200,7 @@ export const useChartToolsStore = create<ChartToolsState>()(
         [coin]: [...(get().linesByCoin[coin] ?? []), line].slice(-12),
       };
       set({ linesByCoin, drawTool: "none" });
-      savePersist({
-        indicators: get().indicators,
-        favorites: get().favorites,
-        showPositionLines: get().showPositionLines,
-        linesByCoin,
-      });
+      savePersist({ ...snapshot(get()), linesByCoin });
     },
 
     removeHorizontalLine: (coin, id) => {
@@ -183,23 +209,13 @@ export const useChartToolsStore = create<ChartToolsState>()(
         [coin]: (get().linesByCoin[coin] ?? []).filter((l) => l.id !== id),
       };
       set({ linesByCoin });
-      savePersist({
-        indicators: get().indicators,
-        favorites: get().favorites,
-        showPositionLines: get().showPositionLines,
-        linesByCoin,
-      });
+      savePersist({ ...snapshot(get()), linesByCoin });
     },
 
     clearHorizontalLines: (coin) => {
       const linesByCoin = { ...get().linesByCoin, [coin]: [] };
       set({ linesByCoin });
-      savePersist({
-        indicators: get().indicators,
-        favorites: get().favorites,
-        showPositionLines: get().showPositionLines,
-        linesByCoin,
-      });
+      savePersist({ ...snapshot(get()), linesByCoin });
     },
 
     setTicketPreview: (ticketPreview) => {

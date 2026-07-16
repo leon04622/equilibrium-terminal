@@ -18,7 +18,9 @@ import {
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
 import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
+import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
+import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
 import { ChartStudiesBar } from "@/components/charting/ChartStudiesBar";
 import { ChartLegend, type ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
@@ -132,6 +134,7 @@ export function ChartWidget() {
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
   const eventMarkerCount = useChartAnalyticsStore((s) => s.snapshot?.eventMarkers.length ?? 0);
   const indicators = useChartToolsStore((s) => s.indicators);
+  const indicatorSettings = useChartToolsStore((s) => s.indicatorSettings);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const userLineCount = useChartToolsStore((s) => s.linesByCoin[selectedCoin]?.length ?? 0);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
@@ -140,7 +143,10 @@ export function ChartWidget() {
   const deskMode = useDeskExecutionStore((s) => s.mode);
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
-  const indicatorsKey = indicators.join(",");
+  const indicatorsKey = useMemo(
+    () => indicatorSettingsFingerprint(indicators, indicatorSettings),
+    [indicators, indicatorSettings],
+  );
   const paneIds = useMemo(() => paneIndicatorIds(indicators), [indicators]);
   const toggleOverlay = useChartAnalyticsStore((s) => s.toggleOverlay);
 
@@ -323,6 +329,7 @@ export function ChartWidget() {
       const snapshot = useChartAnalyticsStore.getState().snapshot;
       const candles = resolveCandles();
       const enabledIndicators = useChartToolsStore.getState().indicators;
+      const settings = useChartToolsStore.getState().indicatorSettings;
       const fp = candleFingerprint(candles, timeframe);
 
       if (candles.length === 0) {
@@ -360,7 +367,7 @@ export function ChartWidget() {
             { time: t, value: last.volume, color: EQ_CHART.volumeUp },
           );
           lastLegendRef.current = nextLegend;
-          applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current);
+          applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current, settings);
           syncPriceLines(series);
           return;
         }
@@ -414,7 +421,7 @@ export function ChartWidget() {
         series.setMarkers([]);
       }
 
-      applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current);
+      applyOverlayIndicators(chart, candles, enabledIndicators, indicatorSeriesRef.current, settings);
 
       syncPriceLines(series);
     };
@@ -574,6 +581,7 @@ export function ChartWidget() {
           />
         ))}
         <IndicatorsModal />
+        <IndicatorSettingsModal />
       </div>
     </div>
   );

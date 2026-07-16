@@ -164,20 +164,25 @@ export function computeRsi(candles: NormalizedCandle[], period = 14): IndicatorP
   return out;
 }
 
-export function computeMacd(candles: NormalizedCandle[]): {
+export function computeMacd(
+  candles: NormalizedCandle[],
+  fast = 12,
+  slow = 26,
+  signalPeriod = 9,
+): {
   macd: IndicatorPoint[];
   signal: IndicatorPoint[];
   histogram: IndicatorHistogramPoint[];
   colors?: string[];
 } {
   const closes = candles.map((c) => c.close);
-  const ema12 = emaArray(closes, 12);
-  const ema26 = emaArray(closes, 26);
+  const emaFast = emaArray(closes, fast);
+  const emaSlow = emaArray(closes, slow);
   const macdRaw: (number | null)[] = closes.map((_, i) => {
-    if (ema12[i] == null || ema26[i] == null) return null;
-    return ema12[i]! - ema26[i]!;
+    if (emaFast[i] == null || emaSlow[i] == null) return null;
+    return emaFast[i]! - emaSlow[i]!;
   });
-  const signalRaw = emaArrayNullable(macdRaw, 9);
+  const signalRaw = emaArrayNullable(macdRaw, signalPeriod);
   const macd: IndicatorPoint[] = [];
   const signal: IndicatorPoint[] = [];
   const histogram: IndicatorHistogramPoint[] = [];
@@ -494,7 +499,7 @@ export function computeVolumeOscillator(candles: NormalizedCandle[]): IndicatorP
   return out;
 }
 
-export function computeBollinger(candles: NormalizedCandle[], period = 20): IndicatorBandSet {
+export function computeBollinger(candles: NormalizedCandle[], period = 20, stdDev = 2): IndicatorBandSet {
   const upper: IndicatorPoint[] = [];
   const middle: IndicatorPoint[] = [];
   const lower: IndicatorPoint[] = [];
@@ -504,8 +509,8 @@ export function computeBollinger(candles: NormalizedCandle[], period = 20): Indi
     const variance = slice.reduce((s, c) => s + (c.close - mean) ** 2, 0) / period;
     const std = Math.sqrt(variance);
     pushPoint(middle, candles, i, mean);
-    pushPoint(upper, candles, i, mean + 2 * std);
-    pushPoint(lower, candles, i, mean - 2 * std);
+    pushPoint(upper, candles, i, mean + stdDev * std);
+    pushPoint(lower, candles, i, mean - stdDev * std);
   }
   return { upper, middle, lower };
 }
@@ -629,12 +634,12 @@ export function computeSupertrend(candles: NormalizedCandle[], period = 10): Ind
   return out;
 }
 
-export function computeW52HighLow(candles: NormalizedCandle[]): IndicatorLineSeries[] {
-  const bars = Math.min(252, candles.length);
+export function computeW52HighLow(candles: NormalizedCandle[], bars = 252): IndicatorLineSeries[] {
+  const lookback = Math.min(Math.max(10, bars), candles.length);
   const high: IndicatorPoint[] = [];
   const low: IndicatorPoint[] = [];
-  for (let i = bars - 1; i < candles.length; i++) {
-    const slice = candles.slice(i - bars + 1, i + 1);
+  for (let i = lookback - 1; i < candles.length; i++) {
+    const slice = candles.slice(i - lookback + 1, i + 1);
     high.push({ time: candles[i]!.time as UTCTimestamp, value: Math.max(...slice.map((c) => c.high)) });
     low.push({ time: candles[i]!.time as UTCTimestamp, value: Math.min(...slice.map((c) => c.low)) });
   }
@@ -940,14 +945,15 @@ export function computeElderRay(candles: NormalizedCandle[], period = 13): Indic
   ];
 }
 
-export function computeEnvelope(candles: NormalizedCandle[], period = 20, pct = 0.025): IndicatorBandSet {
+export function computeEnvelope(candles: NormalizedCandle[], period = 20, pct = 2.5): IndicatorBandSet {
   const sma = computeSma(candles, period);
   const upper: IndicatorPoint[] = [];
   const lower: IndicatorPoint[] = [];
   const middle: IndicatorPoint[] = sma;
+  const ratio = pct / 100;
   for (const m of sma) {
-    upper.push({ time: m.time, value: m.value * (1 + pct) });
-    lower.push({ time: m.time, value: m.value * (1 - pct) });
+    upper.push({ time: m.time, value: m.value * (1 + ratio) });
+    lower.push({ time: m.time, value: m.value * (1 - ratio) });
   }
   return { upper, middle, lower };
 }

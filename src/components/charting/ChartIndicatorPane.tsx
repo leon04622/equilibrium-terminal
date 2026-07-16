@@ -7,8 +7,11 @@ import {
   type IChartApi,
   type ISeriesApi,
 } from "lightweight-charts";
+import { Settings2 } from "lucide-react";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { hasIndicatorSettings, indicatorChipLabel } from "@/lib/charting/indicatorParams";
+import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { EQ_CHART } from "@/lib/theme/equilibrium-visual";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
@@ -32,6 +35,10 @@ export function ChartIndicatorPane({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<PaneSeriesRef>({ lines: [], histogram: null });
   const meta = INDICATOR_BY_ID[indicatorId];
+  const settings = useChartToolsStore((s) => s.indicatorSettings[indicatorId]);
+  const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
+  const paneLabel = indicatorChipLabel(indicatorId, settings);
+  const canConfigure = hasIndicatorSettings(indicatorId);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -79,7 +86,7 @@ export function ChartIndicatorPane({
     if (seriesRef.current.histogram) chart.removeSeries(seriesRef.current.histogram);
     seriesRef.current = { lines: [], histogram: null };
 
-    const output = computeIndicatorOutput(indicatorId, candles, meta);
+    const output = computeIndicatorOutput(indicatorId, candles, meta, settings);
     if (!output) return;
 
     if (output.type === "line") {
@@ -124,7 +131,7 @@ export function ChartIndicatorPane({
     }
 
     chart.timeScale().fitContent();
-  }, [indicatorId, candles, meta]);
+  }, [indicatorId, candles, meta, settings]);
 
   useEffect(() => {
     const pane = chartRef.current;
@@ -146,8 +153,20 @@ export function ChartIndicatorPane({
 
   return (
     <div className="relative shrink-0 border-t border-[#2a2e39] bg-[#131722]">
-      <div className="absolute left-2 top-0.5 z-10 text-[9px] uppercase tracking-wide text-slate-600">
-        {meta.name}
+      <div className="absolute left-2 top-0.5 z-10 flex items-center gap-1">
+        {canConfigure ? (
+          <button
+            type="button"
+            onClick={() => setSettingsTarget(indicatorId)}
+            className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-slate-600 hover:text-[#5b9cf6]"
+            title="Edit indicator settings"
+          >
+            <span>{paneLabel}</span>
+            <Settings2 className="h-2.5 w-2.5" />
+          </button>
+        ) : (
+          <span className="text-[9px] uppercase tracking-wide text-slate-600">{paneLabel}</span>
+        )}
       </div>
       <div ref={containerRef} style={{ height }} />
     </div>

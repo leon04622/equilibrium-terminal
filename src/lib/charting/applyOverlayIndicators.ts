@@ -1,6 +1,7 @@
-import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
+import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID, indicatorPane } from "@/lib/charting/indicatorCatalog";
+import type { IndicatorParamValues } from "@/lib/charting/indicatorParams";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
 export type OverlaySeriesMap = Map<string, ISeriesApi<"Line"> | ISeriesApi<"Histogram">>;
@@ -44,6 +45,7 @@ export function applyOverlayIndicators(
   candles: NormalizedCandle[],
   activeIds: string[],
   map: OverlaySeriesMap,
+  settings: Record<string, IndicatorParamValues> = {},
 ): void {
   const overlayIds = activeIds.filter((id) => indicatorPane(id) === "overlay");
   const keep = new Set<string>();
@@ -51,7 +53,7 @@ export function applyOverlayIndicators(
   for (const id of overlayIds) {
     const meta = INDICATOR_BY_ID[id];
     if (!meta?.implemented) continue;
-    const output = computeIndicatorOutput(id, candles, meta);
+    const output = computeIndicatorOutput(id, candles, meta, settings[id]);
     if (!output) continue;
 
     if (output.type === "line" || output.type === "dots") {

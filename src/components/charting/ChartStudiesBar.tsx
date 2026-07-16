@@ -1,9 +1,9 @@
 "use client";
 
-import { Minus, Trash2, X } from "lucide-react";
+import { Minus, Settings2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TERMINAL_TYPO } from "@/lib/theme";
-import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { hasIndicatorSettings, indicatorChipLabel } from "@/lib/charting/indicatorParams";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { ChartHorizontalLine } from "@/types/chart-tools";
 
@@ -11,10 +11,12 @@ const EMPTY_LINES: ChartHorizontalLine[] = [];
 
 export function ChartStudiesBar({ coin }: { coin: string }) {
   const indicators = useChartToolsStore((s) => s.indicators);
+  const indicatorSettings = useChartToolsStore((s) => s.indicatorSettings);
   const drawTool = useChartToolsStore((s) => s.drawTool);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const userLines = useChartToolsStore((s) => s.linesByCoin[coin] ?? EMPTY_LINES);
   const removeIndicator = useChartToolsStore((s) => s.removeIndicator);
+  const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
   const setDrawTool = useChartToolsStore((s) => s.setDrawTool);
   const setShowPositionLines = useChartToolsStore((s) => s.setShowPositionLines);
   const clearHorizontalLines = useChartToolsStore((s) => s.clearHorizontalLines);
@@ -32,20 +34,46 @@ export function ChartStudiesBar({ coin }: { coin: string }) {
         <>
           <span className="mx-0.5 text-slate-700">|</span>
           {indicators.map((id) => {
-            const meta = INDICATOR_BY_ID[id];
-            if (!meta) return null;
+            const label = indicatorChipLabel(id, indicatorSettings[id]);
+            const canConfigure = hasIndicatorSettings(id);
             return (
-              <button
+              <div
                 key={id}
-                type="button"
-                onClick={() => removeIndicator(id)}
-                className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-[#2a2e39]"
-                style={{ color: meta.color }}
-                title={`Remove ${meta.name}`}
+                className="flex items-center gap-0.5 rounded bg-[#1a1e29]/80 px-1 py-0.5 text-[10px] text-slate-300"
               >
-                <span className="max-w-[120px] truncate">{meta.name}</span>
-                <X className="h-2.5 w-2.5 opacity-60" />
-              </button>
+                {canConfigure ? (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsTarget(id)}
+                    className="max-w-[140px] truncate px-0.5 text-left hover:text-[#5b9cf6]"
+                    title="Click to edit settings"
+                  >
+                    {label}
+                  </button>
+                ) : (
+                  <span className="max-w-[140px] truncate px-0.5" title={label}>
+                    {label}
+                  </span>
+                )}
+                {canConfigure ? (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsTarget(id)}
+                    className="rounded p-0.5 text-slate-500 hover:bg-[#2a2e39] hover:text-[#5b9cf6]"
+                    title="Indicator settings"
+                  >
+                    <Settings2 className="h-2.5 w-2.5" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => removeIndicator(id)}
+                  className="rounded p-0.5 text-slate-500 hover:bg-[#2a2e39] hover:text-rose-400"
+                  title="Remove indicator"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
             );
           })}
         </>
