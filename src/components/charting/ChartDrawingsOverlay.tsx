@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 import type { ChartPoint } from "@/lib/charting/chartDrawing";
 import {
@@ -1334,6 +1334,7 @@ export function ChartDrawingsOverlay({
   liveEdit,
   selectedDrawingId,
   editable,
+  viewportVersion,
   onEditStart,
 }: {
   coin: string;
@@ -1344,14 +1345,14 @@ export function ChartDrawingsOverlay({
   liveEdit: DrawingLiveEdit | null;
   selectedDrawingId: string | null;
   editable: boolean;
+  viewportVersion: number;
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void;
 }) {
   const drawings = useChartToolsStore((s) => s.drawingsByCoin[coin] ?? EMPTY_DRAWINGS);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [chartTick, setChartTick] = useState(0);
 
-  const requestRedraw = useCallback(() => setChartTick((n) => n + 1), []);
+  void viewportVersion;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1365,14 +1366,6 @@ export function ChartDrawingsOverlay({
     return () => ro.disconnect();
   }, [containerRef]);
 
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    const onRange = () => requestRedraw();
-    chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
-    return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
-  }, [chartRef, requestRedraw]);
-
   if (hideDrawings || size.width === 0) return null;
 
   const chart = chartRef.current;
@@ -1385,7 +1378,6 @@ export function ChartDrawingsOverlay({
 
   return (
     <svg
-      key={chartTick}
       className="absolute inset-0 z-[8] pointer-events-none"
       width={size.width}
       height={size.height}

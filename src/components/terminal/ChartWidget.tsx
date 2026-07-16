@@ -46,6 +46,8 @@ import { EQ_CHART } from "@/lib/theme/equilibrium-visual";
 import { isWorkspaceScrolling, onWorkspaceScrollEnd } from "@/lib/runtime/workspaceScroll";
 import { terminalBus } from "@/store/eventBus";
 import { useChartHistory } from "@/hooks/useChartHistory";
+import { useChartViewportVersion } from "@/hooks/useChartViewportVersion";
+import { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
@@ -240,6 +242,8 @@ export function ChartWidget() {
   const drawCaptureRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const viewportPrimitiveRef = useRef<DrawingViewportPrimitive | null>(null);
+  const [chartReady, setChartReady] = useState(false);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const indicatorSeriesRef = useRef<OverlaySeriesMap>(new Map());
   const priceLinesRef = useRef<IPriceLine[]>([]);
@@ -318,6 +322,7 @@ export function ChartWidget() {
   const dragCaptureActive = isActiveDrawCapture(drawTool);
   const canEditDrawings = !hideDrawings && !lockDrawings && !drawingToolActive;
   const blockChartPan = drawingToolActive || editingDrawing;
+  const viewportVersion = useChartViewportVersion(chartRef, viewportPrimitiveRef, chartReady && !hideDrawings);
   const selectedDrawing = useMemo(() => {
     if (!selectedDrawingId) return null;
     return (chartDrawings ?? []).find((d) => d.id === selectedDrawingId) ?? null;
@@ -532,6 +537,11 @@ export function ChartWidget() {
     seriesRef.current = series;
     volumeRef.current = volume;
 
+    const viewportPrimitive = new DrawingViewportPrimitive();
+    viewportPrimitiveRef.current = viewportPrimitive;
+    series.attachPrimitive(viewportPrimitive);
+    setChartReady(true);
+
     const ro = new ResizeObserver(() => {
       if (containerRef.current) {
         chart.applyOptions({
@@ -544,6 +554,11 @@ export function ChartWidget() {
 
     return () => {
       ro.disconnect();
+      if (viewportPrimitiveRef.current) {
+        series.detachPrimitive(viewportPrimitiveRef.current);
+        viewportPrimitiveRef.current = null;
+      }
+      setChartReady(false);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -1139,6 +1154,7 @@ export function ChartWidget() {
               liveEdit={liveEdit}
               selectedDrawingId={selectedDrawingId}
               editable={canEditDrawings}
+              viewportVersion={viewportVersion}
               onEditStart={onEditStart}
             />
             {canEditDrawings && selectedDrawing ? (
@@ -1148,6 +1164,7 @@ export function ChartWidget() {
                 chartRef={chartRef}
                 seriesRef={seriesRef}
                 containerRef={containerRef}
+                viewportVersion={viewportVersion}
                 onDelete={() => deleteDrawing(selectedDrawing.id)}
                 onDismiss={() => setSelectedDrawingId(null)}
               />

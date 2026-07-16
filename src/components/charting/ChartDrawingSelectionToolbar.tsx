@@ -64,6 +64,7 @@ export function ChartDrawingSelectionToolbar({
   chartRef,
   seriesRef,
   containerRef,
+  viewportVersion,
   onDelete,
   onDismiss,
 }: {
@@ -72,6 +73,7 @@ export function ChartDrawingSelectionToolbar({
   chartRef: RefObject<IChartApi | null>;
   seriesRef: RefObject<ISeriesApi<"Candlestick"> | null>;
   containerRef: RefObject<HTMLDivElement | null>;
+  viewportVersion: number;
   onDelete: () => void;
   onDismiss: () => void;
 }) {
@@ -112,14 +114,10 @@ export function ChartDrawingSelectionToolbar({
     };
 
     updatePos();
-    chart.timeScale().subscribeVisibleLogicalRangeChange(updatePos);
     const ro = new ResizeObserver(updatePos);
     ro.observe(container);
-    return () => {
-      chart.timeScale().unsubscribeVisibleLogicalRangeChange(updatePos);
-      ro.disconnect();
-    };
-  }, [chartRef, containerRef, drawing, seriesRef]);
+    return () => ro.disconnect();
+  }, [chartRef, containerRef, drawing, seriesRef, viewportVersion]);
 
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
