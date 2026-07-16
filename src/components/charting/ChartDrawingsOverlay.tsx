@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
-import { extendLineThroughBox } from "@/lib/charting/chartDrawing";
+import { extendLineThroughBox, type ChartPoint } from "@/lib/charting/chartDrawing";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { ChartTrendLine } from "@/types/chart-tools";
 
 const EMPTY_TREND_LINES: ChartTrendLine[] = [];
+const PREVIEW_COLOR = "#5b9cf6";
+const LINE_COLOR = "#787b86";
 
 function toCoord(
   chart: IChartApi,
@@ -18,6 +20,57 @@ function toCoord(
   const y = series.priceToCoordinate(price);
   if (x == null || y == null) return null;
   return { x, y };
+}
+
+function EndpointHandle({ x, y }: { x: number; y: number }) {
+  return (
+    <circle
+      cx={x}
+      cy={y}
+      r={4}
+      fill="#131722"
+      stroke={LINE_COLOR}
+      strokeWidth={1.5}
+    />
+  );
+}
+
+function ExtendedTrendLine({
+  p1,
+  p2,
+  chart,
+  series,
+  width,
+  height,
+  color,
+  dashed,
+}: {
+  p1: ChartPoint;
+  p2: ChartPoint;
+  chart: IChartApi;
+  series: ISeriesApi<"Candlestick">;
+  width: number;
+  height: number;
+  color: string;
+  dashed?: boolean;
+}) {
+  const c1 = toCoord(chart, series, p1.time, p1.price);
+  const c2 = toCoord(chart, series, p2.time, p2.price);
+  if (!c1 || !c2) return null;
+
+  const [a, b] = extendLineThroughBox(c1, c2, width, height);
+  return (
+    <line
+      x1={a.x}
+      y1={a.y}
+      x2={b.x}
+      y2={b.y}
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeDasharray={dashed ? "5 4" : undefined}
+    />
+  );
 }
 
 function TrendSvg({
@@ -33,21 +86,24 @@ function TrendSvg({
   width: number;
   height: number;
 }) {
-  const p1 = toCoord(chart, series, line.time1, line.price1);
-  const p2 = toCoord(chart, series, line.time2, line.price2);
-  if (!p1 || !p2) return null;
+  const c1 = toCoord(chart, series, line.time1, line.price1);
+  const c2 = toCoord(chart, series, line.time2, line.price2);
+  if (!c1 || !c2) return null;
 
-  const [a, b] = extendLineThroughBox(p1, p2, width, height);
   return (
-    <line
-      x1={a.x}
-      y1={a.y}
-      x2={b.x}
-      y2={b.y}
-      stroke={line.color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
+    <g>
+      <ExtendedTrendLine
+        p1={{ time: line.time1, price: line.price1 }}
+        p2={{ time: line.time2, price: line.price2 }}
+        chart={chart}
+        series={series}
+        width={width}
+        height={height}
+        color={line.color}
+      />
+      <EndpointHandle x={c1.x} y={c1.y} />
+      <EndpointHandle x={c2.x} y={c2.y} />
+    </g>
   );
 }
 
@@ -56,17 +112,20 @@ export function ChartDrawingsOverlay({
   chartRef,
   seriesRef,
   containerRef,
-  draftPoint,
+  draftStart,
+  draftEnd,
+  previewTool,
 }: {
   coin: string;
   chartRef: RefObject<IChartApi | null>;
   seriesRef: RefObject<ISeriesApi<"Candlestick"> | null>;
   containerRef: RefObject<HTMLDivElement | null>;
-  draftPoint: { time: number; price: number } | null;
+  draftStart: ChartPoint | null;
+  draftEnd: ChartPoint | null;
+  previewTool: "trendline" | "hline" | null;
 }) {
   const trendLines = useChartToolsStore((s) => s.trendLinesByCoin[coin] ?? EMPTY_TREND_LINES);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
-  const drawTool = useChartToolsStore((s) => s.drawTool);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [chartTick, setChartTick] = useState(0);
 
@@ -98,12 +157,50 @@ export function ChartDrawingsOverlay({
   const series = seriesRef.current;
   if (!chart || !series) return null;
 
-  let draftLine: React.ReactNode = null;
-  if (draftPoint && drawTool === "trendline") {
-    const p1 = toCoord(chart, series, draftPoint.time, draftPoint.price);
-    if (p1) {
-      draftLine = (
-        <circle cx={p1.x} cy={p1.y} r={3} fill="#5b9cf6" stroke="#131722" strokeWidth={1} />
+  let preview: ReactNode = null;
+  if (draftStart && draftEnd && previewTool) {
+    if (previewTool === "trendline") {
+      preview = (
+        <ExtendedTrendLine
+          p1={draftStart}
+          p2={draftEnd}
+          chart={chart}
+          series={series}
+          width={size.width}
+          height={size.height}
+          color={PREVIEW_COLOR}
+          dashed
+        />
+      );
+    } else if (previewTool === "hline") {
+      const y = series.priceToCoordinate(draftEnd.price);
+      if (y != null) {
+        preview = (
+          <line
+            x1={0}
+            y1={y}
+            x2={size.width}
+            y2={y}
+            stroke={PREVIEW_COLOR}
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+          />
+        );
+      }
+    }
+    const c1 = toCoord(chart, series, draftStart.time, draftStart.price);
+    const c2 = toCoord(chart, series, draftEnd.time, draftEnd.price);
+    if (c1 || c2) {
+      preview = (
+        <g>
+          {preview}
+          {c1 ? (
+            <circle cx={c1.x} cy={c1.y} r={4} fill={PREVIEW_COLOR} stroke="#131722" strokeWidth={1.5} />
+          ) : null}
+          {c2 && previewTool === "trendline" ? (
+            <circle cx={c2.x} cy={c2.y} r={4} fill={PREVIEW_COLOR} stroke="#131722" strokeWidth={1.5} />
+          ) : null}
+        </g>
       );
     }
   }
@@ -126,7 +223,7 @@ export function ChartDrawingsOverlay({
           height={size.height}
         />
       ))}
-      {draftLine}
+      {preview}
     </svg>
   );
 }

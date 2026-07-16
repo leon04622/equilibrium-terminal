@@ -24,7 +24,7 @@ import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
-import { snapPriceToCandle } from "@/lib/charting/chartDrawing";
+import { resolveDrawPoint, type ChartPoint } from "@/lib/charting/chartDrawing";
 import type { ChartLegendValues } from "@/components/terminal/ChartLegend";
 import {
   applyOverlayIndicators,
@@ -117,6 +117,7 @@ export function ChartWidget() {
   useChartHistory(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const drawCaptureRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
@@ -127,8 +128,14 @@ export function ChartWidget() {
   const didFitRef = useRef(false);
   const drawToolRef = useRef(useChartToolsStore.getState().drawTool);
   const drawingPrefsRef = useRef(useChartToolsStore.getState().drawingPrefs);
-  const trendDraftRef = useRef<{ time: number; price: number } | null>(null);
-  const [trendDraft, setTrendDraft] = useState<{ time: number; price: number } | null>(null);
+  const drawingSessionRef = useRef<{
+    active: boolean;
+    tool: "trendline" | "hline";
+    start: ChartPoint;
+  } | null>(null);
+  const [draftStart, setDraftStart] = useState<ChartPoint | null>(null);
+  const [draftEnd, setDraftEnd] = useState<ChartPoint | null>(null);
+  const [previewTool, setPreviewTool] = useState<"trendline" | "hline" | null>(null);
 
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
   const candleVersion = useTerminalStore((s) => s.candleVersion);
@@ -152,18 +159,26 @@ export function ChartWidget() {
   const deskMode = useDeskExecutionStore((s) => s.mode);
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
+
+  const clearDrawingDraft = useCallback(() => {
+    drawingSessionRef.current = null;
+    setDraftStart(null);
+    setDraftEnd(null);
+    setPreviewTool(null);
+  }, []);
+
   useEffect(() => {
-    trendDraftRef.current = null;
-    setTrendDraft(null);
-  }, [selectedCoin, timeframe]);
+    clearDrawingDraft();
+  }, [selectedCoin, timeframe, clearDrawingDraft]);
 
   const drawTool = useChartToolsStore((s) => s.drawTool);
   useEffect(() => {
-    if (drawTool !== "trendline") {
-      trendDraftRef.current = null;
-      setTrendDraft(null);
+    if (drawTool !== "trendline" && drawTool !== "hline") {
+      clearDrawingDraft();
     }
-  }, [drawTool]);
+  }, [drawTool, clearDrawingDraft]);
+
+  const drawingToolActive = drawTool === "trendline" || drawTool === "hline";
 
   const indicatorsKey = useMemo(
     () => indicatorSettingsFingerprint(indicators, indicatorSettings, indicatorDisplay),
@@ -182,6 +197,29 @@ export function ChartWidget() {
       drawingPrefsRef.current = s.drawingPrefs;
     });
   }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.applyOptions({
+      handleScroll: { mouseWheel: true, pressedMouseMove: !drawingToolActive },
+      handleScale: {
+        axisPressedMouseMove: !drawingToolActive,
+        mouseWheel: true,
+        pinch: true,
+      },
+    });
+  }, [drawingToolActive]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (!drawingSessionRef.current?.active && !draftStart) return;
+      clearDrawingDraft();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [clearDrawingDraft, draftStart]);
 
   const syncPriceLines = useCallback((series: ISeriesApi<"Candlestick">) => {
     for (const pl of priceLinesRef.current) {
@@ -568,47 +606,103 @@ export function ChartWidget() {
       setLegend((prev) => (legendEqual(prev, next) ? prev : next));
     };
 
-    const clickHandler = (param: MouseEventParams<Time>) => {
+    chart.subscribeCrosshairMove(crossHandler);
+    return () => {
+      chart.unsubscribeCrosshairMove(crossHandler);
+    };
+  }, []);
+
+  useEffect(() => {
+    const layer = drawCaptureRef.current;
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!layer || !chart || !series) return;
+
+    const resolvePoint = (clientX: number, clientY: number): ChartPoint | null => {
+      const rect = layer.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const candles = useChartAnalyticsStore.getState().displayCandles;
+      return resolveDrawPoint(
+        chart,
+        series,
+        x,
+        y,
+        candles,
+        drawingPrefsRef.current.magnet,
+      );
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
       const tool = drawToolRef.current;
-      if (tool === "none" || tool === "crosshair" || !param.point) return;
+      if (tool !== "trendline" && tool !== "hline") return;
       if (drawingPrefsRef.current.lockDrawings) return;
 
-      const priceRaw = series.coordinateToPrice(param.point.y);
-      const time = crosshairTimeToUnix(param);
-      if (priceRaw == null || !Number.isFinite(priceRaw) || time == null) return;
+      const pt = resolvePoint(e.clientX, e.clientY);
+      if (!pt) return;
+
+      drawingSessionRef.current = { active: true, tool, start: pt };
+      setDraftStart(pt);
+      setDraftEnd(pt);
+      setPreviewTool(tool);
+      layer.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!drawingSessionRef.current?.active) return;
+      const pt = resolvePoint(e.clientX, e.clientY);
+      if (pt) setDraftEnd(pt);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const session = drawingSessionRef.current;
+      if (!session?.active) return;
+
+      const end = resolvePoint(e.clientX, e.clientY);
+      drawingSessionRef.current = null;
+      setDraftStart(null);
+      setDraftEnd(null);
+      setPreviewTool(null);
+
+      if (layer.hasPointerCapture(e.pointerId)) {
+        layer.releasePointerCapture(e.pointerId);
+      }
+
+      if (!end) return;
 
       const coin = useTerminalStore.getState().selectedCoin;
-      const candles = useChartAnalyticsStore.getState().displayCandles;
-      const price = drawingPrefsRef.current.magnet
-        ? snapPriceToCandle(candles, time, priceRaw as number)
-        : (priceRaw as number);
       const store = useChartToolsStore.getState();
+      const { start, tool } = session;
 
       if (tool === "hline") {
-        store.addHorizontalLine(coin, price);
+        store.addHorizontalLine(coin, end.price);
         return;
       }
 
-      if (tool === "trendline") {
-        const draft = trendDraftRef.current;
-        if (!draft) {
-          trendDraftRef.current = { time, price };
-          setTrendDraft({ time, price });
-          return;
-        }
-        store.addTrendLine(coin, draft.time, draft.price, time, price);
-        trendDraftRef.current = null;
-        setTrendDraft(null);
-      }
+      const x1 = chart.timeScale().timeToCoordinate(start.time as UTCTimestamp);
+      const x2 = chart.timeScale().timeToCoordinate(end.time as UTCTimestamp);
+      const y1 = series.priceToCoordinate(start.price);
+      const y2 = series.priceToCoordinate(end.price);
+      if (x1 == null || x2 == null || y1 == null || y2 == null) return;
+
+      const dist = Math.hypot(x2 - x1, y2 - y1);
+      if (dist < 8) return;
+
+      store.addTrendLine(coin, start.time, start.price, end.time, end.price);
     };
 
-    chart.subscribeCrosshairMove(crossHandler);
-    chart.subscribeClick(clickHandler);
+    layer.addEventListener("pointerdown", onPointerDown);
+    layer.addEventListener("pointermove", onPointerMove);
+    layer.addEventListener("pointerup", onPointerUp);
+    layer.addEventListener("pointercancel", onPointerUp);
     return () => {
-      chart.unsubscribeCrosshairMove(crossHandler);
-      chart.unsubscribeClick(clickHandler);
+      layer.removeEventListener("pointerdown", onPointerDown);
+      layer.removeEventListener("pointermove", onPointerMove);
+      layer.removeEventListener("pointerup", onPointerUp);
+      layer.removeEventListener("pointercancel", onPointerUp);
     };
-  }, []);
+  }, [drawingToolActive]);
 
   useEffect(() => {
     setOverlayEnabled("volume_profile", volProfileWanted);
@@ -638,12 +732,23 @@ export function ChartWidget() {
               </div>
             ) : null}
             <div ref={containerRef} className="absolute inset-0" />
+            <div
+              ref={drawCaptureRef}
+              className={
+                drawingToolActive
+                  ? "absolute inset-0 z-[7] cursor-crosshair touch-none"
+                  : "pointer-events-none absolute inset-0 z-[7]"
+              }
+              aria-hidden={!drawingToolActive}
+            />
             <ChartDrawingsOverlay
               coin={selectedCoin}
               chartRef={chartRef}
               seriesRef={seriesRef}
               containerRef={containerRef}
-              draftPoint={trendDraft}
+              draftStart={draftStart}
+              draftEnd={draftEnd}
+              previewTool={previewTool}
             />
             <VolumeProfileOverlay
               candles={displayCandles}

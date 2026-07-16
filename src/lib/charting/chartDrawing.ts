@@ -1,3 +1,4 @@
+import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-charts";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
 export interface ChartPoint {
@@ -8,6 +9,47 @@ export interface ChartPoint {
 export interface PixelPoint {
   x: number;
   y: number;
+}
+
+function timeToUnix(time: Time): number | null {
+  if (typeof time === "number") return time;
+  if (typeof time === "string") return Math.floor(Date.parse(time) / 1000);
+  if (time && typeof time === "object" && "year" in time) {
+    return Math.floor(Date.UTC(time.year, time.month - 1, time.day) / 1000);
+  }
+  return null;
+}
+
+/** Convert a pixel on the chart surface to time + price. */
+export function pointFromChart(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  x: number,
+  y: number,
+): ChartPoint | null {
+  const price = series.coordinateToPrice(y);
+  if (price == null || !Number.isFinite(price)) return null;
+
+  const rawTime = chart.timeScale().coordinateToTime(x);
+  if (rawTime == null) return null;
+  const unix = timeToUnix(rawTime);
+  if (unix == null) return null;
+
+  return { time: unix, price: price as number };
+}
+
+export function resolveDrawPoint(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  x: number,
+  y: number,
+  candles: NormalizedCandle[],
+  magnet: boolean,
+): ChartPoint | null {
+  const pt = pointFromChart(chart, series, x, y);
+  if (!pt) return null;
+  if (!magnet) return pt;
+  return { ...pt, price: snapPriceToCandle(candles, pt.time, pt.price) };
 }
 
 /** Snap price to nearest OHLC on the candle at the given unix time. */
