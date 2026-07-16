@@ -69,6 +69,15 @@ export function chartTimeframeToHlInterval(tf: ChartTimeframe): HlCandleInterval
   return TF_TO_HL[tf];
 }
 
+const HL_TO_TF = Object.fromEntries(
+  Object.entries(TF_TO_HL).filter(([, iv]) => iv != null).map(([tf, iv]) => [iv, tf]),
+) as Record<string, ChartTimeframe>;
+
+export function chartIntervalToTimeframe(interval: string | null): ChartTimeframe | null {
+  if (!interval) return null;
+  return HL_TO_TF[interval] ?? null;
+}
+
 export function hlIntervalMs(interval: HlCandleInterval): number {
   return INTERVAL_MS[interval];
 }

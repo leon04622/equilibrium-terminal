@@ -82,7 +82,16 @@ export class ChartDataEngine {
     tf: ChartTimeframe,
   ): boolean {
     if (candles.length === 0) return true;
-    if (tf === "1M" || tf === "1w" || tf === "3d") return true;
+    if (tf === "1M" || tf === "1w" || tf === "3d") {
+      if (candles.length < 2) return true;
+      const gaps: number[] = [];
+      for (let i = 1; i < candles.length; i++) {
+        gaps.push(candles[i]!.time - candles[i - 1]!.time);
+      }
+      const median = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)] ?? 0;
+      const step = ChartDataEngine.timeframeSeconds(tf);
+      return median >= step * 0.75;
+    }
     const step = ChartDataEngine.timeframeSeconds(tf);
     return candles.every((c) => c.time % step === 0);
   }

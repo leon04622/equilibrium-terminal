@@ -67,7 +67,8 @@ function isTailOnlyCandleUpdate(prevFp: string, nextFp: string): boolean {
   const prev = prevFp.split(":");
   const next = nextFp.split(":");
   if (prev.length < 4 || next.length < 4) return false;
-  return prev[0] === next[0] && prev[1] === next[1] && prev[2] === next[2];
+  if (prev[0] !== next[0]) return false;
+  return prev[1] === next[1] && prev[2] === next[2];
 }
 
 function candleLegend(data: CandlestickData<Time>, volume?: HistogramData<Time>): ChartLegendValues {
@@ -314,7 +315,7 @@ export function ChartWidget() {
       volumeRef.current,
       indicatorSeriesRef,
     );
-  }, [selectedCoin]);
+  }, [selectedCoin, timeframe]);
 
   useEffect(() => {
     didFitRef.current = false;

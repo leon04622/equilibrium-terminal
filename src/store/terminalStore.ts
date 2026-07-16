@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { terminalBus } from "@/store/eventBus";
 import { ChartDataEngine } from "@/lib/charting/ChartDataEngine";
-import { hlIntervalSeconds } from "@/lib/hyperliquid/candles";
+import { chartIntervalToTimeframe } from "@/lib/hyperliquid/candles";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
 import { OperatorAiResponseEngine } from "@/lib/operator-ai-desk/OperatorAiResponseEngine";
 import {
@@ -286,10 +286,10 @@ export const useTerminalStore = create<TerminalState>()(
 
     applyCandles: (candles) =>
       set((s) => {
-        const step = s.liveCandleInterval ? hlIntervalSeconds(s.liveCandleInterval) : null;
+        const tf = chartIntervalToTimeframe(s.liveCandleInterval);
         const aligned =
-          step != null
-            ? candles.filter((c) => c.time % step === 0)
+          tf != null
+            ? ChartDataEngine.filterForTimeframe(candles, tf)
             : candles;
         if (aligned.length === 0) return s;
         return {
