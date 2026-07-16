@@ -6,6 +6,8 @@ import { extendLineThroughBox } from "@/lib/charting/chartDrawing";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { ChartTrendLine } from "@/types/chart-tools";
 
+const EMPTY_TREND_LINES: ChartTrendLine[] = [];
+
 function toCoord(
   chart: IChartApi,
   series: ISeriesApi<"Candlestick">,
@@ -62,37 +64,33 @@ export function ChartDrawingsOverlay({
   containerRef: RefObject<HTMLDivElement | null>;
   draftPoint: { time: number; price: number } | null;
 }) {
-  const trendLines = useChartToolsStore((s) => s.trendLinesByCoin[coin] ?? []);
+  const trendLines = useChartToolsStore((s) => s.trendLinesByCoin[coin] ?? EMPTY_TREND_LINES);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const drawTool = useChartToolsStore((s) => s.drawTool);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [, bump] = useState(0);
+  const [chartTick, setChartTick] = useState(0);
 
-  const redraw = useCallback(() => bump((n) => n + 1), []);
+  const requestRedraw = useCallback(() => setChartTick((n) => n + 1), []);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
+    const applySize = () => {
       setSize({ width: el.clientWidth, height: el.clientHeight });
-      redraw();
-    });
+    };
+    const ro = new ResizeObserver(applySize);
     ro.observe(el);
-    setSize({ width: el.clientWidth, height: el.clientHeight });
+    applySize();
     return () => ro.disconnect();
-  }, [containerRef, redraw]);
+  }, [containerRef]);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    const onRange = () => redraw();
+    const onRange = () => requestRedraw();
     chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
     return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
-  }, [chartRef, redraw]);
-
-  useEffect(() => {
-    redraw();
-  }, [trendLines, hideDrawings, draftPoint, drawTool, redraw]);
+  }, [chartRef, requestRedraw]);
 
   if (hideDrawings || size.width === 0) return null;
 
@@ -112,6 +110,7 @@ export function ChartDrawingsOverlay({
 
   return (
     <svg
+      key={chartTick}
       className="pointer-events-none absolute inset-0 z-[8]"
       width={size.width}
       height={size.height}
