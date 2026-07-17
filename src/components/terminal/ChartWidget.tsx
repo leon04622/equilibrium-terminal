@@ -25,7 +25,7 @@ import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
-import { resolveDrawPoint, chartTimeToX, xToChartTime, type ChartPoint } from "@/lib/charting/chartDrawing";
+import { resolveDrawPoint, chartTimeToX, xToChartTime, chartPlotPointer, barDurationSec, type ChartPoint } from "@/lib/charting/chartDrawing";
 import { applyTradingChartViewport, CHART_RIGHT_OFFSET } from "@/lib/charting/chartViewport";
 import {
   createDrawing,
@@ -163,8 +163,15 @@ function dragDistance(
   const x2 = chartTimeToX(chart, b.time, candles, timeframe);
   const y1 = series.priceToCoordinate(a.price);
   const y2 = series.priceToCoordinate(b.price);
-  if (x1 == null || x2 == null || y1 == null || y2 == null) return 0;
-  return Math.hypot(x2 - x1, y2 - y1);
+  if (x1 != null && x2 != null && y1 != null && y2 != null) {
+    return Math.hypot(x2 - x1, y2 - y1);
+  }
+  const ts = chart.timeScale();
+  const spacing = ts.options().barSpacing ?? 7;
+  const step = barDurationSec(candles, timeframe);
+  const pixelDx = Math.abs((b.time - a.time) / step) * spacing;
+  const pixelDy = y1 != null && y2 != null ? Math.abs(y2 - y1) : 0;
+  return Math.hypot(pixelDx, pixelDy);
 }
 
 function crosshairTimeToUnix(param: MouseEventParams<Time>): number | null {
@@ -879,7 +886,11 @@ export function ChartWidget() {
     if (!chart || !series) return;
 
     const crossHandler = (param: MouseEventParams<Time>) => {
-      const t = crosshairTimeToUnix(param);
+      let t = crosshairTimeToUnix(param);
+      if (t == null && param.point?.x != null && chartRef.current) {
+        const { displayCandles: candles, timeframe } = useChartAnalyticsStore.getState();
+        t = xToChartTime(chartRef.current, param.point.x, candles, timeframe);
+      }
       if (t != null) {
         terminalBus.emit("chart:cursor", { time: t, sourceChartId: "primary" });
       }
@@ -912,12 +923,9 @@ export function ChartWidget() {
   const resolveChartPoint = useCallback((clientX: number, clientY: number, magnetMode?: MagnetMode): ChartPoint | null => {
     const chart = chartRef.current;
     const series = seriesRef.current;
-    const layer = drawCaptureRef.current ?? containerRef.current;
-    if (!chart || !series || !layer) return null;
+    if (!chart || !series) return null;
 
-    const rect = layer.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const { x, y } = chartPlotPointer(chart, clientX, clientY);
     const { displayCandles: candles, timeframe } = useChartAnalyticsStore.getState();
     const resolved = resolveDrawPoint(
       chart,
@@ -1054,12 +1062,12 @@ export function ChartWidget() {
       const chart = chartRef.current;
       const series = seriesRef.current;
       if (!chart || !series) return;
-      const rect = el.getBoundingClientRect();
-      const x = ev.clientX - rect.left;
-      const y = ev.clientY - rect.top;
+      const { x, y } = chartPlotPointer(chart, ev.clientX, ev.clientY);
+      const plotWidth = chart.timeScale().width();
+      const plotHeight = chart.chartElement().clientHeight;
       const coin = useTerminalStore.getState().selectedCoin;
       const drawings = useChartToolsStore.getState().drawingsByCoin[coin] ?? [];
-      const hit = findTopDrawingHit(drawings, chart, series, x, y, rect.width, rect.height);
+      const hit = findTopDrawingHit(drawings, chart, series, x, y, plotWidth, plotHeight);
       if (hit) {
         const drawing = drawings.find((d) => d.id === hit.drawingId);
         if (!drawing) return;
@@ -1092,14 +1100,9 @@ export function ChartWidget() {
     if (!layer || !chart || !series || !drawingToolActive) return;
 
     const layerSize = () => ({
-      width: layer.clientWidth,
-      height: layer.clientHeight,
+      width: chart.timeScale().width(),
+      height: chart.chartElement().clientHeight,
     });
-
-    const layerPoint = (ev: PointerEvent) => {
-      const rect = layer.getBoundingClientRect();
-      return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
-    };
 
     const onPointerDown = (ev: PointerEvent) => {
       if (drawingPrefsRef.current.lockDrawings) return;
@@ -1110,7 +1113,7 @@ export function ChartWidget() {
 
       if (spec.interaction === "erase") {
         const { width, height } = layerSize();
-        const { x, y } = layerPoint(ev);
+        const { x, y } = chartPlotPointer(chart, ev.clientX, ev.clientY);
         const drawings =
           useChartToolsStore.getState().drawingsByCoin[useTerminalStore.getState().selectedCoin] ?? [];
         const hit = findTopDrawingHit(drawings, chart, series, x, y, width, height);
@@ -1227,7 +1230,9 @@ export function ChartWidget() {
         layer.releasePointerCapture(ev.pointerId);
       }
 
-      if (!end) return;
+      if (!end) {
+        return;
+      }
 
       if (spec.interaction === "path") {
         const pathPoints = session.pathPoints ?? [...session.points, end];
@@ -1239,7 +1244,10 @@ export function ChartWidget() {
 
       const start = session.points[0]!;
       const minDist = session.tool === "line-hline" ? 0 : 8;
-      if (minDist > 0 && dragDistance(chart, series, start, end) < minDist) return;
+      const dist = dragDistance(chart, series, start, end);
+      if (minDist > 0 && dist < minDist) {
+        return;
+      }
 
       const points =
         session.tool === "line-hline"

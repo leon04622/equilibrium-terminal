@@ -1,7 +1,7 @@
 import type { IChartApi, Logical } from "lightweight-charts";
 
 /** Bars of empty future space to the right of the last candle (TradingView / Hyperliquid style). */
-export const CHART_RIGHT_OFFSET = 12;
+export const CHART_RIGHT_OFFSET = 60;
 
 /** Default number of historical bars to show. */
 export const CHART_VISIBLE_BARS = 120;

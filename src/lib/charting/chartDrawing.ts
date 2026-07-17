@@ -45,12 +45,74 @@ export function candleBarDurationSec(candles: NormalizedCandle[]): number {
   return barDurationSec(candles);
 }
 
-function barLogicalAnchor(chart: IChartApi, barTime: number): { logical: number } | null {
-  const x = chart.timeScale().timeToCoordinate(barTime as UTCTimestamp);
-  if (x == null) return null;
-  const logical = chart.timeScale().coordinateToLogical(x);
-  if (logical == null) return null;
-  return { logical };
+function barLogicalAnchor(
+  chart: IChartApi,
+  barTime: number,
+  candles: NormalizedCandle[],
+): { logical: number } | null {
+  const ts = chart.timeScale();
+  const x = ts.timeToCoordinate(barTime as UTCTimestamp);
+  if (x != null) {
+    const logical = ts.coordinateToLogical(x);
+    if (logical != null) return { logical };
+  }
+
+  const range = ts.getVisibleLogicalRange();
+  if (range != null && candles.length > 0) {
+    const rightOffset = ts.options().rightOffset ?? 0;
+    const logicalFromRange = Math.round(range.to - rightOffset);
+    if (Number.isFinite(logicalFromRange)) {
+      return { logical: logicalFromRange };
+    }
+  }
+
+  return null;
+}
+
+function lastBarPixelX(
+  chart: IChartApi,
+  lastTime: number,
+  candles: NormalizedCandle[],
+): number | null {
+  const ts = chart.timeScale();
+  const fromTime = ts.timeToCoordinate(lastTime as UTCTimestamp);
+  if (fromTime != null) return fromTime;
+
+  const anchor = barLogicalAnchor(chart, lastTime, candles);
+  if (!anchor) return null;
+  return ts.logicalToCoordinate(anchor.logical as Logical);
+}
+
+function timeFromBarSpacing(
+  x: number,
+  lastTime: number,
+  lastBarX: number,
+  spacing: number,
+  step: number,
+): number {
+  const deltaBars = Math.round((x - lastBarX) / spacing);
+  return lastTime + deltaBars * step;
+}
+
+function xFromBarSpacing(
+  time: number,
+  lastTime: number,
+  lastBarX: number,
+  spacing: number,
+  step: number,
+): number {
+  const deltaBars = Math.round((time - lastTime) / step);
+  return lastBarX + deltaBars * spacing;
+}
+
+/** Map a DOM pointer to chart-pane x/y (same space as timeScale().timeToCoordinate). */
+export function chartPlotPointer(
+  chart: IChartApi,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
+  const rect = chart.chartElement().getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
 }
 
 /**
@@ -69,18 +131,35 @@ export function xToChartTime(
     return timeToUnix(direct);
   }
 
-  const logical = chart.timeScale().coordinateToLogical(x);
-  if (logical == null) return null;
-
   const lastTime = lastCandleTime(candles);
   if (lastTime == null) return null;
 
-  const anchor = barLogicalAnchor(chart, lastTime);
+  const ts = chart.timeScale();
+  const step = barDurationSec(candles, timeframe);
+  const spacing = ts.options().barSpacing ?? 7;
+  const anchor = barLogicalAnchor(chart, lastTime, candles);
   if (!anchor) return null;
 
-  const step = barDurationSec(candles, timeframe);
-  const deltaBars = logical - anchor.logical;
-  return lastTime + deltaBars * step;
+  const lastBarX = lastBarPixelX(chart, lastTime, candles);
+
+  // Future whitespace — bar-spacing geometry (LWC logical APIs fail or clamp here).
+  if (lastBarX != null && x >= lastBarX + spacing * 0.5) {
+    return timeFromBarSpacing(x, lastTime, lastBarX, spacing, step);
+  }
+
+  const logical = ts.coordinateToLogical(x);
+  if (logical != null) {
+    const deltaBars = Math.round(logical - anchor.logical);
+    const time = lastTime + deltaBars * step;
+    // LWC may snap future-zone clicks to the last bar — trust pixel geometry when mismatched.
+    if (lastBarX != null && x > lastBarX + spacing * 0.5 && time <= lastTime + step * 0.001) {
+      return timeFromBarSpacing(x, lastTime, lastBarX, spacing, step);
+    }
+    return time;
+  }
+
+  if (lastBarX == null) return null;
+  return timeFromBarSpacing(x, lastTime, lastBarX, spacing, step);
 }
 
 /**
@@ -100,13 +179,32 @@ export function chartTimeToX(
   const lastTime = lastCandleTime(candles);
   if (lastTime == null) return null;
 
-  const anchor = barLogicalAnchor(chart, lastTime);
+  const ts = chart.timeScale();
+  const step = barDurationSec(candles, timeframe);
+  const spacing = ts.options().barSpacing ?? 7;
+  const lastBarX = lastBarPixelX(chart, lastTime, candles);
+
+  // Future times have no LWC data point — always use bar-spacing geometry.
+  if (time > lastTime + step * 0.001) {
+    if (lastBarX != null) {
+      return xFromBarSpacing(time, lastTime, lastBarX, spacing, step);
+    }
+  }
+
+  const deltaBars = Math.round((time - lastTime) / step);
+  if (deltaBars === 0 && lastBarX != null) return lastBarX;
+
+  const anchor = barLogicalAnchor(chart, lastTime, candles);
   if (!anchor) return null;
 
-  const step = barDurationSec(candles, timeframe);
-  const deltaBars = (time - lastTime) / step;
-  const logical = (anchor.logical + deltaBars) as Logical;
-  return chart.timeScale().logicalToCoordinate(logical);
+  const logical = Math.round(anchor.logical + deltaBars) as Logical;
+  const xOut = ts.logicalToCoordinate(logical);
+  if (xOut != null) return xOut;
+
+  if (lastBarX != null) {
+    return xFromBarSpacing(time, lastTime, lastBarX, spacing, step);
+  }
+  return null;
 }
 
 /** Convert a pixel on the chart surface to time + price. */
