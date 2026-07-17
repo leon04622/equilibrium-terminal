@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
-  const coin = (searchParams.get("coin") ?? "BTC").toUpperCase();
+  const coin = searchParams.get("coin") ?? "BTC";
   const interval = (searchParams.get("interval") ?? "1m") as HlCandleInterval;
   const bars = Math.min(
     800,
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     const { startTime, endTime } = alignedHistoryWindow(interval, bars);
     const hlCoin = resolveHlCoin(coin);
     const candles = await fetchCandleSnapshot(hlCoin, interval, startTime, endTime);
-    return NextResponse.json({ coin, interval, candles, updatedAt: Date.now() });
+    return NextResponse.json({ coin: hlCoin, interval, candles, updatedAt: Date.now() });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Candle fetch failed";
     return NextResponse.json({ error: message }, { status: 502 });

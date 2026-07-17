@@ -111,8 +111,8 @@ export async function fetchCandleSnapshot(
   });
   if (!res.ok) throw new Error(`Hyperliquid candleSnapshot error: ${res.status}`);
   const raw = (await res.json()) as RawHlCandle[] | null;
-  if (!raw || !Array.isArray(raw)) {
-    throw new Error("Hyperliquid candleSnapshot returned no data");
+  if (!raw || !Array.isArray(raw) || raw.length === 0) {
+    return [];
   }
   return finalizeHlCandles(normalizeCandlesBatch(raw));
 }
@@ -170,16 +170,33 @@ export async function loadChartCandleHistory(
 ): Promise<NormalizedCandle[]> {
   if (chartTimeframeToHlInterval(timeframe) == null) return [];
 
-  const [direct, viaApi] = await Promise.allSettled([
-    fetchCandleHistory(coin, timeframe, barCount),
-    fetchCandleHistoryViaApi(coin, timeframe, barCount),
-  ]);
+  const isClient = typeof window !== "undefined";
 
-  for (const result of [direct, viaApi]) {
-    if (result.status === "fulfilled" && result.value.length > 0) {
-      return result.value;
+  if (isClient) {
+    try {
+      const viaApi = await fetchCandleHistoryViaApi(coin, timeframe, barCount);
+      if (viaApi.length > 0) return viaApi;
+    } catch {
+      /* fall through to direct HL */
     }
+    try {
+      const direct = await fetchCandleHistory(coin, timeframe, barCount);
+      if (direct.length > 0) return direct;
+    } catch {
+      /* exhausted */
+    }
+    return [];
   }
 
-  return [];
+  try {
+    const direct = await fetchCandleHistory(coin, timeframe, barCount);
+    if (direct.length > 0) return direct;
+  } catch {
+    /* fall through */
+  }
+  try {
+    return await fetchCandleHistoryViaApi(coin, timeframe, barCount);
+  } catch {
+    return [];
+  }
 }

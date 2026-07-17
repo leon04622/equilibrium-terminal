@@ -1,5 +1,5 @@
 import type { TerminalAsset } from "@/types/terminal-schema";
-import { loadHyperliquidAssets as loadFullAssets } from "@/lib/market/hlUniverse";
+import { loadHyperliquidAssets as loadHlAssets } from "@/lib/market/hlUniverse";
 
 export const FALLBACK_ASSETS: TerminalAsset[] = [
   { id: "perp-BTC", symbol: "BTC", label: "BTC Perp", market: "perp", coin: "BTC", dex: "main" },
@@ -17,7 +17,10 @@ export const FALLBACK_ASSETS: TerminalAsset[] = [
   },
 ];
 
-export { loadFullAssets as loadHyperliquidAssets };
+export async function loadHyperliquidAssets(): Promise<TerminalAsset[]> {
+  const assets = await loadHlAssets();
+  return assets.length > 0 ? assets : FALLBACK_ASSETS;
+}
 
 export function filterAssets(assets: TerminalAsset[], query: string): TerminalAsset[] {
   const q = query.trim().toLowerCase();

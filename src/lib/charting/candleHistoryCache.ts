@@ -1,5 +1,6 @@
 import type { ChartTimeframe } from "@/types/chart-analytics";
 import type { NormalizedCandle } from "@/types/terminal-schema";
+import { normalizeHlCoin } from "@/lib/hyperliquid/coin";
 
 const SESSION_KEY = "eq-candle-cache-v1";
 const MEMORY = new Map<string, { candles: NormalizedCandle[]; at: number }>();
@@ -12,7 +13,7 @@ function cacheTtlMs(tf: ChartTimeframe): number {
 }
 
 function cacheKey(coin: string, tf: ChartTimeframe): string {
-  return `${coin.toUpperCase()}:${tf}`;
+  return `${normalizeHlCoin(coin)}:${tf}`;
 }
 
 type CacheBlob = Record<string, { candles: NormalizedCandle[]; at: number }>;

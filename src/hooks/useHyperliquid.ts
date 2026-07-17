@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { loadHyperliquidAssets } from "@/lib/assets";
+import { loadHyperliquidAssets, FALLBACK_ASSETS } from "@/lib/assets";
 import { normalizeAllMids } from "@/lib/hyperliquid/normalize";
 import { hyperliquidActions, useHyperliquidStore } from "@/store/hyperliquidStore";
 import type { HlClearinghouseState } from "@/types/account";
@@ -267,9 +267,13 @@ export function useHyperliquid() {
 
   useEffect(() => {
     let cancelled = false;
-    loadHyperliquidAssets().then((assets) => {
-      if (!cancelled) setAssets(assets);
-    });
+    loadHyperliquidAssets()
+      .then((assets) => {
+        if (!cancelled) setAssets(assets);
+      })
+      .catch(() => {
+        if (!cancelled) setAssets(FALLBACK_ASSETS);
+      });
     return () => {
       cancelled = true;
     };

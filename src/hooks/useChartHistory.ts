@@ -18,6 +18,7 @@ import {
   chartTimeframeToHlInterval,
   loadChartCandleHistory,
 } from "@/lib/hyperliquid/candles";
+import { normalizeHlCoin } from "@/lib/hyperliquid/coin";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { terminalIngress, useTerminalStore } from "@/store/terminalStore";
 import type { ChartTimeframe } from "@/types/chart-analytics";
@@ -27,7 +28,11 @@ const prefetchInflight = new Set<string>();
 let activeHistoryKey = "";
 
 function historyKey(coin: string, tf: ChartTimeframe): string {
-  return `${coin.toUpperCase()}:${tf}`;
+  return `${normalizeHlCoin(coin)}:${tf}`;
+}
+
+function chartLoadKey(coin: string, tf: ChartTimeframe): string {
+  return historyKey(coin, tf);
 }
 
 function applySeries(candles: NormalizedCandle[], coin: string, tf: ChartTimeframe): void {
@@ -81,10 +86,10 @@ function mergeLiveUpdate(): void {
   store.setDisplayCandles(chartReplayEngine.visibleCandles());
 }
 
-function isActiveLoadKey(loadKey: string): boolean {
+function isActiveLoadKey(expectedKey: string): boolean {
   const coin = useTerminalStore.getState().selectedCoin;
   const tf = useChartAnalyticsStore.getState().timeframe;
-  return loadKey === `${coin}:${tf}`;
+  return expectedKey === chartLoadKey(coin, tf);
 }
 
 function runSoon(task: () => void): void {
@@ -107,12 +112,12 @@ async function fetchCandlesForTimeframe(
 async function refreshHistoryInBackground(
   coin: string,
   tf: ChartTimeframe,
-  loadKey: string,
+  expectedKey: string,
   hlInterval: string | null,
 ): Promise<void> {
   try {
     const history = await loadChartCandleHistory(coin, tf, historyBarsForTimeframe(tf, false));
-    if (!isActiveLoadKey(loadKey)) return;
+    if (!isActiveLoadKey(expectedKey)) return;
     if (history.length === 0) return;
     const viewport = ChartDataEngine.viewport(history);
     setCachedCandleHistory(coin, tf, viewport);
@@ -149,6 +154,7 @@ function prefetchAllTimeframes(coin: string, activeTf: ChartTimeframe): void {
 export function useChartHistory(enabled = true): void {
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
+  const assetSelectEpoch = useTerminalStore((s) => s.assetSelectEpoch);
 
   useLayoutEffect(() => {
     if (!enabled) return;
@@ -175,28 +181,28 @@ export function useChartHistory(enabled = true): void {
 
     clearSeries();
     useChartAnalyticsStore.getState().setHistoryLoading(true);
-  }, [enabled, selectedCoin, timeframe]);
+  }, [enabled, selectedCoin, timeframe, assetSelectEpoch]);
 
   useEffect(() => {
     if (!enabled) return;
     prefetchAllTimeframes(selectedCoin, timeframe);
-  }, [enabled, selectedCoin, timeframe]);
+  }, [enabled, selectedCoin, timeframe, assetSelectEpoch]);
 
   useEffect(() => {
     if (!enabled) return;
 
     let cancelled = false;
-    const loadKey = `${selectedCoin}:${timeframe}`;
+    const expectedKey = chartLoadKey(selectedCoin, timeframe);
     const hlInterval = chartTimeframeToHlInterval(timeframe);
 
     const load = async () => {
       const coin = useTerminalStore.getState().selectedCoin;
       const tf = useChartAnalyticsStore.getState().timeframe;
 
-      if (!isActiveLoadKey(loadKey)) return;
+      if (!isActiveLoadKey(expectedKey)) return;
 
       if (tf === "1s") {
-        if (!cancelled && isActiveLoadKey(loadKey)) {
+        if (!cancelled && isActiveLoadKey(expectedKey)) {
           const trades = useTerminalStore.getState().trades;
           applySeries(ChartDataEngine.candlesFromTrades(trades, "1s"), coin, tf);
         }
@@ -209,14 +215,14 @@ export function useChartHistory(enabled = true): void {
           applySeries(ChartDataEngine.viewport(cached), coin, tf);
         }
         runSoon(() => {
-          if (!cancelled) void refreshHistoryInBackground(coin, tf, loadKey, hlInterval);
+          if (!cancelled) void refreshHistoryInBackground(coin, tf, expectedKey, hlInterval);
         });
         return;
       }
 
       try {
         const candles = await fetchCandlesForTimeframe(coin, tf);
-        if (cancelled || !isActiveLoadKey(loadKey)) return;
+        if (cancelled || !isActiveLoadKey(expectedKey)) return;
         if (candles.length > 0) {
           const viewport = ChartDataEngine.viewport(candles);
           setCachedCandleHistory(coin, tf, viewport);
@@ -228,10 +234,10 @@ export function useChartHistory(enabled = true): void {
         }
 
         runSoon(() => {
-          if (!cancelled) void refreshHistoryInBackground(coin, tf, loadKey, hlInterval);
+          if (!cancelled) void refreshHistoryInBackground(coin, tf, expectedKey, hlInterval);
         });
       } catch (e) {
-        if (!cancelled && isActiveLoadKey(loadKey) && chartReplayEngine.getBuffer().length === 0) {
+        if (!cancelled && isActiveLoadKey(expectedKey) && chartReplayEngine.getBuffer().length === 0) {
           useChartAnalyticsStore.getState().setHistoryLoading(false);
           console.error("[ChartHistory]", e);
         }
@@ -243,7 +249,7 @@ export function useChartHistory(enabled = true): void {
     return () => {
       cancelled = true;
     };
-  }, [enabled, selectedCoin, timeframe]);
+  }, [enabled, selectedCoin, timeframe, assetSelectEpoch]);
 
   useEffect(() => {
     if (!enabled) return;

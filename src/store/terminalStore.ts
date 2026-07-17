@@ -45,6 +45,8 @@ export interface TerminalState {
   selectedAsset: TerminalAsset | null;
   assets: TerminalAsset[];
   assetsLoaded: boolean;
+  /** Bumps on every asset selection so chart history can reload the same coin. */
+  assetSelectEpoch: number;
   connectionStatus: ConnectionStatus;
   lastMessageAt: number | null;
 
@@ -119,14 +121,19 @@ export interface TerminalState {
 const defaultAsset = FALLBACK_ASSETS[0];
 
 function findAsset(assets: TerminalAsset[], coin: string): TerminalAsset | null {
-  return (
-    assets.find(
-      (a) =>
-        coinsMatch(a.coin, coin) ||
-        coinsMatch(a.symbol, coin) ||
-        a.symbol.toLowerCase() === coin.toLowerCase(),
-    ) ?? null
+  const matches = assets.filter(
+    (a) =>
+      coinsMatch(a.coin, coin) ||
+      coinsMatch(a.symbol, coin) ||
+      a.symbol.toLowerCase() === coin.toLowerCase(),
   );
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0]!;
+  const mainPerp = matches.find((a) => a.market === "perp" && (a.dex === "main" || !a.isHip3));
+  if (mainPerp) return mainPerp;
+  const mainSpot = matches.find((a) => a.market === "spot");
+  if (mainSpot) return mainSpot;
+  return matches[0]!;
 }
 
 function runAiStub(prompt: string): string {
@@ -140,6 +147,7 @@ export const useTerminalStore = create<TerminalState>()(
     selectedAsset: defaultAsset,
     assets: FALLBACK_ASSETS,
     assetsLoaded: false,
+    assetSelectEpoch: 0,
     connectionStatus: "idle",
     lastMessageAt: null,
     book: null,
@@ -226,7 +234,12 @@ export const useTerminalStore = create<TerminalState>()(
     selectAssetByCoin: (coin, source = "manual") => {
       const asset = findAsset(get().assets, coin) ?? get().selectedAsset;
       if (!asset) return;
-      if (get().selectedCoin.toUpperCase() === asset.coin.toUpperCase()) return;
+      const sameCoin = coinsMatch(get().selectedCoin, asset.coin);
+      const forceReload =
+        source === "market-search" ||
+        source === "omnibar" ||
+        source === "watchlist-strip";
+      if (sameCoin && !forceReload) return;
       set({
         selectedCoin: asset.coin,
         selectedAsset: asset,
@@ -235,6 +248,7 @@ export const useTerminalStore = create<TerminalState>()(
         candles: [],
         liveCandleInterval: null,
         bookVersion: 0,
+        assetSelectEpoch: get().assetSelectEpoch + 1,
       });
       terminalBus.emit("asset:select", {
         coin: asset.coin,

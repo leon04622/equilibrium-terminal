@@ -2,6 +2,7 @@ import {
   fetchAllPerpMetas,
   fetchMetaAndAssetCtxs,
   fetchPerpDexs,
+  fetchPerpMeta,
   fetchSpotMetaAndAssetCtxs,
 } from "@/lib/hyperliquid/api";
 import { perpDisplayPair, perpDisplaySymbol, spotDisplayPair } from "@/lib/hyperliquid/coin";
@@ -102,7 +103,30 @@ export async function loadHyperliquidUniverse(): Promise<HlUniverseBundle> {
   return { assets: deduped, perpCtxByCoin, spotCtxByCoin, leverageByCoin };
 }
 
+/** Fast main perp + spot list — used when full universe fetch fails on client. */
+export async function loadLightweightHyperliquidAssets(): Promise<TerminalAsset[]> {
+  const [perpMeta, spotBundle] = await Promise.all([
+    fetchPerpMeta(),
+    fetchSpotMetaAndAssetCtxs(),
+  ]);
+  const [spotMeta] = spotBundle;
+  return [
+    ...perpAssetsFromDexMeta(perpMeta, "main", false),
+    ...spotAssetsFromMeta(spotMeta),
+  ];
+}
+
 export async function loadHyperliquidAssets(): Promise<TerminalAsset[]> {
-  const { assets } = await loadHyperliquidUniverse();
-  return assets;
+  try {
+    const { assets } = await loadHyperliquidUniverse();
+    if (assets.length > 0) return assets;
+  } catch (e) {
+    console.warn("[hlUniverse] full universe failed, falling back to main perp+spot", e);
+  }
+  try {
+    return await loadLightweightHyperliquidAssets();
+  } catch (e) {
+    console.warn("[hlUniverse] lightweight asset load failed", e);
+    return [];
+  }
 }

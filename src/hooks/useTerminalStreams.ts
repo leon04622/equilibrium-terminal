@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { loadHyperliquidAssets } from "@/lib/assets";
+import { loadHyperliquidAssets, FALLBACK_ASSETS } from "@/lib/assets";
 import {
   HEARTBEAT_MS,
   HL_WS_URL,
   STALE_MS,
 } from "@/lib/hyperliquid/constants";
-import { chartTimeframeToHlInterval } from "@/lib/hyperliquid/candles";
+import { chartTimeframeToHlInterval, resolveHlCoin } from "@/lib/hyperliquid/candles";
 import {
   normalizeAllMids,
   normalizeCandlesBatch,
@@ -59,12 +59,12 @@ function isSpotClearinghouse(data: unknown): data is HlSpotClearinghouseState {
 
 function isCandleArray(
   data: unknown,
-): data is Array<{ t: number; o: number; h: number; l: number; c: number; v: number }> {
+): data is Array<{ t: number; o: number | string; h: number | string; l: number | string; c: number | string; v: number | string }> {
   return (
     Array.isArray(data) &&
     data.length > 0 &&
     typeof data[0]?.t === "number" &&
-    typeof data[0]?.c === "number"
+    (typeof data[0]?.c === "number" || typeof data[0]?.c === "string")
   );
 }
 
@@ -114,7 +114,7 @@ export function useTerminalStreams() {
   }, []);
 
   const syncSubs = useCallback(() => {
-    const coin = coinRef.current;
+    const coin = coinRef.current ? resolveHlCoin(coinRef.current) : null;
     const user = userRef.current;
     const prevCoin = subsRef.current.coin;
     const prevCandleInterval = subsRef.current.candleInterval;
@@ -283,9 +283,13 @@ export function useTerminalStreams() {
 
   useEffect(() => {
     let cancelled = false;
-    loadHyperliquidAssets().then((assets) => {
-      if (!cancelled) setAssets(assets);
-    });
+    loadHyperliquidAssets()
+      .then((assets) => {
+        if (!cancelled) setAssets(assets);
+      })
+      .catch(() => {
+        if (!cancelled) setAssets(FALLBACK_ASSETS);
+      });
     return () => {
       cancelled = true;
     };
