@@ -13,6 +13,8 @@ import type { ChartDrawing } from "@/types/chart-tools";
 
 export type ViewportListener = () => void;
 
+const KINETIC_SYNC_MS = 750;
+
 class DrawingPaneRenderer implements ISeriesPrimitivePaneRenderer {
   constructor(private readonly source: DrawingViewportPrimitive) {}
 
@@ -51,6 +53,8 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
 
   private requestUpdate: (() => void) | null = null;
 
+  private cleanupViewport: (() => void) | null = null;
+
   private state: DrawingPaintState = {
     hidden: false,
     selectedId: null,
@@ -84,8 +88,17 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
     return () => this.listeners.delete(listener);
   }
 
-  updateAllViews(): void {
+  private notifyListeners(): void {
     this.listeners.forEach((listener) => listener());
+  }
+
+  private repaint(): void {
+    this.requestUpdate?.();
+    this.notifyListeners();
+  }
+
+  updateAllViews(): void {
+    this.repaint();
   }
 
   paneViews(): readonly DrawingPaneView[] {
@@ -96,10 +109,56 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
     this.chart = param.chart;
     this.series = param.series as ISeriesApi<"Candlestick">;
     this.requestUpdate = param.requestUpdate;
-    this.requestUpdate();
+
+    let loopRaf = 0;
+    let activeUntil = 0;
+
+    const keepSyncing = () => {
+      activeUntil = performance.now() + KINETIC_SYNC_MS;
+      this.repaint();
+      if (loopRaf) return;
+      const kineticLoop = () => {
+        if (performance.now() >= activeUntil) {
+          loopRaf = 0;
+          return;
+        }
+        this.repaint();
+        loopRaf = requestAnimationFrame(kineticLoop);
+      };
+      loopRaf = requestAnimationFrame(kineticLoop);
+    };
+
+    const ts = param.chart.timeScale();
+    ts.subscribeVisibleLogicalRangeChange(keepSyncing);
+    ts.subscribeVisibleTimeRangeChange(keepSyncing);
+    ts.subscribeSizeChange(keepSyncing);
+
+    const el = param.chart.chartElement();
+    const onWheel = () => keepSyncing();
+    const onPointerDown = () => keepSyncing();
+    const onPointerUp = () => keepSyncing();
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+
+    this.cleanupViewport = () => {
+      cancelAnimationFrame(loopRaf);
+      ts.unsubscribeVisibleLogicalRangeChange(keepSyncing);
+      ts.unsubscribeVisibleTimeRangeChange(keepSyncing);
+      ts.unsubscribeSizeChange(keepSyncing);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+
+    this.repaint();
   }
 
   detached(): void {
+    this.cleanupViewport?.();
+    this.cleanupViewport = null;
     this.chart = null;
     this.series = null;
     this.requestUpdate = null;

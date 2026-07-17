@@ -438,7 +438,11 @@ export function ChartWidget() {
       const coin = useTerminalStore.getState().selectedCoin;
       const drawings = useChartToolsStore.getState().drawingsByCoin[coin] ?? [];
       const hit = findTopDrawingHit(drawings, chart, series, x, y, rect.width, rect.height);
-      if (!hit) setSelectedDrawingId(null);
+      if (hit) {
+        setSelectedDrawingId(hit.drawingId);
+      } else {
+        setSelectedDrawingId(null);
+      }
     };
 
     el.addEventListener("pointerdown", onPointerDown);
@@ -568,6 +572,15 @@ export function ChartWidget() {
     const viewportPrimitive = new DrawingViewportPrimitive();
     viewportPrimitiveRef.current = viewportPrimitive;
     series.attachPrimitive(viewportPrimitive);
+
+    const tools = useChartToolsStore.getState();
+    const coin = useTerminalStore.getState().selectedCoin;
+    viewportPrimitive.sync({
+      drawings: tools.drawingsByCoin[coin] ?? [],
+      hidden: tools.drawingPrefs.hideDrawings,
+      selectedId: selectedDrawingIdRef.current,
+      skipId: liveEditRef.current?.drawing?.id ?? null,
+    });
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current) {
