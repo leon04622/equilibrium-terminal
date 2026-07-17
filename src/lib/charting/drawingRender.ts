@@ -190,6 +190,35 @@ export function channelLines(drawing: Extract<ChartDrawing, { kind: "channel" }>
   return [drawing.p1, drawing.p2, p3a, p4a];
 }
 
+export function pitchforkLines(
+  drawing: Extract<ChartDrawing, { kind: "pitchfork" }>,
+): [ChartPoint, ChartPoint, ChartPoint, ChartPoint] {
+  const mid = {
+    time: (drawing.p2.time + drawing.p3.time) / 2,
+    price: (drawing.p2.price + drawing.p3.price) / 2,
+  };
+  const off2 = {
+    time: drawing.p2.time - mid.time,
+    price: drawing.p2.price - mid.price,
+  };
+  const off3 = {
+    time: drawing.p3.time - mid.time,
+    price: drawing.p3.price - mid.price,
+  };
+  const apex =
+    drawing.variant === "schiff"
+      ? { time: drawing.p1.time, price: mid.price }
+      : drawing.variant === "modified"
+        ? { time: mid.time, price: drawing.p1.price }
+        : drawing.p1;
+  return [
+    apex,
+    { time: apex.time + off2.time, price: apex.price + off2.price },
+    { time: apex.time + off3.time, price: apex.price + off3.price },
+    mid,
+  ];
+}
+
 export function lineAngleDeg(p1: ChartPoint, p2: ChartPoint): number {
   const dx = p2.time - p1.time;
   const dy = p2.price - p1.price;

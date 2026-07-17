@@ -10,6 +10,15 @@ export function drawingStrokeDash(lineStyle?: DrawingLineStyle): string | undefi
   return undefined;
 }
 
+export function applyDrawingLineDash(
+  ctx: CanvasRenderingContext2D,
+  lineStyle?: DrawingLineStyle,
+): void {
+  if (lineStyle === "dashed") ctx.setLineDash([6, 4]);
+  else if (lineStyle === "dotted") ctx.setLineDash([2, 3]);
+  else ctx.setLineDash([]);
+}
+
 export function isDrawingLocked(drawing: ChartDrawing): boolean {
   return drawing.locked === true;
 }

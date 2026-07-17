@@ -27,21 +27,21 @@ export function DomLadder() {
     const renderer = rendererRef.current;
     if (!canvas || !container || !renderer) return;
 
-    let raf = 0;
     const paint = () => {
       const rect = container.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        renderer.resize(canvas, rect.width, rect.height);
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          const packet = useExecutionIntelligenceStore.getState().dom;
-          renderer.render(ctx, packet, { highlightMid: true });
-        }
+      if (rect.width <= 0 || rect.height <= 0) return;
+      renderer.resize(canvas, rect.width, rect.height);
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const packet = useExecutionIntelligenceStore.getState().dom;
+        renderer.render(ctx, packet, { highlightMid: true });
       }
-      raf = requestAnimationFrame(paint);
     };
-    raf = requestAnimationFrame(paint);
-    return () => cancelAnimationFrame(raf);
+
+    paint();
+    const ro = new ResizeObserver(paint);
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [domVersion]);
 
   const skewLabel = imbalance.skew.toUpperCase();

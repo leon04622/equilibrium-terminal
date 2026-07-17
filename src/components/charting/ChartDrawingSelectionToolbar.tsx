@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useReducer, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useRef, useState, type RefObject } from "react";
 import {
   GripHorizontal,
   Lock,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { drawingToolbarAnchor } from "@/lib/charting/drawingRender";
 import { effectiveDrawingColor } from "@/lib/charting/drawingColors";
-import { useChartViewportSync } from "@/hooks/useChartViewportSync";
 import type { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 import { cn } from "@/lib/utils";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
@@ -85,9 +84,6 @@ export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionT
   const [widthOpen, setWidthOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [frame, bumpFrame] = useReducer((n: number) => n + 1, 0);
-
-  useChartViewportSync(chartRef, viewportPrimitiveRef, true, bumpFrame);
 
   const color = effectiveDrawingColor(drawing);
   const strokeWidth = drawing.strokeWidth ?? 2;
@@ -98,6 +94,7 @@ export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionT
     const chart = chartRef.current;
     const series = seriesRef.current;
     const container = containerRef.current;
+    const primitive = viewportPrimitiveRef.current;
     if (!chart || !series || !container) return;
 
     const updatePos = () => {
@@ -121,8 +118,12 @@ export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionT
     updatePos();
     const ro = new ResizeObserver(updatePos);
     ro.observe(container);
-    return () => ro.disconnect();
-  }, [chartRef, containerRef, drawing, frame, seriesRef]);
+    const unsubViewport = primitive?.subscribe(updatePos);
+    return () => {
+      ro.disconnect();
+      unsubViewport?.();
+    };
+  }, [chartRef, containerRef, drawing, seriesRef, viewportPrimitiveRef]);
 
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {

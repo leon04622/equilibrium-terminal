@@ -247,6 +247,7 @@ export function ChartWidget() {
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const lastLegendRef = useRef<ChartLegendValues | null>(null);
   const candleFpRef = useRef("");
+  const crosshairLegendAtRef = useRef(0);
   const didFitRef = useRef(false);
   const drawToolRef = useRef(useChartToolsStore.getState().drawTool);
   const drawingPrefsRef = useRef(useChartToolsStore.getState().drawingPrefs);
@@ -302,6 +303,39 @@ export function ChartWidget() {
     clearEditSession();
     setSelectedDrawingId(null);
   }, [selectedCoin, timeframe, clearDrawingDraft, clearEditSession]);
+
+  const liveEditRef = useRef(liveEdit);
+  useEffect(() => {
+    liveEditRef.current = liveEdit;
+  }, [liveEdit]);
+
+  useEffect(() => {
+    const syncDrawingsToPrimitive = () => {
+      const prim = viewportPrimitiveRef.current;
+      if (!prim) return;
+      const tools = useChartToolsStore.getState();
+      prim.sync({
+        drawings: tools.drawingsByCoin[selectedCoin] ?? [],
+        hidden: tools.drawingPrefs.hideDrawings,
+        selectedId: selectedDrawingIdRef.current,
+        skipId: liveEditRef.current?.drawing?.id ?? null,
+      });
+    };
+    syncDrawingsToPrimitive();
+    return useChartToolsStore.subscribe(syncDrawingsToPrimitive);
+  }, [selectedCoin]);
+
+  useEffect(() => {
+    const prim = viewportPrimitiveRef.current;
+    if (!prim) return;
+    const tools = useChartToolsStore.getState();
+    prim.sync({
+      drawings: tools.drawingsByCoin[selectedCoin] ?? [],
+      hidden: tools.drawingPrefs.hideDrawings,
+      selectedId: selectedDrawingId,
+      skipId: liveEdit?.drawing?.id ?? null,
+    });
+  }, [selectedCoin, selectedDrawingId, liveEdit, hideDrawings]);
 
   const drawTool = useChartToolsStore((s) => s.drawTool);
   const drawSpec = specForTool(drawTool);
@@ -749,18 +783,6 @@ export function ChartWidget() {
         { time: t, value: last.volume, color: EQ_CHART.volumeUp },
       );
       lastLegendRef.current = nextLegend;
-
-      const enabledIndicators = useChartToolsStore.getState().indicators;
-      const settings = useChartToolsStore.getState().indicatorSettings;
-      const display = useChartToolsStore.getState().indicatorDisplay;
-      applyOverlayIndicators(
-        chart,
-        candles,
-        enabledIndicators,
-        indicatorSeriesRef.current,
-        settings,
-        display,
-      );
       syncPriceLines(series);
     };
 
@@ -842,6 +864,10 @@ export function ChartWidget() {
       if (t != null) {
         terminalBus.emit("chart:cursor", { time: t, sourceChartId: "primary" });
       }
+
+      const now = performance.now();
+      if (now - crosshairLegendAtRef.current < 100) return;
+      crosshairLegendAtRef.current = now;
 
       if (!param.time) {
         setLegend((prev) => (legendEqual(prev, lastLegendRef.current) ? prev : lastLegendRef.current));
