@@ -155,6 +155,7 @@ export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionT
   return (
     <div
       ref={rootRef}
+      data-drawing-ui
       className="pointer-events-auto absolute z-[12] flex items-center gap-0.5 rounded-lg border border-[#434651] bg-[#1e222d]/95 px-1 py-0.5 shadow-xl backdrop-blur-sm"
       style={{ left: pos.x, top: pos.y }}
       onPointerDown={(e) => e.stopPropagation()}

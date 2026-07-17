@@ -1563,7 +1563,7 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [, bumpFrame] = useReducer((n: number) => n + 1, 0);
 
-  const needsInteractionLayer = editable && selectedDrawingId != null;
+  const needsInteractionLayer = editable;
   useChartViewportSync(
     viewportPrimitiveRef,
     needsInteractionLayer && !hideDrawings && size.width > 0,

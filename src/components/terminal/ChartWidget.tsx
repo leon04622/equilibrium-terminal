@@ -267,10 +267,16 @@ export function ChartWidget() {
   const selectedDrawingIdRef = useRef<string | null>(null);
   const [editingDrawing, setEditingDrawing] = useState(false);
   const [drawingPointerActive, setDrawingPointerActive] = useState(false);
+  const drawingPointerActiveRef = useRef(false);
+  const chartSurfaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     selectedDrawingIdRef.current = selectedDrawingId;
   }, [selectedDrawingId]);
+
+  useEffect(() => {
+    drawingPointerActiveRef.current = drawingPointerActive;
+  }, [drawingPointerActive]);
 
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
   const positionsVersion = useTerminalStore((s) => s.positionsVersion);
@@ -381,18 +387,29 @@ export function ChartWidget() {
     });
   }, []);
 
-  useEffect(() => {
+  const applyChartPanLock = useCallback((overrideBlock?: boolean) => {
     const chart = chartRef.current;
     if (!chart) return;
+    const tool = drawToolRef.current;
+    const spec = specForTool(tool);
+    const toolActive =
+      isDrawingTool(tool) || spec.interaction === "erase" || spec.interaction === "zoom";
+    const block =
+      overrideBlock ??
+      (toolActive || editSessionRef.current != null || drawingPointerActiveRef.current);
     chart.applyOptions({
-      handleScroll: { mouseWheel: true, pressedMouseMove: !blockChartPan },
+      handleScroll: { mouseWheel: true, pressedMouseMove: !block },
       handleScale: {
-        axisPressedMouseMove: !blockChartPan,
+        axisPressedMouseMove: !block,
         mouseWheel: true,
         pinch: true,
       },
     });
-  }, [blockChartPan]);
+  }, []);
+
+  useEffect(() => {
+    applyChartPanLock();
+  }, [blockChartPan, applyChartPanLock]);
 
   const deleteDrawing = useCallback((id: string) => {
     const coin = useTerminalStore.getState().selectedCoin;
@@ -968,6 +985,8 @@ export function ChartWidget() {
       if (!pt) return;
 
       setDrawingPointerActive(true);
+      drawingPointerActiveRef.current = true;
+      applyChartPanLock(true);
 
       let dragging = false;
       const session: DrawingEditSession =
@@ -994,25 +1013,28 @@ export function ChartWidget() {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
+
+        const wasDragging = dragging;
+        if (wasDragging) {
+          const active = editSessionRef.current;
+          editSessionRef.current = null;
+          liveEditDrawingRef.current = null;
+          setEditingDrawing(false);
+          schedulePrimitivePaint();
+          const endPt = resolveChartPoint(ev.clientX, ev.clientY);
+          if (active && endPt) commitEdit(active, endPt);
+        }
+
         setDrawingPointerActive(false);
-
-        if (!dragging) return;
-
-        const active = editSessionRef.current;
-        editSessionRef.current = null;
-        liveEditDrawingRef.current = null;
-        setEditingDrawing(false);
-        schedulePrimitivePaint();
-
-        const endPt = resolveChartPoint(ev.clientX, ev.clientY);
-        if (active && endPt) commitEdit(active, endPt);
+        drawingPointerActiveRef.current = false;
+        applyChartPanLock();
       };
 
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [applyLiveEdit, commitEdit, resolveChartPoint, schedulePrimitivePaint],
+    [applyLiveEdit, applyChartPanLock, commitEdit, resolveChartPoint, schedulePrimitivePaint],
   );
 
   const onEditStart = useCallback(
@@ -1024,10 +1046,11 @@ export function ChartWidget() {
   );
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = chartSurfaceRef.current;
     if (!el || !canEditDrawings) return;
 
     const onPointerDown = (ev: PointerEvent) => {
+      if (ev.button !== 0) return;
       const chart = chartRef.current;
       const series = seriesRef.current;
       if (!chart || !series) return;
@@ -1042,6 +1065,7 @@ export function ChartWidget() {
         if (!drawing) return;
         ev.preventDefault();
         ev.stopPropagation();
+        ev.stopImmediatePropagation();
         beginDrawingEdit(
           {
             drawingId: hit.drawingId,
@@ -1052,13 +1076,13 @@ export function ChartWidget() {
           ev.clientX,
           ev.clientY,
         );
-      } else {
+      } else if (!(ev.target as Element | null)?.closest("[data-drawing-ui]")) {
         setSelectedDrawingId(null);
       }
     };
 
-    el.addEventListener("pointerdown", onPointerDown);
-    return () => el.removeEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointerdown", onPointerDown, { capture: true });
+    return () => el.removeEventListener("pointerdown", onPointerDown, { capture: true });
   }, [beginDrawingEdit, canEditDrawings]);
 
   useEffect(() => {
@@ -1254,7 +1278,7 @@ export function ChartWidget() {
       <div className="relative flex min-h-0 flex-1" style={{ contain: "layout paint" }}>
         <ChartDrawingToolbar coin={selectedCoin} />
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
+          <div ref={chartSurfaceRef} className="relative min-h-0 flex-1">
             <ChartIndicatorLegend values={legend} coin={selectedCoin} />
             {historyLoading && displayLen === 0 ? (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
