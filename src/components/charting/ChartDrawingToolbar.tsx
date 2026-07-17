@@ -10,7 +10,6 @@ import {
   Lock,
   Magnet,
   Minus,
-  MousePointer2,
   PenLine,
   Ruler,
   Shapes,
@@ -28,6 +27,7 @@ import {
   type DrawingCategoryId,
   type DrawingToolItem,
 } from "@/lib/charting/drawingToolCatalog";
+import { DrawingToolIcon, isPatternTool } from "@/components/charting/DrawingToolIcon";
 import { cn } from "@/lib/utils";
 import type { ChartDrawTool, MagnetMode } from "@/types/chart-tools";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
@@ -40,12 +40,15 @@ const CATEGORY_ICONS: Record<DrawingCategoryId, ReactNode> = {
   fibonacci: <GripHorizontal className="h-4 w-4" />,
   shapes: <Shapes className="h-4 w-4" />,
   annotation: <Type className="h-4 w-4" />,
-  patterns: <MousePointer2 className="h-4 w-4" />,
+  patterns: <DrawingToolIcon toolId="pat-hs" />,
   prediction: <Ruler className="h-4 w-4 rotate-90" />,
   icons: <Smile className="h-4 w-4" />,
 };
 
 function toolIcon(item: DrawingToolItem): ReactNode {
+  if (isPatternTool(item.id)) {
+    return <DrawingToolIcon toolId={item.id} />;
+  }
   if (item.id.includes("hline") || item.id.includes("hray")) {
     return <Minus className="h-3.5 w-3.5" />;
   }

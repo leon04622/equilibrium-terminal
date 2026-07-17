@@ -636,11 +636,21 @@ export function sortIndicatorsForModal(
   items: IndicatorDefinition[],
   favorites: string[],
   query: string,
+  tab: IndicatorCategory | "favorites" | "all" = "all",
 ): IndicatorDefinition[] {
   const q = query.trim().toLowerCase();
-  const filtered = q
-    ? items.filter((d) => d.name.toLowerCase().includes(q) || d.id.includes(q))
-    : items;
+  let filtered = items;
+
+  if (tab === "favorites") {
+    const favSet = new Set(favorites);
+    filtered = filtered.filter((d) => favSet.has(d.id));
+  } else if (tab !== "all") {
+    filtered = filtered.filter((d) => d.category === tab || (tab === "popular" && d.defaultFavorite));
+  }
+
+  if (q) {
+    filtered = filtered.filter((d) => d.name.toLowerCase().includes(q) || d.id.includes(q));
+  }
 
   const favSet = new Set(favorites);
   const favs = filtered.filter((d) => favSet.has(d.id));
@@ -648,5 +658,19 @@ export function sortIndicatorsForModal(
     .filter((d) => !favSet.has(d.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  if (tab === "favorites") {
+    return favs.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   return [...favs.sort((a, b) => a.name.localeCompare(b.name)), ...rest];
 }
+
+export const INDICATOR_MODAL_TABS: { id: IndicatorCategory | "favorites" | "all"; label: string }[] = [
+  { id: "favorites", label: "Favorites" },
+  { id: "popular", label: "Popular" },
+  { id: "trend", label: "Trend" },
+  { id: "momentum", label: "Momentum" },
+  { id: "volatility", label: "Volatility" },
+  { id: "volume", label: "Volume" },
+  { id: "all", label: "All" },
+];

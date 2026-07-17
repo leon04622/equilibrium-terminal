@@ -20,6 +20,8 @@ import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
 
 import { colorForDrawTool, effectiveDrawingColor, fibLevelColor, SELECTED_COLOR } from "@/lib/charting/drawingColors";
 import { drawingStrokeDash, drawingStrokeWidth, isDrawingLocked } from "@/lib/charting/drawingStyle";
+import { patternPlan } from "@/lib/charting/patternGeometry";
+import { fillPlanToSvgPath, patternPlanToSvgPath } from "@/lib/charting/patternPaint";
 
 const EMPTY_DRAWINGS: ChartDrawing[] = [];
 const HIT_STROKE_PX = 14;
@@ -1182,12 +1184,16 @@ function renderPattern(
   const coords = drawing.points.map((p) => toPixel(chart, series, p));
   if (coords.some((c) => !c)) return null;
   const color = strokeColor(selected, effectiveDrawingColor(drawing));
-  const d = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c!.x} ${c!.y}`).join(" ");
+  const px = coords.filter((c): c is { x: number; y: number } => c != null);
+  const plan = patternPlan(drawing.variant, px);
+  const outlineD = plan ? patternPlanToSvgPath(plan) : px.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+  const fillD = plan ? fillPlanToSvgPath(plan) : "";
 
   return (
     <g key={drawing.id}>
+      {fillD ? <path d={fillD} fill={`${color}18`} stroke="none" pointerEvents="none" /> : null}
       <path
-        d={d}
+        d={outlineD}
         fill="none"
         stroke={color}
         strokeWidth={drawingStrokeWidth(drawing, selected)}
@@ -1201,6 +1207,31 @@ function renderPattern(
             : undefined
         }
       />
+      {plan?.neckline ? (
+        <line
+          x1={plan.neckline[0].x}
+          y1={plan.neckline[0].y}
+          x2={plan.neckline[1].x}
+          y2={plan.neckline[1].y}
+          stroke={color}
+          strokeWidth={drawingStrokeWidth(drawing, selected)}
+          strokeDasharray="6 4"
+          pointerEvents="none"
+        />
+      ) : null}
+      {plan?.labels.map((lbl, i) => (
+        <text
+          key={i}
+          x={lbl.at.x}
+          y={lbl.at.y - 6}
+          fill={color}
+          fontSize={10}
+          textAnchor={lbl.anchor}
+          className="select-none pointer-events-none"
+        >
+          {lbl.text}
+        </text>
+      ))}
       {coords.map((c, i) =>
         c ? (
           <EndpointHandle

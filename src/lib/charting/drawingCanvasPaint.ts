@@ -17,6 +17,7 @@ import {
 } from "@/lib/charting/drawingRender";
 import { colorForDrawTool } from "@/lib/charting/drawingColors";
 import type { ChartPoint } from "@/lib/charting/chartDrawing";
+import { paintPatternVariant } from "@/lib/charting/patternPaint";
 import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
 
 export interface DrawingDraftState {
@@ -494,15 +495,12 @@ function paintPattern(
   const coords = drawing.points.map((p) => toPixel(chart, series, p));
   if (coords.some((c) => !c)) return;
   const color = strokeColor(selected, effectiveDrawingColor(drawing));
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = drawingStrokeWidth(drawing, selected);
-  ctx.beginPath();
-  ctx.moveTo(coords[0]!.x, coords[0]!.y);
-  for (let i = 1; i < coords.length; i++) {
-    ctx.lineTo(coords[i]!.x, coords[i]!.y);
-  }
-  ctx.stroke();
+  const px = coords.filter((c): c is { x: number; y: number } => c != null);
+  paintPatternVariant(ctx, drawing.variant, px, {
+    color,
+    lineWidth: drawingStrokeWidth(drawing, selected),
+    selected,
+  });
 }
 
 function paintPosition(
@@ -797,6 +795,27 @@ function paintDraftPreview(
       series,
       false,
     );
+    return;
+  }
+
+  if (draft.tool.startsWith("pat-")) {
+    const coords = points
+      .map((p) => toPixel(chart, series, p))
+      .filter((c): c is { x: number; y: number } => c != null);
+    const variant =
+      draft.tool === "pat-hs" ? "hs" : draft.tool === "pat-elliott" ? "elliott" : "xabcd";
+    paintPatternVariant(ctx, variant, coords, {
+      color: previewColor,
+      lineWidth: 2,
+      dashed: true,
+    });
+    ctx.setLineDash([]);
+    ctx.fillStyle = previewColor;
+    for (const c of coords) {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
     return;
   }
 
