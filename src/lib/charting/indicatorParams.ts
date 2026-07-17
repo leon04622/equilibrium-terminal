@@ -1,4 +1,5 @@
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 import {
   resolveIndicatorDisplay,
   type IndicatorDisplaySettings,
@@ -63,14 +64,15 @@ const PERIOD_DEFAULTS: Record<string, number> = {
 };
 
 function periodSpec(id: string, fallback = 14): IndicatorParamSpec {
-  const def = INDICATOR_BY_ID[id];
+  const base = indicatorBaseType(id);
+  const def = INDICATOR_BY_ID[base];
   return {
     key: "period",
     label: "Length",
     min: 2,
     max: 500,
     step: 1,
-    default: PERIOD_DEFAULTS[id] ?? def?.period ?? fallback,
+    default: PERIOD_DEFAULTS[base] ?? PERIOD_DEFAULTS[id] ?? def?.period ?? fallback,
   };
 }
 
@@ -126,7 +128,7 @@ export const INDICATOR_PARAM_SPECS: Record<string, IndicatorParamSpec[]> = {
 };
 
 export function paramSpecsFor(id: string): IndicatorParamSpec[] {
-  return INDICATOR_PARAM_SPECS[id] ?? [];
+  return INDICATOR_PARAM_SPECS[indicatorBaseType(id)] ?? [];
 }
 
 export function hasIndicatorSettings(id: string): boolean {
@@ -153,7 +155,8 @@ export function resolveIndicatorParams(
     resolved[s.key] = s.step != null && s.step < 1 ? Math.round(clamped / s.step) * s.step : Math.round(clamped);
   }
   if (resolved.period == null) {
-    resolved.period = PERIOD_DEFAULTS[id] ?? INDICATOR_BY_ID[id]?.period ?? 14;
+    const base = indicatorBaseType(id);
+    resolved.period = PERIOD_DEFAULTS[base] ?? PERIOD_DEFAULTS[id] ?? INDICATOR_BY_ID[base]?.period ?? 14;
   }
   return resolved as Required<Pick<IndicatorParamValues, "period">> & IndicatorParamValues;
 }
@@ -165,7 +168,7 @@ export function indicatorSettingsFingerprint(
 ): string {
   return indicators
     .map((id) => {
-      const p = resolveIndicatorParams(id, settings[id]);
+      const p = resolveIndicatorParams(indicatorBaseType(id), settings[id]);
       const d = resolveIndicatorDisplay(id, display[id]);
       return `${id}:${JSON.stringify(p)}:${JSON.stringify(d)}`;
     })
@@ -205,22 +208,23 @@ const LEGEND_SHORT: Record<string, string> = {
 
 /** Hyperliquid-style legend title, e.g. "EMA 200 close 0". */
 export function indicatorLegendTitle(id: string, saved?: IndicatorParamValues): string {
-  const meta = INDICATOR_BY_ID[id];
+  const base = indicatorBaseType(id);
+  const meta = INDICATOR_BY_ID[base];
   if (!meta) return id.toUpperCase();
 
-  const short = LEGEND_SHORT[id] ?? meta.name.split(" ")[0] ?? id.toUpperCase();
-  const specs = paramSpecsFor(id);
+  const short = LEGEND_SHORT[base] ?? LEGEND_SHORT[id] ?? meta.name.split(" ")[0] ?? base.toUpperCase();
+  const specs = paramSpecsFor(base);
 
-  if (id === "vwap" || id.startsWith("vol_profile")) return short;
+  if (base === "vwap" || base.startsWith("vol_profile")) return short;
   if (specs.length === 0) return short;
 
-  const params = resolveIndicatorParams(id, saved);
+  const params = resolveIndicatorParams(base, saved);
 
   if (specs.length === 1 && specs[0]!.key === "period") {
     return `${short} ${params.period} close 0`;
   }
 
-  if (id === "macd") {
+  if (base === "macd") {
     return `${short} ${params.fastPeriod} ${params.slowPeriod} ${params.signalPeriod}`;
   }
 
@@ -234,9 +238,10 @@ export function sanitizeIndicatorSettings(
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, IndicatorParamValues> = {};
   for (const [id, vals] of Object.entries(raw as Record<string, IndicatorParamValues>)) {
-    if (!INDICATOR_BY_ID[id]) continue;
+    const base = indicatorBaseType(id);
+    if (!INDICATOR_BY_ID[base]) continue;
     if (!vals || typeof vals !== "object") continue;
-    out[id] = resolveIndicatorParams(id, vals);
+    out[id] = resolveIndicatorParams(base, vals);
   }
   return out;
 }

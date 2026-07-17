@@ -1,6 +1,7 @@
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID, indicatorPane } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 import {
   resolveIndicatorDisplay,
   type IndicatorDisplaySettings,
@@ -63,13 +64,14 @@ export function applyOverlayIndicators(
   const keep = new Set<string>();
 
   for (const id of overlayIds) {
-    const meta = INDICATOR_BY_ID[id];
+    const base = indicatorBaseType(id);
+    const meta = INDICATOR_BY_ID[base];
     if (!meta?.implemented) continue;
 
     const disp = resolveIndicatorDisplay(id, display[id]);
     if (!disp.visible) continue;
 
-    if (id === "vol_profile_fixed" || id === "vol_profile_visible") continue;
+    if (base === "vol_profile_fixed" || base === "vol_profile_visible") continue;
 
     const output = computeIndicatorOutput(id, candles, meta, settings[id]);
     if (!output) continue;
@@ -125,7 +127,9 @@ export function clearOverlayIndicators(chart: IChartApi | null, map: OverlaySeri
 }
 
 export function paneIndicatorIds(activeIds: string[]): string[] {
-  return activeIds.filter((id) => indicatorPane(id) === "pane" && INDICATOR_BY_ID[id]?.implemented);
+  return activeIds.filter(
+    (id) => indicatorPane(id) === "pane" && INDICATOR_BY_ID[indicatorBaseType(id)]?.implemented,
+  );
 }
 
 export function volumeProfileActive(

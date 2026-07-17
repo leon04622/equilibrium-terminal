@@ -6,7 +6,6 @@ import {
   migrateIndicatorId,
 } from "@/lib/charting/indicatorCatalog";
 import {
-  defaultIndicatorDisplay,
   indicatorDisplayEqual,
   resolveIndicatorDisplay,
   sanitizeIndicatorDisplay,
@@ -20,6 +19,15 @@ import {
 } from "@/lib/charting/indicatorParams";
 import { migrateLegacyDrawings } from "@/lib/charting/drawingEngine";
 import {
+  allowsMultipleInstances,
+  createIndicatorInstanceId,
+  defaultDisplayForNewInstance,
+  defaultParamsForNewInstance,
+  findIndicatorInstance,
+  indicatorBaseType,
+  isImplementedIndicatorInstance,
+} from "@/lib/charting/indicatorInstances";
+import {
   DEFAULT_DRAWING_PREFS,
   type ChartDrawTool,
   type ChartDrawing,
@@ -31,7 +39,7 @@ import {
   type MagnetMode,
 } from "@/types/chart-tools";
 
-const STORAGE_KEY = "eq-chart-tools-v7";
+const STORAGE_KEY = "eq-chart-tools-v8";
 
 interface Persisted {
   indicators: ChartIndicatorId[];
@@ -53,7 +61,7 @@ function defaultFavorites(): ChartIndicatorId[] {
 function sanitizeIndicators(ids: unknown): ChartIndicatorId[] {
   if (!Array.isArray(ids)) return ["ema"];
   const migrated = ids.map((id) => migrateIndicatorId(String(id)));
-  return migrated.filter((id) => INDICATOR_BY_ID[id]?.implemented);
+  return migrated.filter((id) => isImplementedIndicatorInstance(id));
 }
 
 function migrateDrawingsByCoin(parsed: Partial<Persisted>): Record<string, ChartDrawing[]> {
@@ -181,6 +189,7 @@ export interface ChartToolsState {
   setSettingsTarget: (id: string | null) => void;
   updateIndicatorSettings: (id: ChartIndicatorId, values: IndicatorParamValues) => void;
   updateIndicatorDisplay: (id: ChartIndicatorId, values: Partial<IndicatorDisplaySettings>) => void;
+  addIndicator: (id: ChartIndicatorId) => void;
   toggleIndicator: (id: ChartIndicatorId) => void;
   removeIndicator: (id: ChartIndicatorId) => void;
   toggleFavorite: (id: ChartIndicatorId) => void;
@@ -240,9 +249,10 @@ export const useChartToolsStore = create<ChartToolsState>()(
       set({ settingsTargetId, indicatorsModalOpen: settingsTargetId ? false : get().indicatorsModalOpen }),
 
     updateIndicatorSettings: (id, values) => {
+      const base = indicatorBaseType(id);
       const next = {
         ...get().indicatorSettings,
-        [id]: resolveIndicatorParams(id, { ...get().indicatorSettings[id], ...values }),
+        [id]: resolveIndicatorParams(base, { ...get().indicatorSettings[id], ...values }),
       };
       set({ indicatorSettings: next });
       savePersist({ ...snapshot(get()), indicatorSettings: next });
@@ -262,25 +272,49 @@ export const useChartToolsStore = create<ChartToolsState>()(
       savePersist({ ...snapshot(get()), indicatorDisplay: next });
     },
 
-    toggleIndicator: (id) => {
-      const def = INDICATOR_BY_ID[id];
+    addIndicator: (baseType) => {
+      const base = migrateIndicatorId(baseType);
+      const def = INDICATOR_BY_ID[base];
       if (!def?.implemented) return;
+
       const cur = get().indicators;
-      const adding = !cur.includes(id);
-      const next = adding ? [...cur, id] : cur.filter((x) => x !== id);
-      const nextDisplay = adding
-        ? {
-            ...get().indicatorDisplay,
-            [id]: get().indicatorDisplay[id] ?? defaultIndicatorDisplay(id),
-          }
-        : get().indicatorDisplay;
+
+      if (!allowsMultipleInstances(base)) {
+        const existing = findIndicatorInstance(cur, base);
+        if (existing) {
+          get().removeIndicator(existing);
+          return;
+        }
+      }
+
+      const instanceId = createIndicatorInstanceId(base);
+      const next = [...cur, instanceId];
+      const nextSettings = {
+        ...get().indicatorSettings,
+        [instanceId]: defaultParamsForNewInstance(base, cur),
+      };
+      const nextDisplay = {
+        ...get().indicatorDisplay,
+        [instanceId]: defaultDisplayForNewInstance(base, instanceId, cur),
+      };
+
       set({
         indicators: next,
+        indicatorSettings: nextSettings,
         indicatorDisplay: nextDisplay,
-        indicatorsModalOpen: adding && hasIndicatorSettings(id) ? false : get().indicatorsModalOpen,
-        settingsTargetId: adding && hasIndicatorSettings(id) ? id : get().settingsTargetId,
+        indicatorsModalOpen: hasIndicatorSettings(base) ? false : get().indicatorsModalOpen,
+        settingsTargetId: hasIndicatorSettings(base) ? instanceId : get().settingsTargetId,
       });
-      savePersist({ ...snapshot(get()), indicators: next, indicatorDisplay: nextDisplay });
+      savePersist({
+        ...snapshot(get()),
+        indicators: next,
+        indicatorSettings: nextSettings,
+        indicatorDisplay: nextDisplay,
+      });
+    },
+
+    toggleIndicator: (id) => {
+      get().addIndicator(id);
     },
 
     removeIndicator: (id) => {

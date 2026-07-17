@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 import {
   DEFAULT_INDICATOR_DISPLAY,
   defaultIndicatorDisplay,
@@ -36,8 +37,8 @@ export function IndicatorSettingsModal() {
   const updateSettings = useChartToolsStore((s) => s.updateIndicatorSettings);
   const updateDisplay = useChartToolsStore((s) => s.updateIndicatorDisplay);
 
-  const meta = targetId ? INDICATOR_BY_ID[targetId] : null;
-  const specs = targetId ? paramSpecsFor(targetId) : [];
+  const meta = targetId ? INDICATOR_BY_ID[indicatorBaseType(targetId)] : null;
+  const specs = targetId ? paramSpecsFor(indicatorBaseType(targetId)) : [];
   const [tab, setTab] = useState<SettingsTab>("inputs");
   const [draftInputs, setDraftInputs] = useState<IndicatorParamValues>({});
   const [draftDisplay, setDraftDisplay] = useState<IndicatorDisplaySettings>(DEFAULT_INDICATOR_DISPLAY);
@@ -45,7 +46,7 @@ export function IndicatorSettingsModal() {
 
   const apply = useCallback(() => {
     if (!targetId) return;
-    if (hasIndicatorSettings(targetId)) {
+    if (hasIndicatorSettings(indicatorBaseType(targetId))) {
       updateSettings(targetId, draftInputs);
     }
     updateDisplay(targetId, draftDisplay);
@@ -54,13 +55,14 @@ export function IndicatorSettingsModal() {
 
   useEffect(() => {
     if (!targetId) return;
-    const nextInputs = resolveIndicatorParams(targetId, savedInputs ?? defaultIndicatorParams(targetId));
+    const base = indicatorBaseType(targetId);
+    const nextInputs = resolveIndicatorParams(base, savedInputs ?? defaultIndicatorParams(base));
     const nextDisplay = resolveIndicatorDisplay(targetId, savedDisplay);
     setDraftInputs((prev) =>
       JSON.stringify(prev) === JSON.stringify(nextInputs) ? prev : nextInputs,
     );
     setDraftDisplay((prev) => (indicatorDisplayEqual(prev, nextDisplay) ? prev : nextDisplay));
-    setTab(hasIndicatorSettings(targetId) ? "inputs" : "style");
+    setTab(hasIndicatorSettings(base) ? "inputs" : "style");
     setDefaultsOpen(false);
   }, [targetId, savedInputs, savedDisplay]);
 
@@ -80,7 +82,8 @@ export function IndicatorSettingsModal() {
   if (!targetId || !meta) return null;
 
   const resetAll = () => {
-    setDraftInputs(defaultIndicatorParams(targetId));
+    const base = indicatorBaseType(targetId);
+    setDraftInputs(defaultIndicatorParams(base));
     setDraftDisplay(defaultIndicatorDisplay(targetId));
     setDefaultsOpen(false);
   };
@@ -132,7 +135,7 @@ export function IndicatorSettingsModal() {
 
         <div className="space-y-3 px-4 py-4">
           {tab === "inputs" ? (
-            !hasIndicatorSettings(targetId) ? (
+            !hasIndicatorSettings(indicatorBaseType(targetId)) ? (
               <p className="text-[12px] text-slate-500">This indicator has no configurable inputs.</p>
             ) : (
               specs.map((spec) => (

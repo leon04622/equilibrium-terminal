@@ -1,4 +1,5 @@
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 
 export interface IndicatorDisplaySettings {
   visible: boolean;
@@ -16,9 +17,10 @@ export const DEFAULT_INDICATOR_DISPLAY: IndicatorDisplaySettings = {
 };
 
 export function defaultIndicatorDisplay(id: string): IndicatorDisplaySettings {
+  const base = indicatorBaseType(id);
   return {
     ...DEFAULT_INDICATOR_DISPLAY,
-    color: INDICATOR_BY_ID[id]?.color,
+    color: INDICATOR_BY_ID[base]?.color,
   };
 }
 
@@ -56,7 +58,7 @@ export function sanitizeIndicatorDisplay(
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, IndicatorDisplaySettings> = {};
   for (const [id, vals] of Object.entries(raw as Record<string, Partial<IndicatorDisplaySettings>>)) {
-    if (!INDICATOR_BY_ID[id]) continue;
+    if (!INDICATOR_BY_ID[indicatorBaseType(id)]) continue;
     out[id] = resolveIndicatorDisplay(id, vals);
   }
   return out;

@@ -9,6 +9,12 @@ import {
   sortIndicatorsForModal,
 } from "@/lib/charting/indicatorCatalog";
 import { hasIndicatorSettings } from "@/lib/charting/indicatorParams";
+import {
+  allowsMultipleInstances,
+  countIndicatorInstances,
+  findIndicatorInstance,
+  indicatorBaseType,
+} from "@/lib/charting/indicatorInstances";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 
 export function IndicatorsModal() {
@@ -17,7 +23,8 @@ export function IndicatorsModal() {
   const favorites = useChartToolsStore((s) => s.favorites);
   const setOpen = useChartToolsStore((s) => s.setIndicatorsModalOpen);
   const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
-  const toggleIndicator = useChartToolsStore((s) => s.toggleIndicator);
+  const addIndicator = useChartToolsStore((s) => s.addIndicator);
+  const removeIndicator = useChartToolsStore((s) => s.removeIndicator);
   const toggleFavorite = useChartToolsStore((s) => s.toggleFavorite);
 
   const [query, setQuery] = useState("");
@@ -41,9 +48,21 @@ export function IndicatorsModal() {
 
   if (!open) return null;
 
-  const activeSet = new Set(active);
   const favSet = new Set(favorites);
   const showFavHeader = !query.trim() && sorted.some((d) => favSet.has(d.id));
+
+  const instanceCount = (baseId: string) => countIndicatorInstances(active, baseId);
+
+  const handleIndicatorClick = (defId: string) => {
+    if (!allowsMultipleInstances(defId)) {
+      const existing = findIndicatorInstance(active, defId);
+      if (existing) {
+        removeIndicator(existing);
+        return;
+      }
+    }
+    addIndicator(defId);
+  };
 
   return (
     <div
@@ -96,7 +115,9 @@ export function IndicatorsModal() {
           ) : (
             sorted.map((def, idx) => {
               const isFav = favSet.has(def.id);
-              const isActive = activeSet.has(def.id);
+              const count = instanceCount(def.id);
+              const isActive = count > 0;
+              const latestInstance = [...active].reverse().find((id) => indicatorBaseType(id) === def.id);
               const showDivider =
                 showFavHeader &&
                 idx > 0 &&
@@ -130,7 +151,7 @@ export function IndicatorsModal() {
                       type="button"
                       disabled={!def.implemented}
                       onClick={() => {
-                        if (def.implemented) toggleIndicator(def.id);
+                        if (def.implemented) handleIndicatorClick(def.id);
                       }}
                       className={cn(
                         "min-w-0 flex-1 text-left text-[13px] leading-snug",
@@ -144,12 +165,12 @@ export function IndicatorsModal() {
                         <span className="ml-1.5 text-[10px] text-slate-600">(soon)</span>
                       ) : null}
                     </button>
-                    {isActive && hasIndicatorSettings(def.id) ? (
+                    {isActive && hasIndicatorSettings(def.id) && latestInstance ? (
                       <button
                         type="button"
                         onClick={() => {
                           setOpen(false);
-                          setSettingsTarget(def.id);
+                          setSettingsTarget(latestInstance);
                         }}
                         className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-[#2a2e39] hover:text-[#5b9cf6]"
                         title="Indicator settings"
@@ -159,7 +180,7 @@ export function IndicatorsModal() {
                     ) : null}
                     {isActive ? (
                       <span className="shrink-0 rounded bg-[#2962ff]/20 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[#5b9cf6]">
-                        On
+                        {count > 1 ? `×${count}` : "On"}
                       </span>
                     ) : null}
                   </div>

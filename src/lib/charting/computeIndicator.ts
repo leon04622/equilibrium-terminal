@@ -1,5 +1,7 @@
 import type { NormalizedCandle } from "@/types/terminal-schema";
 import type { IndicatorDefinition } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
+import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
 import {
   resolveIndicatorParams,
   type IndicatorParamValues,
@@ -67,10 +69,12 @@ export function computeIndicatorOutput(
 ): IndicatorSeriesSet | null {
   if (!candles.length) return null;
 
-  const p = resolveIndicatorParams(id, userParams);
+  const base = indicatorBaseType(id);
+  const def = meta ?? INDICATOR_BY_ID[base];
+  const p = resolveIndicatorParams(base, userParams);
   const period = p.period;
 
-  switch (id) {
+  switch (base) {
     case "ema":
       return { type: "line", key: "ema", data: computeEma(candles, period), color: meta?.color ?? "#f59e0b" };
     case "ema_9":
@@ -196,5 +200,6 @@ export function computeIndicatorOutput(
 }
 
 export function isVolumeProfileIndicator(id: string): boolean {
-  return id === "vol_profile_fixed" || id === "vol_profile_visible";
+  const base = indicatorBaseType(id);
+  return base === "vol_profile_fixed" || base === "vol_profile_visible";
 }

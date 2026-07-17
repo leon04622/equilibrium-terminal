@@ -10,6 +10,7 @@ import {
 import { Settings2 } from "lucide-react";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 import { hasIndicatorSettings, indicatorChipLabel } from "@/lib/charting/indicatorParams";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
@@ -34,11 +35,12 @@ export function ChartIndicatorPane({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<PaneSeriesRef>({ lines: [], histogram: null });
-  const meta = INDICATOR_BY_ID[indicatorId];
+  const baseId = indicatorBaseType(indicatorId);
+  const meta = INDICATOR_BY_ID[baseId];
   const settings = useChartToolsStore((s) => s.indicatorSettings[indicatorId]);
   const setSettingsTarget = useChartToolsStore((s) => s.setSettingsTarget);
   const paneLabel = indicatorChipLabel(indicatorId, settings);
-  const canConfigure = hasIndicatorSettings(indicatorId);
+  const canConfigure = hasIndicatorSettings(baseId);
 
   useEffect(() => {
     if (!containerRef.current) return;

@@ -613,11 +613,13 @@ export const INDICATOR_BY_ID = Object.fromEntries(
 ) as Record<string, IndicatorDefinition>;
 
 export function isImplementedIndicator(id: string): boolean {
-  return INDICATOR_BY_ID[id]?.implemented === true;
+  const base = id.includes("#") ? id.slice(0, id.indexOf("#")) : migrateIndicatorId(id);
+  return INDICATOR_BY_ID[base]?.implemented === true;
 }
 
 export function indicatorPane(id: string): IndicatorPane {
-  return INDICATOR_BY_ID[id]?.pane ?? "overlay";
+  const base = id.includes("#") ? id.slice(0, id.indexOf("#")) : migrateIndicatorId(id);
+  return INDICATOR_BY_ID[base]?.pane ?? "overlay";
 }
 
 /** Migrate legacy persisted indicator ids. */

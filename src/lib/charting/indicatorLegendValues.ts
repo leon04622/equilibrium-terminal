@@ -1,5 +1,6 @@
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID, indicatorPane } from "@/lib/charting/indicatorCatalog";
+import { indicatorBaseType } from "@/lib/charting/indicatorInstances";
 import type { IndicatorDisplaySettings } from "@/lib/charting/indicatorDisplay";
 import type { IndicatorParamValues } from "@/lib/charting/indicatorParams";
 import type { NormalizedCandle } from "@/types/terminal-schema";
@@ -11,7 +12,8 @@ export interface IndicatorLegendValue {
 
 export function chartLegendIndicatorIds(activeIds: string[]): string[] {
   return activeIds.filter((id) => {
-    const meta = INDICATOR_BY_ID[id];
+    const base = indicatorBaseType(id);
+    const meta = INDICATOR_BY_ID[base];
     if (!meta?.implemented) return false;
     return indicatorPane(id) === "overlay";
   });
@@ -24,12 +26,13 @@ export function indicatorLegendValues(
   display?: IndicatorDisplaySettings,
 ): IndicatorLegendValue[] {
   if (candles.length === 0) return [];
-  const meta = INDICATOR_BY_ID[id];
+  const base = indicatorBaseType(id);
+  const meta = INDICATOR_BY_ID[base];
   if (!meta) return [];
 
   const output = computeIndicatorOutput(id, candles, meta, inputSettings);
   if (!output) {
-    if (id === "vol_profile_fixed" || id === "vol_profile_visible") {
+    if (base === "vol_profile_fixed" || base === "vol_profile_visible") {
       return [{ color: display?.color ?? meta.color, value: null }];
     }
     return [];
