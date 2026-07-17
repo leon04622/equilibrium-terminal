@@ -22,6 +22,7 @@ import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
 import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
+import { MarketSearchModal } from "@/components/charting/MarketSearchModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
@@ -1345,6 +1346,7 @@ export function ChartWidget() {
             <ChartIndicatorPane key={id} indicatorId={id} mainChartRef={chartRef} />
           ))}
           <IndicatorsModal />
+          <MarketSearchModal />
           <IndicatorSettingsModal />
         </div>
       </div>

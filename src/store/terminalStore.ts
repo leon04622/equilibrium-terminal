@@ -62,6 +62,7 @@ export interface TerminalState {
   ai: AiSessionState;
   omniOpen: boolean;
   omniFeedback: string | null;
+  marketSearchOpen: boolean;
 
   walletAddress: `0x${string}` | null;
   agentAddress: `0x${string}` | null;
@@ -107,6 +108,7 @@ export interface TerminalState {
   applySpotClearinghouse: (state: HlSpotClearinghouseState) => void;
   pushIntelligence: (item: IntelligenceItem) => void;
   setOmniOpen: (open: boolean) => void;
+  setMarketSearchOpen: (open: boolean) => void;
   setOmniFeedback: (message: string | null) => void;
   submitAiPrompt: (prompt: string, source: "omnibar" | "copilot" | "operatordesk") => void;
   clearMidFlash: () => void;
@@ -154,6 +156,7 @@ export const useTerminalStore = create<TerminalState>()(
     ai: { messages: [], pendingPrompt: null, isThinking: false },
     omniOpen: false,
     omniFeedback: null,
+    marketSearchOpen: false,
     walletAddress: null,
     agentAddress: null,
     authStatus: "disconnected",
@@ -355,6 +358,7 @@ export const useTerminalStore = create<TerminalState>()(
     },
 
     setOmniOpen: (omniOpen) => set({ omniOpen, ...(omniOpen ? {} : { omniFeedback: null }) }),
+    setMarketSearchOpen: (marketSearchOpen) => set({ marketSearchOpen }),
     setOmniFeedback: (omniFeedback) => set({ omniFeedback }),
 
     submitAiPrompt: (prompt, source) => {
