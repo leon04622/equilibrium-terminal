@@ -51,14 +51,35 @@ export function resolveDrawPoint(
   if (!pt) return null;
   if (magnetMode === "off") return pt;
 
-  const snapped = snapPriceToCandle(candles, pt.time, pt.price);
-  if (magnetMode === "strong") return { ...pt, price: snapped };
+  const snappedPrice = snapPriceToCandle(candles, pt.time, pt.price);
+  const snappedTime = snapTimeToCandle(candles, pt.time);
+  if (magnetMode === "strong") return { time: snappedTime, price: snappedPrice };
 
   const rawY = series.priceToCoordinate(pt.price);
-  const snapY = series.priceToCoordinate(snapped);
-  if (rawY == null || snapY == null) return pt;
-  if (Math.abs(rawY - snapY) <= 10) return { ...pt, price: snapped };
-  return pt;
+  const snapY = series.priceToCoordinate(snappedPrice);
+  const rawX = chart.timeScale().timeToCoordinate(pt.time as UTCTimestamp);
+  const snapX = chart.timeScale().timeToCoordinate(snappedTime as UTCTimestamp);
+
+  let time = pt.time;
+  let price = pt.price;
+  if (rawY != null && snapY != null && Math.abs(rawY - snapY) <= 10) price = snappedPrice;
+  if (rawX != null && snapX != null && Math.abs(rawX - snapX) <= 12) time = snappedTime;
+  return { time, price };
+}
+
+/** Snap unix time to the nearest candle open time. */
+export function snapTimeToCandle(candles: NormalizedCandle[], time: number): number {
+  if (!candles.length) return time;
+  let best = candles[0]!;
+  let bestDist = Math.abs(best.time - time);
+  for (const c of candles) {
+    const d = Math.abs(c.time - time);
+    if (d < bestDist) {
+      best = c;
+      bestDist = d;
+    }
+  }
+  return best.time;
 }
 
 /** Snap price to nearest OHLC on the candle at the given unix time. */

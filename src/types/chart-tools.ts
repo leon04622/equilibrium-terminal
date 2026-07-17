@@ -272,7 +272,7 @@ export interface ChartDrawingPrefs {
 }
 
 export const DEFAULT_DRAWING_PREFS: ChartDrawingPrefs = {
-  magnetMode: "off",
+  magnetMode: "weak",
   stayInDrawingMode: false,
   lockDrawings: false,
   hideDrawings: false,

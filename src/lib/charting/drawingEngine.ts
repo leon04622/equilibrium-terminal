@@ -105,7 +105,7 @@ export function createDrawing(
   switch (tool) {
     case "line-trend":
       if (points.length < 2) return null;
-      return { id: newDrawingId("ln"), coin, kind: "line", p1: points[0]!, p2: points[1]!, extend: "both", variant: "trend", color, createdAt };
+      return { id: newDrawingId("ln"), coin, kind: "line", p1: points[0]!, p2: points[1]!, extend: "segment", variant: "trend", color, createdAt };
     case "line-ray":
       if (points.length < 2) return null;
       return { id: newDrawingId("ln"), coin, kind: "line", p1: points[0]!, p2: points[1]!, extend: "right", variant: "ray", color, createdAt };

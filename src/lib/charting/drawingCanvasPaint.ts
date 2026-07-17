@@ -35,8 +35,58 @@ export interface DrawingPaintState {
   liveEditDrawing: ChartDrawing | null;
 }
 
+function drawingAnchorPoints(drawing: ChartDrawing): ChartPoint[] {
+  switch (drawing.kind) {
+    case "line":
+      return [drawing.p1, drawing.p2];
+    case "hline":
+      return [];
+    case "vline":
+      return [];
+    case "cross":
+      return [{ time: drawing.time, price: drawing.price }];
+    case "channel":
+      return [drawing.p1, drawing.p2, drawing.p3];
+    case "pitchfork":
+      return [drawing.p1, drawing.p2, drawing.p3];
+    case "fib":
+    case "gann":
+    case "rect":
+    case "position":
+      return [drawing.p1, drawing.p2];
+    case "text":
+    case "icon":
+      return [drawing.point];
+    case "pattern":
+      return drawing.points;
+    default:
+      return [];
+  }
+}
+
 function strokeColor(selected: boolean, base: string): string {
   return selected ? SELECTED_COLOR : base;
+}
+
+const HANDLE_RADIUS = 5;
+
+function paintEndpointHandles(
+  ctx: CanvasRenderingContext2D,
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  drawing: ChartDrawing,
+): void {
+  for (const pt of drawingAnchorPoints(drawing)) {
+    const px = toPixel(chart, series, pt);
+    if (!px) continue;
+    ctx.beginPath();
+    ctx.arc(px.x, px.y, HANDLE_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = "#131722";
+    ctx.fill();
+    ctx.strokeStyle = SELECTED_COLOR;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 }
 
 function strokeLine(
@@ -655,7 +705,12 @@ function paintDraftPreview(
       {
         ...temp,
         kind: "line",
-        extend: draft.tool === "line-ray" ? "right" : draft.tool === "line-extended" ? "both" : "segment",
+        extend:
+          draft.tool === "line-ray"
+            ? "right"
+            : draft.tool === "line-extended"
+              ? "both"
+              : "segment",
         variant: "trend",
       },
       chart,
@@ -664,6 +719,19 @@ function paintDraftPreview(
       height,
       false,
     );
+    if (points.length >= 2) {
+      paintEndpointHandles(
+        ctx,
+        chart,
+        series,
+        {
+          ...temp,
+          kind: "line",
+          extend: "segment",
+          variant: "trend",
+        } as ChartDrawing,
+      );
+    }
     return;
   }
 
@@ -773,6 +841,7 @@ export function paintDrawingsOnTarget(
     const { width, height } = mediaSize;
     for (const drawing of state.drawings) {
       if (state.skipId && drawing.id === state.skipId) continue;
+      const selected = state.selectedId === drawing.id;
       paintDrawing(
         context,
         drawing,
@@ -780,10 +849,14 @@ export function paintDrawingsOnTarget(
         series,
         width,
         height,
-        state.selectedId === drawing.id,
+        selected,
       );
+      if (selected) {
+        paintEndpointHandles(context, chart, series, drawing);
+      }
     }
     if (state.liveEditDrawing) {
+      const selected = state.selectedId === state.liveEditDrawing.id;
       paintDrawing(
         context,
         state.liveEditDrawing,
@@ -791,8 +864,11 @@ export function paintDrawingsOnTarget(
         series,
         width,
         height,
-        state.selectedId === state.liveEditDrawing.id,
+        selected,
       );
+      if (selected) {
+        paintEndpointHandles(context, chart, series, state.liveEditDrawing);
+      }
     }
     if (state.draft) {
       paintDraftPreview(context, state.draft, chart, series, width, height);

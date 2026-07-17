@@ -264,6 +264,7 @@ export function ChartWidget() {
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const selectedDrawingIdRef = useRef<string | null>(null);
   const [editingDrawing, setEditingDrawing] = useState(false);
+  const [drawingPointerActive, setDrawingPointerActive] = useState(false);
 
   useEffect(() => {
     selectedDrawingIdRef.current = selectedDrawingId;
@@ -354,7 +355,7 @@ export function ChartWidget() {
     isDrawingTool(drawTool) || drawSpec.interaction === "erase" || drawSpec.interaction === "zoom";
   const dragCaptureActive = isActiveDrawCapture(drawTool);
   const canEditDrawings = !hideDrawings && !lockDrawings && !drawingToolActive;
-  const blockChartPan = drawingToolActive || editingDrawing;
+  const blockChartPan = drawingToolActive || editingDrawing || drawingPointerActive;
   const selectedDrawing = useChartToolsStore((s) => {
     if (!selectedDrawingId) return null;
     return s.drawingsByCoin[selectedCoin]?.find((d) => d.id === selectedDrawingId) ?? null;
@@ -427,31 +428,6 @@ export function ChartWidget() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [canEditDrawings, clearDrawingDraft, clearEditSession, deleteDrawing]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || !canEditDrawings) return;
-
-    const onPointerDown = (ev: PointerEvent) => {
-      const chart = chartRef.current;
-      const series = seriesRef.current;
-      if (!chart || !series) return;
-      const rect = el.getBoundingClientRect();
-      const x = ev.clientX - rect.left;
-      const y = ev.clientY - rect.top;
-      const coin = useTerminalStore.getState().selectedCoin;
-      const drawings = useChartToolsStore.getState().drawingsByCoin[coin] ?? [];
-      const hit = findTopDrawingHit(drawings, chart, series, x, y, rect.width, rect.height);
-      if (hit) {
-        setSelectedDrawingId(hit.drawingId);
-      } else {
-        setSelectedDrawingId(null);
-      }
-    };
-
-    el.addEventListener("pointerdown", onPointerDown);
-    return () => el.removeEventListener("pointerdown", onPointerDown);
-  }, [canEditDrawings]);
 
   const syncPriceLines = useCallback((series: ISeriesApi<"Candlestick">) => {
     for (const pl of priceLinesRef.current) {
@@ -966,24 +942,20 @@ export function ChartWidget() {
     [],
   );
 
-  const onEditStart = useCallback(
-    (start: DrawingEditStart, e: React.PointerEvent) => {
+  const beginDrawingEdit = useCallback(
+    (start: DrawingEditStart, originX: number, originY: number) => {
       if (drawingPrefsRef.current.lockDrawings) return;
 
       setSelectedDrawingId(start.drawingId);
 
-      if (isDrawingLocked(start.snapshot)) {
-        e.preventDefault();
-        return;
-      }
+      if (isDrawingLocked(start.snapshot)) return;
 
-      const pt = resolveChartPoint(e.clientX, e.clientY);
+      const pt = resolveChartPoint(originX, originY);
       if (!pt) return;
 
-      const originX = e.clientX;
-      const originY = e.clientY;
-      let dragging = false;
+      setDrawingPointerActive(true);
 
+      let dragging = false;
       const session: DrawingEditSession =
         start.part === "body" ? { ...start, anchor: pt } : start;
 
@@ -1008,6 +980,7 @@ export function ChartWidget() {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
+        setDrawingPointerActive(false);
 
         if (!dragging) return;
 
@@ -1024,10 +997,55 @@ export function ChartWidget() {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
-      e.preventDefault();
     },
     [applyLiveEdit, commitEdit, resolveChartPoint, schedulePrimitivePaint],
   );
+
+  const onEditStart = useCallback(
+    (start: DrawingEditStart, e: React.PointerEvent) => {
+      e.preventDefault();
+      beginDrawingEdit(start, e.clientX, e.clientY);
+    },
+    [beginDrawingEdit],
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !canEditDrawings) return;
+
+    const onPointerDown = (ev: PointerEvent) => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      if (!chart || !series) return;
+      const rect = el.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const coin = useTerminalStore.getState().selectedCoin;
+      const drawings = useChartToolsStore.getState().drawingsByCoin[coin] ?? [];
+      const hit = findTopDrawingHit(drawings, chart, series, x, y, rect.width, rect.height);
+      if (hit) {
+        const drawing = drawings.find((d) => d.id === hit.drawingId);
+        if (!drawing) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        beginDrawingEdit(
+          {
+            drawingId: hit.drawingId,
+            snapshot: drawing,
+            part: hit.part,
+            endpointIndex: hit.part === "endpoint" ? hit.index : undefined,
+          },
+          ev.clientX,
+          ev.clientY,
+        );
+      } else {
+        setSelectedDrawingId(null);
+      }
+    };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    return () => el.removeEventListener("pointerdown", onPointerDown);
+  }, [beginDrawingEdit, canEditDrawings]);
 
   useEffect(() => {
     const layer = drawCaptureRef.current;
