@@ -25,7 +25,7 @@ import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
-import { resolveDrawPoint, chartTimeToX, type ChartPoint } from "@/lib/charting/chartDrawing";
+import { resolveDrawPoint, chartTimeToX, xToChartTime, type ChartPoint } from "@/lib/charting/chartDrawing";
 import {
   createDrawing,
   isActiveDrawCapture,
@@ -506,7 +506,7 @@ export function ChartWidget() {
         borderColor: EQ_CHART.border,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 12,
+        rightOffset: 24,
         barSpacing: 7,
         minBarSpacing: 2,
         fixLeftEdge: false,
@@ -896,7 +896,7 @@ export function ChartWidget() {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const candles = useChartAnalyticsStore.getState().displayCandles;
-    return resolveDrawPoint(
+    const resolved = resolveDrawPoint(
       chart,
       series,
       x,
@@ -904,6 +904,12 @@ export function ChartWidget() {
       candles,
       magnetMode ?? drawingPrefsRef.current.magnetMode,
     );
+    if (resolved) return resolved;
+
+    const price = series.coordinateToPrice(y);
+    const time = xToChartTime(chart, x, candles);
+    if (price == null || time == null || !Number.isFinite(price)) return null;
+    return { time, price: price as number };
   }, []);
 
   const applyLiveEdit = useCallback((session: DrawingEditSession, pt: ChartPoint) => {

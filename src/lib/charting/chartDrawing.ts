@@ -38,12 +38,66 @@ function barLogicalAnchor(chart: IChartApi, barTime: number): { logical: number 
   return { logical };
 }
 
+function lastCandleTime(candles: NormalizedCandle[]): number | null {
+  return candles[candles.length - 1]?.time ?? null;
+}
+
+function chartBarSpacing(chart: IChartApi): number {
+  return chart.timeScale().options().barSpacing ?? 6;
+}
+
+/** True when x is in the empty chart area to the right of the last candle. */
+function isFutureChartX(
+  chart: IChartApi,
+  x: number,
+  candles: NormalizedCandle[],
+): boolean {
+  const lastTime = lastCandleTime(candles);
+  if (lastTime == null) return false;
+  const lastX = chart.timeScale().timeToCoordinate(lastTime as UTCTimestamp);
+  if (lastX == null) return false;
+  return x > lastX + chartBarSpacing(chart) * 0.5;
+}
+
+function futureTimeFromX(
+  chart: IChartApi,
+  x: number,
+  candles: NormalizedCandle[],
+): number | null {
+  const lastTime = lastCandleTime(candles);
+  if (lastTime == null) return null;
+  const lastX = chart.timeScale().timeToCoordinate(lastTime as UTCTimestamp);
+  if (lastX == null) return null;
+  const barSpacing = chartBarSpacing(chart);
+  const deltaBars = (x - lastX) / barSpacing;
+  return lastTime + deltaBars * candleBarDurationSec(candles);
+}
+
+function futureXFromTime(
+  chart: IChartApi,
+  time: number,
+  candles: NormalizedCandle[],
+): number | null {
+  const lastTime = lastCandleTime(candles);
+  if (lastTime == null || time <= lastTime) return null;
+  const lastX = chart.timeScale().timeToCoordinate(lastTime as UTCTimestamp);
+  if (lastX == null) return null;
+  const barSec = candleBarDurationSec(candles);
+  if (barSec <= 0) return null;
+  const deltaBars = (time - lastTime) / barSec;
+  return lastX + deltaBars * chartBarSpacing(chart);
+}
+
 /** Map x pixel to unix time, including the empty future area past the last candle. */
 export function xToChartTime(
   chart: IChartApi,
   x: number,
   candles: NormalizedCandle[],
 ): number | null {
+  if (isFutureChartX(chart, x, candles)) {
+    return futureTimeFromX(chart, x, candles);
+  }
+
   const direct = chart.timeScale().coordinateToTime(x);
   if (direct != null) {
     const unix = timeToUnix(direct);
@@ -51,16 +105,17 @@ export function xToChartTime(
   }
 
   if (!candles.length) return null;
-  const logical = chart.timeScale().coordinateToLogical(x);
-  if (logical == null) return null;
 
-  const last = candles[candles.length - 1]!;
-  const anchor = barLogicalAnchor(chart, last.time);
+  const logical = chart.timeScale().coordinateToLogical(x);
+  const lastTime = lastCandleTime(candles);
+  if (logical == null || lastTime == null) return null;
+
+  const anchor = barLogicalAnchor(chart, lastTime);
   if (!anchor) return null;
 
   const barSec = candleBarDurationSec(candles);
   const deltaBars = logical - anchor.logical;
-  return last.time + deltaBars * barSec;
+  return lastTime + deltaBars * barSec;
 }
 
 /** Map unix time to x pixel, including future times beyond the last candle. */
@@ -69,16 +124,22 @@ export function chartTimeToX(
   time: number,
   candles: NormalizedCandle[],
 ): number | null {
+  const lastTime = lastCandleTime(candles);
+  if (lastTime != null && time > lastTime) {
+    const futureX = futureXFromTime(chart, time, candles);
+    if (futureX != null) return futureX;
+  }
+
   const direct = chart.timeScale().timeToCoordinate(time as UTCTimestamp);
   if (direct != null) return direct;
 
-  if (!candles.length) return null;
-  const last = candles[candles.length - 1]!;
-  const anchor = barLogicalAnchor(chart, last.time);
+  if (!candles.length || lastTime == null) return null;
+
+  const anchor = barLogicalAnchor(chart, lastTime);
   if (!anchor) return null;
 
   const barSec = candleBarDurationSec(candles);
-  const deltaBars = (time - last.time) / barSec;
+  const deltaBars = (time - lastTime) / barSec;
   const logical = (anchor.logical + deltaBars) as Logical;
   return chart.timeScale().logicalToCoordinate(logical);
 }
@@ -112,8 +173,10 @@ export function resolveDrawPoint(
   if (!pt) return null;
   if (magnetMode === "off") return pt;
 
-  const lastTime = candles[candles.length - 1]?.time;
-  const inFuture = lastTime != null && pt.time > lastTime;
+  const lastTime = lastCandleTime(candles);
+  const inFuture =
+    isFutureChartX(chart, x, candles) ||
+    (lastTime != null && pt.time > lastTime);
   if (inFuture) return pt;
 
   const snappedPrice = snapPriceToCandle(candles, pt.time, pt.price);
