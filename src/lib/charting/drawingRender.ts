@@ -18,8 +18,8 @@ export function toPixel(
   series: ISeriesApi<"Candlestick">,
   pt: ChartPoint,
 ): PixelPoint | null {
-  const candles = useChartAnalyticsStore.getState().displayCandles;
-  const x = chartTimeToX(chart, pt.time, candles);
+  const { displayCandles: candles, timeframe } = useChartAnalyticsStore.getState();
+  const x = chartTimeToX(chart, pt.time, candles, timeframe);
   const y = series.priceToCoordinate(pt.price);
   if (x == null || y == null) return null;
   return { x, y };

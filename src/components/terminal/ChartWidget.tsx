@@ -26,6 +26,7 @@ import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsM
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
 import { resolveDrawPoint, chartTimeToX, xToChartTime, type ChartPoint } from "@/lib/charting/chartDrawing";
+import { applyTradingChartViewport, CHART_RIGHT_OFFSET } from "@/lib/charting/chartViewport";
 import {
   createDrawing,
   isActiveDrawCapture,
@@ -157,9 +158,9 @@ function dragDistance(
   a: ChartPoint,
   b: ChartPoint,
 ): number {
-  const candles = useChartAnalyticsStore.getState().displayCandles;
-  const x1 = chartTimeToX(chart, a.time, candles);
-  const x2 = chartTimeToX(chart, b.time, candles);
+  const { displayCandles: candles, timeframe } = useChartAnalyticsStore.getState();
+  const x1 = chartTimeToX(chart, a.time, candles, timeframe);
+  const x2 = chartTimeToX(chart, b.time, candles, timeframe);
   const y1 = series.priceToCoordinate(a.price);
   const y2 = series.priceToCoordinate(b.price);
   if (x1 == null || x2 == null || y1 == null || y2 == null) return 0;
@@ -487,7 +488,10 @@ export function ChartWidget() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const chart = createChart(containerRef.current, {
+    const el = containerRef.current;
+    const chart = createChart(el, {
+      width: el.clientWidth,
+      height: el.clientHeight,
       layout: {
         background: { type: ColorType.Solid, color: EQ_CHART.background },
         textColor: EQ_CHART.text,
@@ -506,7 +510,7 @@ export function ChartWidget() {
         borderColor: EQ_CHART.border,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 24,
+        rightOffset: CHART_RIGHT_OFFSET,
         barSpacing: 7,
         minBarSpacing: 2,
         fixLeftEdge: false,
@@ -566,11 +570,13 @@ export function ChartWidget() {
     });
 
     const ro = new ResizeObserver(() => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
+      if (!containerRef.current || !chartRef.current) return;
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      chartRef.current.applyOptions({ width, height });
+      const candles = useChartAnalyticsStore.getState().displayCandles;
+      if (candles.length > 0 && didFitRef.current) {
+        applyTradingChartViewport(chartRef.current, candles.length, width);
       }
     });
     ro.observe(containerRef.current);
@@ -697,8 +703,8 @@ export function ChartWidget() {
         }
 
         if (!didFitRef.current) {
-          chart.timeScale().fitContent();
-          chart.timeScale().scrollToRealTime();
+          const width = containerRef.current?.clientWidth ?? chart.timeScale().width();
+          applyTradingChartViewport(chart, candles.length, width);
           didFitRef.current = true;
         }
       }
@@ -895,7 +901,7 @@ export function ChartWidget() {
     const rect = layer.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
-    const candles = useChartAnalyticsStore.getState().displayCandles;
+    const { displayCandles: candles, timeframe } = useChartAnalyticsStore.getState();
     const resolved = resolveDrawPoint(
       chart,
       series,
@@ -903,11 +909,12 @@ export function ChartWidget() {
       y,
       candles,
       magnetMode ?? drawingPrefsRef.current.magnetMode,
+      timeframe,
     );
     if (resolved) return resolved;
 
     const price = series.coordinateToPrice(y);
-    const time = xToChartTime(chart, x, candles);
+    const time = xToChartTime(chart, x, candles, timeframe);
     if (price == null || time == null || !Number.isFinite(price)) return null;
     return { time, price: price as number };
   }, []);
