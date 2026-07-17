@@ -16,6 +16,7 @@ export interface MarketContextRow {
   displayName: string;
   maxLeverage: number | null;
   isHip3: boolean;
+  dex: string | null;
   lastPrice: number | null;
   markPrice: number | null;
   oraclePrice: number | null;

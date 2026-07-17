@@ -30,6 +30,7 @@ import type {
   WorkspaceWidget,
 } from "@/types/terminal-schema";
 import { FALLBACK_ASSETS } from "@/lib/assets";
+import { coinsMatch } from "@/lib/hyperliquid/coin";
 
 /** V1 wedge: stream widgets only; ticket/positions/etc. come from workspace grid extras. */
 const DEFAULT_WIDGETS: WorkspaceWidget[] = [
@@ -118,13 +119,12 @@ export interface TerminalState {
 const defaultAsset = FALLBACK_ASSETS[0];
 
 function findAsset(assets: TerminalAsset[], coin: string): TerminalAsset | null {
-  const upper = coin.toUpperCase();
   return (
     assets.find(
       (a) =>
-        a.coin.toUpperCase() === upper ||
-        a.symbol.toUpperCase() === upper ||
-        a.coin.toUpperCase().startsWith(upper),
+        coinsMatch(a.coin, coin) ||
+        coinsMatch(a.symbol, coin) ||
+        a.symbol.toLowerCase() === coin.toLowerCase(),
     ) ?? null
   );
 }

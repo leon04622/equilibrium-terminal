@@ -64,7 +64,7 @@ export function ChartMarketHeader({ coin }: { coin: string }) {
     >
       <MarketSearchTrigger
         displayName={displayName}
-        isHip3={row?.isHip3}
+        dex={row?.dex}
         maxLeverage={row?.maxLeverage}
       />
 

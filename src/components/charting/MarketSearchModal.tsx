@@ -360,7 +360,7 @@ export function MarketSearchModal() {
                       <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-100">{row.displayName}</span>
-                          {row.isHip3 ? <MarketBadge>xyz</MarketBadge> : null}
+                          {row.isHip3 && row.dex ? <MarketBadge>{row.dex}</MarketBadge> : null}
                           {row.maxLeverage != null ? (
                             <MarketBadge>{row.maxLeverage}x</MarketBadge>
                           ) : null}
@@ -428,11 +428,11 @@ export function MarketSearchModal() {
 
 export function MarketSearchTrigger({
   displayName,
-  isHip3,
+  dex,
   maxLeverage,
 }: {
   displayName: string;
-  isHip3?: boolean;
+  dex?: string | null;
   maxLeverage?: number | null;
 }) {
   const setOpen = useTerminalStore((s) => s.setMarketSearchOpen);
@@ -445,7 +445,7 @@ export function MarketSearchTrigger({
     >
       <span className="text-[13px] font-semibold text-slate-100">{displayName}</span>
       <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-300" />
-      {isHip3 ? <MarketBadge>xyz</MarketBadge> : null}
+      {dex ? <MarketBadge>{dex}</MarketBadge> : null}
       {maxLeverage != null ? <MarketBadge>{maxLeverage}x</MarketBadge> : null}
     </button>
   );

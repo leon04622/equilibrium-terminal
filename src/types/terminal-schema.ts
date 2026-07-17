@@ -23,6 +23,9 @@ export interface TerminalAsset {
   coin: string;
   assetIndex?: number;
   szDecimals?: number;
+  /** Perp dex id — `main` for default HL perps, `xyz`/`flx`/… for HIP-3. */
+  dex?: string;
+  isHip3?: boolean;
 }
 
 export interface NormalizedLevel {

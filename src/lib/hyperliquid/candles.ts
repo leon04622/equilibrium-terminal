@@ -1,4 +1,5 @@
 import { HL_INFO_HTTP_URL } from "@/lib/hyperliquid/constants";
+import { normalizeHlCoin } from "@/lib/hyperliquid/coin";
 import { finalizeHlCandles, normalizeCandlesBatch } from "@/lib/hyperliquid/normalize";
 import type { ChartTimeframe } from "@/types/chart-analytics";
 import type { NormalizedCandle } from "@/types/terminal-schema";
@@ -56,13 +57,9 @@ const TF_TO_HL: Record<ChartTimeframe, HlCandleInterval | null> = {
 
 export const DEFAULT_CANDLE_HISTORY_BARS = 500;
 
-/** Hyperliquid perp coin names — strip display suffixes like BTC-PERP. */
+/** Hyperliquid coin id for REST/WS — preserves dex:SYMBOL casing. */
 export function resolveHlCoin(coin: string): string {
-  const trimmed = coin.trim();
-  if (!trimmed) return "BTC";
-  const withoutSuffix = trimmed.replace(/-(PERP|SPOT)$/i, "");
-  const base = withoutSuffix.includes("/") ? withoutSuffix.split("/")[0]! : withoutSuffix;
-  return base.toUpperCase();
+  return normalizeHlCoin(coin);
 }
 
 export function chartTimeframeToHlInterval(tf: ChartTimeframe): HlCandleInterval | null {

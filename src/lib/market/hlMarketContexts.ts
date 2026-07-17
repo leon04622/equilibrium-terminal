@@ -1,21 +1,15 @@
-import type { HlPerpMeta } from "@/types/hyperliquid";
 import type { MarketContextRow } from "@/types/market-search";
 import type { TerminalAsset } from "@/types/terminal-schema";
-
-export interface HlRawAssetCtx {
-  funding?: string;
-  premium?: string;
-  openInterest?: string;
-  markPx?: string;
-  midPx?: string;
-  oraclePx?: string;
-  prevDayPx?: string;
-  dayNtlVlm?: string;
-}
+import type { HlPerpAssetCtx } from "@/types/hyperliquid";
+import { perpDisplayPair } from "@/lib/hyperliquid/coin";
+import type { HlUniverseBundle } from "@/lib/market/hlUniverse";
 
 const TRADFI_COINS = new Set([
   "SPCX",
   "SPX",
+  "S&P500",
+  "US500",
+  "USA500",
   "NDX",
   "DJI",
   "GOLD",
@@ -24,6 +18,13 @@ const TRADFI_COINS = new Set([
   "CL",
   "EUR",
   "JPY",
+  "AAPL",
+  "TSLA",
+  "NVDA",
+  "AMZN",
+  "META",
+  "GOOG",
+  "MSFT",
 ]);
 
 function parseNum(raw: string | undefined): number | null {
@@ -32,52 +33,39 @@ function parseNum(raw: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function isHip3Coin(name: string): boolean {
-  return name.includes(":") || name.startsWith("xyz:");
-}
-
-function isTradfiCoin(coin: string): boolean {
-  const base = coin.split(/[-/:]/)[0]?.toUpperCase() ?? coin.toUpperCase();
+export function isTradfiCoin(coin: string, symbol: string): boolean {
+  const base = (coin.includes(":") ? coin.split(":")[1] : coin).split(/[-/]/)[0]?.toUpperCase() ?? coin;
   if (TRADFI_COINS.has(base)) return true;
-  return /^(SP|NDX|DJI|GOLD|SILVER|WTI|OIL|EUR|JPY)/i.test(base);
+  if (TRADFI_COINS.has(symbol.toUpperCase())) return true;
+  return /^(SP|NDX|DJI|GOLD|SILVER|WTI|OIL|EUR|JPY|US500|USA500)/i.test(base);
 }
 
 export function displayPair(asset: TerminalAsset): string {
   if (asset.market === "spot") return asset.symbol;
-  return `${asset.symbol}-USDC`;
+  return perpDisplayPair(asset.coin);
 }
 
-export function buildMarketContextRows(
-  assets: TerminalAsset[],
-  perpMeta: HlPerpMeta | null,
-  ctxs: HlRawAssetCtx[],
-  perpUniverse: Array<{ name: string; maxLeverage?: number }>,
-): MarketContextRow[] {
-  const leverageByCoin = new Map<string, number>();
-  for (const u of perpUniverse) {
-    if (u.maxLeverage != null) leverageByCoin.set(u.name, u.maxLeverage);
-  }
-
-  const ctxByCoin = new Map<string, HlRawAssetCtx>();
-  perpUniverse.forEach((u, i) => {
-    const ctx = ctxs[i];
-    if (ctx) ctxByCoin.set(u.name, ctx);
-  });
+export function buildMarketContextRowsFromUniverse(bundle: HlUniverseBundle): MarketContextRow[] {
+  const { assets, perpCtxByCoin, spotCtxByCoin, leverageByCoin } = bundle;
 
   return assets.map((asset) => {
-    const ctx = asset.market === "perp" ? ctxByCoin.get(asset.coin) : undefined;
-    const mark = parseNum(ctx?.markPx) ?? parseNum(ctx?.midPx);
-    const oracle = parseNum(ctx?.oraclePx) ?? mark;
-    const prev = parseNum(ctx?.prevDayPx);
+    const perpCtx = asset.market === "perp" ? perpCtxByCoin.get(asset.coin) : undefined;
+    const spotCtx = asset.market === "spot" ? spotCtxByCoin.get(asset.coin) : undefined;
+    const mark = parseNum(perpCtx?.markPx ?? spotCtx?.markPx) ?? parseNum(perpCtx?.midPx ?? spotCtx?.midPx);
+    const oracle = parseNum(perpCtx?.oraclePx) ?? mark;
+    const prev = parseNum(perpCtx?.prevDayPx ?? spotCtx?.prevDayPx);
     const last = mark ?? oracle;
     const changeAbs = last != null && prev != null ? last - prev : null;
     const changePct =
       changeAbs != null && prev != null && prev !== 0 ? (changeAbs / prev) * 100 : null;
-    const fundingHourly = parseNum(ctx?.funding);
+    const fundingHourly = perpCtx ? parseNum(perpCtx.funding) : null;
     const funding8hPct = fundingHourly != null ? fundingHourly * 8 * 100 : null;
-    const oi = parseNum(ctx?.openInterest);
-    const oiUsd = mark != null && oi != null ? oi * mark : null;
-    const volume = parseNum(ctx?.dayNtlVlm);
+    const oi = perpCtx ? parseNum(perpCtx.openInterest) : null;
+    const oiUsd = asset.market === "perp" && mark != null && oi != null ? oi * mark : null;
+    const volume = parseNum(perpCtx?.dayNtlVlm ?? spotCtx?.dayNtlVlm);
+
+    const isHip3 = asset.market === "perp" && (asset.isHip3 === true || asset.dex !== "main");
+    const dex = isHip3 && asset.dex && asset.dex !== "main" ? asset.dex : null;
 
     return {
       coin: asset.coin,
@@ -85,7 +73,8 @@ export function buildMarketContextRows(
       market: asset.market,
       displayName: displayPair(asset),
       maxLeverage: asset.market === "perp" ? leverageByCoin.get(asset.coin) ?? null : null,
-      isHip3: asset.market === "perp" && isHip3Coin(asset.coin),
+      isHip3,
+      dex,
       lastPrice: last,
       markPrice: mark,
       oraclePrice: oracle,
@@ -118,16 +107,18 @@ export function filterMarketRows(
       out = out.filter((r) => r.market === "spot");
       break;
     case "crypto":
-      out = out.filter((r) => r.market === "perp" && !isTradfiCoin(r.coin) && !r.isHip3);
+      out = out.filter(
+        (r) => r.market === "perp" && !r.isHip3 && !isTradfiCoin(r.coin, r.symbol),
+      );
       break;
     case "tradfi":
-      out = out.filter((r) => isTradfiCoin(r.coin));
+      out = out.filter((r) => isTradfiCoin(r.coin, r.symbol));
       break;
     case "hip3":
       out = out.filter((r) => r.isHip3);
       break;
     case "trending":
-      out = [...out].sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0)).slice(0, 40);
+      out = [...out].sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0)).slice(0, 80);
       break;
     case "prelaunch":
       out = [];
@@ -140,7 +131,7 @@ export function filterMarketRows(
   const q = query.trim().toLowerCase();
   if (q) {
     out = out.filter((r) => {
-      const hay = `${r.displayName} ${r.coin} ${r.symbol}`.toLowerCase();
+      const hay = `${r.displayName} ${r.coin} ${r.symbol} ${r.dex ?? ""}`.toLowerCase();
       if (strict) {
         return (
           r.coin.toLowerCase() === q ||
@@ -189,4 +180,26 @@ export function formatPriceHl(value: number | null): string {
   }
   if (abs >= 1) return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return value.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+}
+
+/** @deprecated use buildMarketContextRowsFromUniverse */
+export function buildMarketContextRows(
+  assets: TerminalAsset[],
+  _perpMeta: unknown,
+  ctxs: import("@/types/hyperliquid").HlPerpAssetCtx[],
+  perpUniverse: Array<{ name: string; maxLeverage?: number }>,
+): MarketContextRow[] {
+  const perpCtxByCoin = new Map<string, HlPerpAssetCtx>();
+  const leverageByCoin = new Map<string, number>();
+  perpUniverse.forEach((u, i) => {
+    if (u.maxLeverage != null) leverageByCoin.set(u.name, u.maxLeverage);
+    const ctx = ctxs[i];
+    if (ctx) perpCtxByCoin.set(u.name, ctx);
+  });
+  return buildMarketContextRowsFromUniverse({
+    assets,
+    perpCtxByCoin,
+    spotCtxByCoin: new Map(),
+    leverageByCoin,
+  });
 }

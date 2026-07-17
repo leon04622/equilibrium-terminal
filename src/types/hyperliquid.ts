@@ -79,6 +79,35 @@ export interface HlPerpMeta {
   }>;
 }
 
+export interface HlPerpDex {
+  name: string;
+  fullName: string;
+  deployer: string;
+}
+
+export interface HlSpotAssetCtx {
+  coin?: string;
+  prevDayPx?: string;
+  dayNtlVlm?: string;
+  markPx?: string;
+  midPx?: string;
+  oraclePx?: string;
+  circulatingSupply?: string;
+  totalSupply?: string;
+  dayBaseVlm?: string;
+}
+
+export interface HlPerpAssetCtx {
+  funding?: string;
+  premium?: string;
+  openInterest?: string;
+  markPx?: string;
+  midPx?: string;
+  oraclePx?: string;
+  prevDayPx?: string;
+  dayNtlVlm?: string;
+}
+
 export interface HlSpotMeta {
   universe: Array<{
     name: string;

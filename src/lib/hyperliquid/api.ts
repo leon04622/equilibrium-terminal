@@ -1,5 +1,12 @@
 import type { HlClearinghouseState, HlSpotClearinghouseState } from "@/types/account";
-import type { HlAllMids, HlPerpMeta, HlSpotMeta } from "@/types/hyperliquid";
+import type {
+  HlAllMids,
+  HlPerpAssetCtx,
+  HlPerpDex,
+  HlPerpMeta,
+  HlSpotAssetCtx,
+  HlSpotMeta,
+} from "@/types/hyperliquid";
 import type { HlReferralState } from "@/types/hyperliquid-referral";
 import { HL_INFO_HTTP_URL } from "@/lib/hyperliquid/constants";
 
@@ -20,6 +27,24 @@ export function fetchPerpMeta(): Promise<HlPerpMeta> {
 
 export function fetchSpotMeta(): Promise<HlSpotMeta> {
   return postInfo<HlSpotMeta>({ type: "spotMeta" });
+}
+
+export function fetchPerpDexs(): Promise<Array<HlPerpDex | null>> {
+  return postInfo<Array<HlPerpDex | null>>({ type: "perpDexs" });
+}
+
+export function fetchAllPerpMetas(): Promise<HlPerpMeta[]> {
+  return postInfo<HlPerpMeta[]>({ type: "allPerpMetas" });
+}
+
+export function fetchMetaAndAssetCtxs(dex?: string): Promise<[HlPerpMeta, HlPerpAssetCtx[]]> {
+  const body: Record<string, unknown> = { type: "metaAndAssetCtxs" };
+  if (dex) body.dex = dex;
+  return postInfo(body);
+}
+
+export function fetchSpotMetaAndAssetCtxs(): Promise<[HlSpotMeta, HlSpotAssetCtx[]]> {
+  return postInfo<[HlSpotMeta, HlSpotAssetCtx[]]>({ type: "spotMetaAndAssetCtxs" });
 }
 
 export function fetchClearinghouseState(user: string): Promise<HlClearinghouseState> {
