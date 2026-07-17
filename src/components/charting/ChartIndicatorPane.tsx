@@ -11,6 +11,7 @@ import { Settings2 } from "lucide-react";
 import { computeIndicatorOutput } from "@/lib/charting/computeIndicator";
 import { INDICATOR_BY_ID } from "@/lib/charting/indicatorCatalog";
 import { hasIndicatorSettings, indicatorChipLabel } from "@/lib/charting/indicatorParams";
+import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { EQ_CHART } from "@/lib/theme/equilibrium-visual";
 import type { NormalizedCandle } from "@/types/terminal-schema";
@@ -22,15 +23,14 @@ type PaneSeriesRef = {
 
 export function ChartIndicatorPane({
   indicatorId,
-  candles,
   height = 72,
   mainChartRef,
 }: {
   indicatorId: string;
-  candles: NormalizedCandle[];
   height?: number;
   mainChartRef: RefObject<IChartApi | null>;
 }) {
+  const candles = useChartAnalyticsStore((s) => s.displayCandles);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<PaneSeriesRef>({ lines: [], histogram: null });

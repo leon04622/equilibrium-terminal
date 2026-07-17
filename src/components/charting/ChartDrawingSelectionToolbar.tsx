@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useReducer, useRef, useState, type RefObject } from "react";
 import {
   GripHorizontal,
   Lock,
@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { drawingToolbarAnchor } from "@/lib/charting/drawingRender";
 import { effectiveDrawingColor } from "@/lib/charting/drawingColors";
+import { useChartViewportSync } from "@/hooks/useChartViewportSync";
+import type { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 import { cn } from "@/lib/utils";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
@@ -58,13 +60,13 @@ function Divider() {
   return <div className="mx-0.5 h-5 w-px bg-[#434651]" />;
 }
 
-export function ChartDrawingSelectionToolbar({
+export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionToolbar({
   coin,
   drawing,
   chartRef,
   seriesRef,
   containerRef,
-  viewportVersion,
+  viewportPrimitiveRef,
   onDelete,
   onDismiss,
 }: {
@@ -73,7 +75,7 @@ export function ChartDrawingSelectionToolbar({
   chartRef: RefObject<IChartApi | null>;
   seriesRef: RefObject<ISeriesApi<"Candlestick"> | null>;
   containerRef: RefObject<HTMLDivElement | null>;
-  viewportVersion: number;
+  viewportPrimitiveRef: RefObject<DrawingViewportPrimitive | null>;
   onDelete: () => void;
   onDismiss: () => void;
 }) {
@@ -83,6 +85,9 @@ export function ChartDrawingSelectionToolbar({
   const [widthOpen, setWidthOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const [frame, bumpFrame] = useReducer((n: number) => n + 1, 0);
+
+  useChartViewportSync(chartRef, viewportPrimitiveRef, true, bumpFrame);
 
   const color = effectiveDrawingColor(drawing);
   const strokeWidth = drawing.strokeWidth ?? 2;
@@ -117,7 +122,7 @@ export function ChartDrawingSelectionToolbar({
     const ro = new ResizeObserver(updatePos);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [chartRef, containerRef, drawing, seriesRef, viewportVersion]);
+  }, [chartRef, containerRef, drawing, frame, seriesRef]);
 
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
@@ -260,4 +265,4 @@ export function ChartDrawingSelectionToolbar({
       </ToolbarButton>
     </div>
   );
-}
+});

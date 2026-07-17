@@ -1,6 +1,6 @@
 import type { ISeriesPrimitive, SeriesAttachedParameter, Time } from "lightweight-charts";
 
-type ViewportListener = () => void;
+export type ViewportListener = () => void;
 
 /**
  * Invisible series primitive whose updateAllViews() fires whenever the chart
@@ -8,16 +8,17 @@ type ViewportListener = () => void;
  * drawing overlays in sync with the canvas.
  */
 export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
-  private listener: ViewportListener | null = null;
+  private readonly listeners = new Set<ViewportListener>();
 
   private readonly emptyPaneViews: readonly [] = [];
 
-  setListener(next: ViewportListener | null) {
-    this.listener = next;
+  subscribe(listener: ViewportListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   updateAllViews() {
-    this.listener?.();
+    this.listeners.forEach((listener) => listener());
   }
 
   paneViews() {
@@ -27,6 +28,6 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
   attached(_param: SeriesAttachedParameter<Time>) {}
 
   detached() {
-    this.listener = null;
+    this.listeners.clear();
   }
 }

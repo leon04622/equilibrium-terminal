@@ -2,15 +2,14 @@
 
 import { useMemo } from "react";
 import { VolumeProfileEngine } from "@/lib/charting/VolumeProfileEngine";
-import type { NormalizedCandle } from "@/types/terminal-schema";
+import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 
 export function VolumeProfileOverlay({
-  candles,
   visible,
 }: {
-  candles: NormalizedCandle[];
   visible: boolean;
 }) {
+  const candles = useChartAnalyticsStore((s) => s.displayCandles);
   const profile = useMemo(() => {
     if (!visible || candles.length < 2) return [];
     return VolumeProfileEngine.profileFromCandles(candles, 28);

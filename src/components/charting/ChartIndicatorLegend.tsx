@@ -152,13 +152,12 @@ const IndicatorLegendRow = memo(function IndicatorLegendRow({
 export function ChartIndicatorLegend({
   values,
   coin,
-  candles,
 }: {
   values: ChartLegendValues | null;
   coin: string;
-  candles: NormalizedCandle[];
 }) {
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
+  const candles = useChartAnalyticsStore((s) => s.displayCandles);
   const indicators = useChartToolsStore((s) => s.indicators);
   const legendIds = useMemo(() => chartLegendIndicatorIds(indicators), [indicators]);
 

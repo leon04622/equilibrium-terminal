@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useReducer, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { IChartApi } from "lightweight-charts";
-import { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
+import type { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 
-const KINETIC_SYNC_MS = 900;
+const KINETIC_SYNC_MS = 750;
 
-export function useChartViewportVersion(
+/**
+ * Repaint drawing overlays when the chart viewport moves. Callback is scoped to
+ * the overlay component so ChartWidget does not re-render on every pan frame.
+ */
+export function useChartViewportSync(
   chartRef: RefObject<IChartApi | null>,
   primitiveRef: RefObject<DrawingViewportPrimitive | null>,
-  enabled = true,
-): number {
-  const [version, bumpVersion] = useReducer((n: number) => n + 1, 0);
+  enabled: boolean,
+  onFrame: () => void,
+): void {
+  const onFrameRef = useRef(onFrame);
+  onFrameRef.current = onFrame;
 
   useEffect(() => {
     if (!enabled) return;
@@ -25,34 +31,36 @@ export function useChartViewportVersion(
     let queued = false;
     let activeUntil = 0;
 
-    const onViewportChange = () => {
+    const scheduleFrame = () => {
       if (queued) return;
       queued = true;
       bumpRaf = requestAnimationFrame(() => {
         queued = false;
-        bumpVersion();
+        onFrameRef.current();
       });
     };
 
     const keepSyncing = () => {
       activeUntil = performance.now() + KINETIC_SYNC_MS;
-      onViewportChange();
+      scheduleFrame();
+      if (loopRaf) return;
+      const kineticLoop = () => {
+        if (performance.now() >= activeUntil) {
+          loopRaf = 0;
+          return;
+        }
+        scheduleFrame();
+        loopRaf = requestAnimationFrame(kineticLoop);
+      };
+      loopRaf = requestAnimationFrame(kineticLoop);
     };
 
-    const syncLoop = () => {
-      if (performance.now() < activeUntil) {
-        onViewportChange();
-      }
-      loopRaf = requestAnimationFrame(syncLoop);
-    };
-
-    primitive.setListener(onViewportChange);
+    const unsubPrimitive = primitive.subscribe(scheduleFrame);
 
     const ts = chart.timeScale();
     ts.subscribeVisibleLogicalRangeChange(keepSyncing);
     ts.subscribeVisibleTimeRangeChange(keepSyncing);
     ts.subscribeSizeChange(keepSyncing);
-    chart.subscribeCrosshairMove(keepSyncing);
 
     const el = chart.chartElement();
     const onWheel = () => keepSyncing();
@@ -63,22 +71,17 @@ export function useChartViewportVersion(
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
 
-    loopRaf = requestAnimationFrame(syncLoop);
-
     return () => {
       cancelAnimationFrame(bumpRaf);
       cancelAnimationFrame(loopRaf);
-      primitive.setListener(null);
+      unsubPrimitive();
       ts.unsubscribeVisibleLogicalRangeChange(keepSyncing);
       ts.unsubscribeVisibleTimeRangeChange(keepSyncing);
       ts.unsubscribeSizeChange(keepSyncing);
-      chart.unsubscribeCrosshairMove(keepSyncing);
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
   }, [chartRef, enabled, primitiveRef]);
-
-  return version;
 }

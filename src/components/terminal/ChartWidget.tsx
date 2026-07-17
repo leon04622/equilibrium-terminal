@@ -46,7 +46,6 @@ import { EQ_CHART } from "@/lib/theme/equilibrium-visual";
 import { isWorkspaceScrolling, onWorkspaceScrollEnd } from "@/lib/runtime/workspaceScroll";
 import { terminalBus } from "@/store/eventBus";
 import { useChartHistory } from "@/hooks/useChartHistory";
-import { useChartViewportVersion } from "@/hooks/useChartViewportVersion";
 import { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
@@ -243,7 +242,6 @@ export function ChartWidget() {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const viewportPrimitiveRef = useRef<DrawingViewportPrimitive | null>(null);
-  const [chartReady, setChartReady] = useState(false);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const indicatorSeriesRef = useRef<OverlaySeriesMap>(new Map());
   const priceLinesRef = useRef<IPriceLine[]>([]);
@@ -269,10 +267,8 @@ export function ChartWidget() {
   }, [selectedDrawingId]);
 
   const selectedCoin = useTerminalStore((s) => s.selectedCoin);
-  const candleVersion = useTerminalStore((s) => s.candleVersion);
   const positionsVersion = useTerminalStore((s) => s.positionsVersion);
   const displayLen = useChartAnalyticsStore((s) => s.displayCandles.length);
-  const displayCandles = useChartAnalyticsStore((s) => s.displayCandles);
   const historyVersion = useChartAnalyticsStore((s) => s.historyVersion);
   const historyLoading = useChartAnalyticsStore((s) => s.historyLoading);
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
@@ -282,7 +278,6 @@ export function ChartWidget() {
   const indicatorDisplay = useChartToolsStore((s) => s.indicatorDisplay);
   const showPositionLines = useChartToolsStore((s) => s.showPositionLines);
   const drawingCount = useChartToolsStore((s) => s.drawingsByCoin[selectedCoin]?.length ?? 0);
-  const chartDrawings = useChartToolsStore((s) => s.drawingsByCoin[selectedCoin]);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
@@ -322,11 +317,10 @@ export function ChartWidget() {
   const dragCaptureActive = isActiveDrawCapture(drawTool);
   const canEditDrawings = !hideDrawings && !lockDrawings && !drawingToolActive;
   const blockChartPan = drawingToolActive || editingDrawing;
-  const viewportVersion = useChartViewportVersion(chartRef, viewportPrimitiveRef, chartReady && !hideDrawings);
-  const selectedDrawing = useMemo(() => {
+  const selectedDrawing = useChartToolsStore((s) => {
     if (!selectedDrawingId) return null;
-    return (chartDrawings ?? []).find((d) => d.id === selectedDrawingId) ?? null;
-  }, [chartDrawings, selectedDrawingId]);
+    return s.drawingsByCoin[selectedCoin]?.find((d) => d.id === selectedDrawingId) ?? null;
+  });
 
   const indicatorsKey = useMemo(
     () => indicatorSettingsFingerprint(indicators, indicatorSettings, indicatorDisplay),
@@ -540,7 +534,6 @@ export function ChartWidget() {
     const viewportPrimitive = new DrawingViewportPrimitive();
     viewportPrimitiveRef.current = viewportPrimitive;
     series.attachPrimitive(viewportPrimitive);
-    setChartReady(true);
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current) {
@@ -558,7 +551,6 @@ export function ChartWidget() {
         series.detachPrimitive(viewportPrimitiveRef.current);
         viewportPrimitiveRef.current = null;
       }
-      setChartReady(false);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -713,7 +705,6 @@ export function ChartWidget() {
     }
     apply();
   }, [
-    candleVersion,
     displayLen,
     historyVersion,
     historyLoading,
@@ -723,6 +714,65 @@ export function ChartWidget() {
     timeframe,
     syncPriceLines,
   ]);
+
+  useEffect(() => {
+    const run = () => {
+      const series = seriesRef.current;
+      const volume = volumeRef.current;
+      const chart = chartRef.current;
+      if (!series || !chart) return;
+
+      const candles = resolveCandles();
+      const fp = candleFingerprint(candles, timeframe);
+      if (candles.length === 0 || fp === candleFpRef.current) return;
+
+      const tailOnly = isTailOnlyCandleUpdate(candleFpRef.current, fp);
+      if (!tailOnly) return;
+
+      candleFpRef.current = fp;
+      const last = candles[candles.length - 1]!;
+      const t = last.time as UTCTimestamp;
+      series.update({
+        time: t,
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        close: last.close,
+      });
+      volume?.update({
+        time: t,
+        value: last.volume,
+        color: last.close >= last.open ? EQ_CHART.volumeUp : EQ_CHART.volumeDown,
+      });
+      const nextLegend = candleLegend(
+        { time: t, open: last.open, high: last.high, low: last.low, close: last.close },
+        { time: t, value: last.volume, color: EQ_CHART.volumeUp },
+      );
+      lastLegendRef.current = nextLegend;
+
+      const enabledIndicators = useChartToolsStore.getState().indicators;
+      const settings = useChartToolsStore.getState().indicatorSettings;
+      const display = useChartToolsStore.getState().indicatorDisplay;
+      applyOverlayIndicators(
+        chart,
+        candles,
+        enabledIndicators,
+        indicatorSeriesRef.current,
+        settings,
+        display,
+      );
+      syncPriceLines(series);
+    };
+
+    const schedule = () => {
+      if (isWorkspaceScrolling()) onWorkspaceScrollEnd(run);
+      else run();
+    };
+
+    return useTerminalStore.subscribe((state, prevState) => {
+      if (state.candleVersion !== prevState.candleVersion) schedule();
+    });
+  }, [syncPriceLines, timeframe]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -757,11 +807,14 @@ export function ChartWidget() {
       });
     };
 
-    if (isWorkspaceScrolling()) {
-      return onWorkspaceScrollEnd(applyMid);
-    }
     applyMid();
-  }, [candleVersion, historyLoading]);
+    return useTerminalStore.subscribe((state, prevState) => {
+      if (state.candleVersion !== prevState.candleVersion) {
+        if (isWorkspaceScrolling()) onWorkspaceScrollEnd(applyMid);
+        else applyMid();
+      }
+    });
+  }, [historyLoading]);
 
   useEffect(() => {
     return terminalBus.on("asset:select", () => {
@@ -1115,7 +1168,7 @@ export function ChartWidget() {
         <ChartDrawingToolbar coin={selectedCoin} />
         <div className="relative flex min-h-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
-            <ChartIndicatorLegend values={legend} coin={selectedCoin} candles={displayCandles} />
+            <ChartIndicatorLegend values={legend} coin={selectedCoin} />
             {historyLoading && displayLen === 0 ? (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#131722]/40">
                 <span className="text-[10px] uppercase tracking-widest text-slate-500">Loading {timeframe}…</span>
@@ -1150,11 +1203,11 @@ export function ChartWidget() {
               chartRef={chartRef}
               seriesRef={seriesRef}
               containerRef={containerRef}
+              viewportPrimitiveRef={viewportPrimitiveRef}
               draft={draft}
               liveEdit={liveEdit}
               selectedDrawingId={selectedDrawingId}
               editable={canEditDrawings}
-              viewportVersion={viewportVersion}
               onEditStart={onEditStart}
             />
             {canEditDrawings && selectedDrawing ? (
@@ -1164,23 +1217,15 @@ export function ChartWidget() {
                 chartRef={chartRef}
                 seriesRef={seriesRef}
                 containerRef={containerRef}
-                viewportVersion={viewportVersion}
+                viewportPrimitiveRef={viewportPrimitiveRef}
                 onDelete={() => deleteDrawing(selectedDrawing.id)}
                 onDismiss={() => setSelectedDrawingId(null)}
               />
             ) : null}
-            <VolumeProfileOverlay
-              candles={displayCandles}
-              visible={volProfileWanted}
-            />
+            <VolumeProfileOverlay visible={volProfileWanted} />
           </div>
           {paneIds.map((id) => (
-            <ChartIndicatorPane
-              key={id}
-              indicatorId={id}
-              candles={displayCandles}
-              mainChartRef={chartRef}
-            />
+            <ChartIndicatorPane key={id} indicatorId={id} mainChartRef={chartRef} />
           ))}
           <IndicatorsModal />
           <IndicatorSettingsModal />

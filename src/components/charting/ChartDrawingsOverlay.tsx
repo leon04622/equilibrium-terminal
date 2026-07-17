@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useReducer, useState, type ReactNode, type RefObject } from "react";
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 import type { ChartPoint } from "@/lib/charting/chartDrawing";
+import { useChartViewportSync } from "@/hooks/useChartViewportSync";
+import type { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
 import {
   FIB_LEVELS,
   channelLines,
@@ -1325,34 +1327,35 @@ function renderDraftPreview(
   return null;
 }
 
-export function ChartDrawingsOverlay({
+export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   coin,
   chartRef,
   seriesRef,
   containerRef,
+  viewportPrimitiveRef,
   draft,
   liveEdit,
   selectedDrawingId,
   editable,
-  viewportVersion,
   onEditStart,
 }: {
   coin: string;
   chartRef: RefObject<IChartApi | null>;
   seriesRef: RefObject<ISeriesApi<"Candlestick"> | null>;
   containerRef: RefObject<HTMLDivElement | null>;
+  viewportPrimitiveRef: RefObject<DrawingViewportPrimitive | null>;
   draft: DrawingDraft | null;
   liveEdit: DrawingLiveEdit | null;
   selectedDrawingId: string | null;
   editable: boolean;
-  viewportVersion: number;
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void;
 }) {
   const drawings = useChartToolsStore((s) => s.drawingsByCoin[coin] ?? EMPTY_DRAWINGS);
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [, bumpFrame] = useReducer((n: number) => n + 1, 0);
 
-  void viewportVersion;
+  useChartViewportSync(chartRef, viewportPrimitiveRef, !hideDrawings && size.width > 0, bumpFrame);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1400,4 +1403,4 @@ export function ChartDrawingsOverlay({
       ) : null}
     </svg>
   );
-}
+});
