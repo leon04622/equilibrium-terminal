@@ -60,6 +60,8 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
     selectedId: null,
     drawings: [],
     skipId: null,
+    draft: null,
+    liveEditDrawing: null,
   };
 
   constructor() {
@@ -81,6 +83,9 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
   sync(patch: Partial<DrawingPaintState>): void {
     this.state = { ...this.state, ...patch };
     this.requestUpdate?.();
+    if ("draft" in patch || "liveEditDrawing" in patch) {
+      this.notifyListeners();
+    }
   }
 
   subscribe(listener: ViewportListener): () => void {
@@ -168,6 +173,8 @@ export class DrawingViewportPrimitive implements ISeriesPrimitive<Time> {
       selectedId: null,
       drawings: [],
       skipId: null,
+      draft: null,
+      liveEditDrawing: null,
     };
   }
 }

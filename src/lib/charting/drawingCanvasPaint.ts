@@ -15,13 +15,24 @@ import {
   pitchforkLines,
   toPixel,
 } from "@/lib/charting/drawingRender";
-import type { ChartDrawing } from "@/types/chart-tools";
+import { colorForDrawTool } from "@/lib/charting/drawingColors";
+import type { ChartPoint } from "@/lib/charting/chartDrawing";
+import type { ChartDrawTool, ChartDrawing } from "@/types/chart-tools";
+
+export interface DrawingDraftState {
+  tool: ChartDrawTool;
+  points: ChartPoint[];
+  pathPoints?: ChartPoint[];
+  cursor?: ChartPoint;
+}
 
 export interface DrawingPaintState {
   hidden: boolean;
   selectedId: string | null;
   drawings: ChartDrawing[];
   skipId: string | null;
+  draft: DrawingDraftState | null;
+  liveEditDrawing: ChartDrawing | null;
 }
 
 function strokeColor(selected: boolean, base: string): string {
@@ -558,13 +569,205 @@ function paintDrawing(
   }
 }
 
+function paintDraftPreview(
+  ctx: CanvasRenderingContext2D,
+  draft: DrawingDraftState,
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  width: number,
+  height: number,
+): void {
+  const points = [...draft.points];
+  if (draft.cursor && draft.tool !== "shape-brush" && draft.tool !== "shape-highlighter") {
+    points.push(draft.cursor);
+  }
+  const pathPoints =
+    draft.pathPoints ??
+    (draft.cursor ? [...(draft.pathPoints ?? []), draft.cursor] : draft.pathPoints);
+  const previewColor = colorForDrawTool(draft.tool);
+
+  ctx.setLineDash([5, 4]);
+
+  if (pathPoints && pathPoints.length >= 2) {
+    const coords = pathPoints.map((pt) => toPixel(chart, series, pt)).filter(Boolean);
+    if (coords.length >= 2) {
+      ctx.strokeStyle = previewColor;
+      ctx.lineWidth = draft.tool === "shape-highlighter" ? 8 : 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.globalAlpha = draft.tool === "shape-highlighter" ? 0.35 : 1;
+      ctx.beginPath();
+      ctx.moveTo(coords[0]!.x, coords[0]!.y);
+      for (let i = 1; i < coords.length; i++) {
+        ctx.lineTo(coords[i]!.x, coords[i]!.y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.setLineDash([]);
+    return;
+  }
+
+  if (points.length === 0) {
+    ctx.setLineDash([]);
+    return;
+  }
+
+  const previewDrawing = {
+    id: "draft",
+    coin: "",
+    color: previewColor,
+    createdAt: 0,
+  } as ChartDrawing;
+
+  if (points.length === 1) {
+    const px = toPixel(chart, series, points[0]!);
+    if (px) {
+      ctx.strokeStyle = previewColor;
+      ctx.fillStyle = previewColor;
+      ctx.lineWidth = 1;
+      if (draft.tool === "line-vline") {
+        strokeLine(ctx, px.x, 0, px.x, height);
+      } else if (draft.tool === "line-hline" || draft.tool === "line-hray") {
+        const y = series.priceToCoordinate(points[0]!.price);
+        if (y != null) strokeLine(ctx, 0, y, width, y);
+      } else {
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.setLineDash([]);
+    return;
+  }
+
+  const temp = {
+    ...previewDrawing,
+    p1: points[0]!,
+    p2: points[points.length - 1]!,
+  };
+
+  ctx.setLineDash([]);
+
+  if (draft.tool.startsWith("line-") || draft.tool === "channel-regression") {
+    paintLine(
+      ctx,
+      {
+        ...temp,
+        kind: "line",
+        extend: draft.tool === "line-ray" ? "right" : draft.tool === "line-extended" ? "both" : "segment",
+        variant: "trend",
+      },
+      chart,
+      series,
+      width,
+      height,
+      false,
+    );
+    return;
+  }
+
+  if (points.length >= 3 && draft.tool.startsWith("channel-")) {
+    paintChannel(
+      ctx,
+      { ...temp, kind: "channel", p3: points[2]!, variant: "parallel" },
+      chart,
+      series,
+      width,
+      height,
+      false,
+    );
+    return;
+  }
+
+  if (points.length >= 3 && draft.tool.startsWith("pitchfork")) {
+    paintPitchfork(
+      ctx,
+      { ...temp, kind: "pitchfork", p3: points[2]!, variant: "standard" },
+      chart,
+      series,
+      width,
+      height,
+      false,
+    );
+    return;
+  }
+
+  if (draft.tool.startsWith("fib-") || draft.tool.startsWith("gann-")) {
+    paintFib(
+      ctx,
+      { ...temp, kind: "fib", variant: "retracement" },
+      chart,
+      series,
+      width,
+      height,
+      false,
+    );
+    return;
+  }
+
+  if (draft.tool.startsWith("shape-")) {
+    paintRect(
+      ctx,
+      { ...temp, kind: "rect", variant: draft.tool === "shape-circle" ? "circle" : "rectangle" },
+      chart,
+      series,
+      false,
+    );
+    return;
+  }
+
+  if (draft.tool.startsWith("pred-") || draft.tool === "measure") {
+    paintPosition(
+      ctx,
+      {
+        ...temp,
+        kind: "position",
+        variant: draft.tool === "pred-short" ? "short" : draft.tool === "pred-long" ? "long" : "measure",
+      },
+      chart,
+      series,
+      false,
+    );
+    return;
+  }
+
+  if (points.length >= 2) {
+    const coords = points.map((p) => toPixel(chart, series, p)).filter(Boolean);
+    if (coords.length >= 2) {
+      ctx.strokeStyle = previewColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(coords[0]!.x, coords[0]!.y);
+      for (let i = 1; i < coords.length; i++) {
+        ctx.lineTo(coords[i]!.x, coords[i]!.y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = previewColor;
+      for (const c of coords) {
+        ctx.beginPath();
+        ctx.arc(c!.x, c!.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
 export function paintDrawingsOnTarget(
   target: CanvasRenderingTarget2D,
   chart: IChartApi,
   series: ISeriesApi<"Candlestick">,
   state: DrawingPaintState,
 ): void {
-  if (state.hidden || state.drawings.length === 0) return;
+  if (state.hidden) return;
+  if (
+    state.drawings.length === 0 &&
+    !state.draft &&
+    !state.liveEditDrawing
+  ) {
+    return;
+  }
 
   target.useMediaCoordinateSpace(({ context, mediaSize }) => {
     const { width, height } = mediaSize;
@@ -579,6 +782,20 @@ export function paintDrawingsOnTarget(
         height,
         state.selectedId === drawing.id,
       );
+    }
+    if (state.liveEditDrawing) {
+      paintDrawing(
+        context,
+        state.liveEditDrawing,
+        chart,
+        series,
+        width,
+        height,
+        state.selectedId === state.liveEditDrawing.id,
+      );
+    }
+    if (state.draft) {
+      paintDraftPreview(context, state.draft, chart, series, width, height);
     }
   });
 }

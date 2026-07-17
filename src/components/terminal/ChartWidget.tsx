@@ -17,7 +17,7 @@ import {
 } from "lightweight-charts";
 import { ChartDrawingToolbar } from "@/components/charting/ChartDrawingToolbar";
 import { ChartDrawingSelectionToolbar } from "@/components/charting/ChartDrawingSelectionToolbar";
-import { ChartDrawingsOverlay, type DrawingDraft, type DrawingEditStart, type DrawingLiveEdit } from "@/components/charting/ChartDrawingsOverlay";
+import { ChartDrawingsOverlay, type DrawingEditStart } from "@/components/charting/ChartDrawingsOverlay";
 import { ChartIndicatorLegend } from "@/components/charting/ChartIndicatorLegend";
 import { ChartAnalyticsToolbar } from "@/components/charting/ChartAnalyticsToolbar";
 import { ChartIndicatorPane } from "@/components/charting/ChartIndicatorPane";
@@ -47,6 +47,7 @@ import { isWorkspaceScrolling, onWorkspaceScrollEnd } from "@/lib/runtime/worksp
 import { terminalBus } from "@/store/eventBus";
 import { useChartHistory } from "@/hooks/useChartHistory";
 import { DrawingViewportPrimitive } from "@/lib/charting/drawingViewportPrimitive";
+import type { DrawingDraftState } from "@/lib/charting/drawingCanvasPaint";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
@@ -257,8 +258,9 @@ export function ChartWidget() {
     pathPoints?: ChartPoint[];
   } | null>(null);
   const editSessionRef = useRef<DrawingEditSession | null>(null);
-  const [draft, setDraft] = useState<DrawingDraft | null>(null);
-  const [liveEdit, setLiveEdit] = useState<DrawingLiveEdit | null>(null);
+  const draftRef = useRef<DrawingDraftState | null>(null);
+  const liveEditDrawingRef = useRef<ChartDrawing | null>(null);
+  const paintSyncRafRef = useRef(0);
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const selectedDrawingIdRef = useRef<string | null>(null);
   const [editingDrawing, setEditingDrawing] = useState(false);
@@ -287,16 +289,41 @@ export function ChartWidget() {
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
 
+  const flushPrimitivePaint = useCallback(() => {
+    const prim = viewportPrimitiveRef.current;
+    if (!prim) return;
+    const tools = useChartToolsStore.getState();
+    const coin = useTerminalStore.getState().selectedCoin;
+    prim.sync({
+      drawings: tools.drawingsByCoin[coin] ?? [],
+      hidden: tools.drawingPrefs.hideDrawings,
+      selectedId: selectedDrawingIdRef.current,
+      skipId: liveEditDrawingRef.current?.id ?? null,
+      draft: draftRef.current,
+      liveEditDrawing: liveEditDrawingRef.current,
+    });
+  }, []);
+
+  const schedulePrimitivePaint = useCallback(() => {
+    if (paintSyncRafRef.current) return;
+    paintSyncRafRef.current = requestAnimationFrame(() => {
+      paintSyncRafRef.current = 0;
+      flushPrimitivePaint();
+    });
+  }, [flushPrimitivePaint]);
+
   const clearDrawingDraft = useCallback(() => {
     drawingSessionRef.current = null;
-    setDraft(null);
-  }, []);
+    draftRef.current = null;
+    schedulePrimitivePaint();
+  }, [schedulePrimitivePaint]);
 
   const clearEditSession = useCallback(() => {
     editSessionRef.current = null;
-    setLiveEdit(null);
+    liveEditDrawingRef.current = null;
     setEditingDrawing(false);
-  }, []);
+    schedulePrimitivePaint();
+  }, [schedulePrimitivePaint]);
 
   useEffect(() => {
     clearDrawingDraft();
@@ -304,38 +331,15 @@ export function ChartWidget() {
     setSelectedDrawingId(null);
   }, [selectedCoin, timeframe, clearDrawingDraft, clearEditSession]);
 
-  const liveEditRef = useRef(liveEdit);
   useEffect(() => {
-    liveEditRef.current = liveEdit;
-  }, [liveEdit]);
-
-  useEffect(() => {
-    const syncDrawingsToPrimitive = () => {
-      const prim = viewportPrimitiveRef.current;
-      if (!prim) return;
-      const tools = useChartToolsStore.getState();
-      prim.sync({
-        drawings: tools.drawingsByCoin[selectedCoin] ?? [],
-        hidden: tools.drawingPrefs.hideDrawings,
-        selectedId: selectedDrawingIdRef.current,
-        skipId: liveEditRef.current?.drawing?.id ?? null,
-      });
-    };
+    const syncDrawingsToPrimitive = () => flushPrimitivePaint();
     syncDrawingsToPrimitive();
     return useChartToolsStore.subscribe(syncDrawingsToPrimitive);
-  }, [selectedCoin]);
+  }, [flushPrimitivePaint, selectedCoin]);
 
   useEffect(() => {
-    const prim = viewportPrimitiveRef.current;
-    if (!prim) return;
-    const tools = useChartToolsStore.getState();
-    prim.sync({
-      drawings: tools.drawingsByCoin[selectedCoin] ?? [],
-      hidden: tools.drawingPrefs.hideDrawings,
-      selectedId: selectedDrawingId,
-      skipId: liveEdit?.drawing?.id ?? null,
-    });
-  }, [selectedCoin, selectedDrawingId, liveEdit, hideDrawings]);
+    flushPrimitivePaint();
+  }, [flushPrimitivePaint, selectedCoin, selectedDrawingId, hideDrawings]);
 
   const drawTool = useChartToolsStore((s) => s.drawTool);
   const drawSpec = specForTool(drawTool);
@@ -396,7 +400,7 @@ export function ChartWidget() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (drawingSessionRef.current || draft) {
+        if (drawingSessionRef.current || draftRef.current) {
           clearDrawingDraft();
         }
         if (editSessionRef.current) {
@@ -422,7 +426,7 @@ export function ChartWidget() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canEditDrawings, clearDrawingDraft, clearEditSession, deleteDrawing, draft]);
+  }, [canEditDrawings, clearDrawingDraft, clearEditSession, deleteDrawing]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -579,7 +583,9 @@ export function ChartWidget() {
       drawings: tools.drawingsByCoin[coin] ?? [],
       hidden: tools.drawingPrefs.hideDrawings,
       selectedId: selectedDrawingIdRef.current,
-      skipId: liveEditRef.current?.drawing?.id ?? null,
+      skipId: liveEditDrawingRef.current?.id ?? null,
+      draft: draftRef.current,
+      liveEditDrawing: liveEditDrawingRef.current,
     });
 
     const ro = new ResizeObserver(() => {
@@ -931,8 +937,9 @@ export function ChartWidget() {
       session.anchor,
       pt,
     );
-    setLiveEdit({ drawing: next });
-  }, []);
+    liveEditDrawingRef.current = next;
+    schedulePrimitivePaint();
+  }, [schedulePrimitivePaint]);
 
   const commitEdit = useCallback((session: DrawingEditSession, pt: ChartPoint) => {
     const coin = useTerminalStore.getState().selectedCoin;
@@ -1006,8 +1013,9 @@ export function ChartWidget() {
 
         const active = editSessionRef.current;
         editSessionRef.current = null;
-        setLiveEdit(null);
+        liveEditDrawingRef.current = null;
         setEditingDrawing(false);
+        schedulePrimitivePaint();
 
         const endPt = resolveChartPoint(ev.clientX, ev.clientY);
         if (active && endPt) commitEdit(active, endPt);
@@ -1018,7 +1026,7 @@ export function ChartWidget() {
       window.addEventListener("pointercancel", onUp);
       e.preventDefault();
     },
-    [applyLiveEdit, commitEdit, resolveChartPoint],
+    [applyLiveEdit, commitEdit, resolveChartPoint, schedulePrimitivePaint],
   );
 
   useEffect(() => {
@@ -1088,17 +1096,20 @@ export function ChartWidget() {
         const session = drawingSessionRef.current;
         if (!session || session.tool !== tool) {
           drawingSessionRef.current = { tool, points: [pt] };
-          setDraft({ tool, points: [pt], cursor: pt });
+          draftRef.current = { tool, points: [pt], cursor: pt };
+          schedulePrimitivePaint();
         } else {
           const points = [...session.points, pt];
           const needed = spec.clickCount ?? points.length;
           if (points.length >= needed) {
             commitDrawing(tool, points);
             drawingSessionRef.current = null;
-            setDraft(null);
+            draftRef.current = null;
+            schedulePrimitivePaint();
           } else {
             drawingSessionRef.current = { tool, points };
-            setDraft({ tool, points, cursor: pt });
+            draftRef.current = { tool, points, cursor: pt };
+            schedulePrimitivePaint();
           }
         }
         ev.preventDefault();
@@ -1107,7 +1118,8 @@ export function ChartWidget() {
 
       if (spec.interaction === "path") {
         drawingSessionRef.current = { tool, points: [pt], pathPoints: [pt] };
-        setDraft({ tool, points: [pt], pathPoints: [pt], cursor: pt });
+        draftRef.current = { tool, points: [pt], pathPoints: [pt], cursor: pt };
+        schedulePrimitivePaint();
         layer.setPointerCapture(ev.pointerId);
         ev.preventDefault();
         return;
@@ -1115,7 +1127,8 @@ export function ChartWidget() {
 
       if (spec.interaction === "drag") {
         drawingSessionRef.current = { tool, points: [pt] };
-        setDraft({ tool, points: [pt], cursor: pt });
+        draftRef.current = { tool, points: [pt], cursor: pt };
+        schedulePrimitivePaint();
         layer.setPointerCapture(ev.pointerId);
         ev.preventDefault();
       }
@@ -1131,12 +1144,14 @@ export function ChartWidget() {
       if (spec.interaction === "path") {
         const pathPoints = [...(session.pathPoints ?? session.points), pt];
         drawingSessionRef.current = { ...session, pathPoints };
-        setDraft({ tool: session.tool, points: session.points, pathPoints, cursor: pt });
+        draftRef.current = { tool: session.tool, points: session.points, pathPoints, cursor: pt };
+        schedulePrimitivePaint();
         return;
       }
 
       if (spec.interaction === "drag") {
-        setDraft({ tool: session.tool, points: session.points, cursor: pt });
+        draftRef.current = { tool: session.tool, points: session.points, cursor: pt };
+        schedulePrimitivePaint();
       }
     };
 
@@ -1149,7 +1164,8 @@ export function ChartWidget() {
 
       const end = resolveChartPoint(ev.clientX, ev.clientY);
       drawingSessionRef.current = null;
-      setDraft(null);
+      draftRef.current = null;
+      schedulePrimitivePaint();
 
       if (layer.hasPointerCapture(ev.pointerId)) {
         layer.releasePointerCapture(ev.pointerId);
@@ -1188,7 +1204,7 @@ export function ChartWidget() {
       layer.removeEventListener("pointerup", onPointerUp);
       layer.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [commitDrawing, drawingToolActive, resolveChartPoint]);
+  }, [commitDrawing, drawingToolActive, resolveChartPoint, schedulePrimitivePaint]);
 
   useEffect(() => {
     setOverlayEnabled("volume_profile", volProfileWanted);
@@ -1243,16 +1259,14 @@ export function ChartWidget() {
               seriesRef={seriesRef}
               containerRef={containerRef}
               viewportPrimitiveRef={viewportPrimitiveRef}
-              draft={draft}
-              liveEdit={liveEdit}
               selectedDrawingId={selectedDrawingId}
-              editable={canEditDrawings}
+              editable={canEditDrawings && !editingDrawing}
               onEditStart={onEditStart}
             />
             {canEditDrawings && selectedDrawing ? (
               <ChartDrawingSelectionToolbar
                 coin={selectedCoin}
-                drawing={liveEdit?.drawing?.id === selectedDrawing.id ? liveEdit.drawing : selectedDrawing}
+                drawing={selectedDrawing}
                 chartRef={chartRef}
                 seriesRef={seriesRef}
                 containerRef={containerRef}

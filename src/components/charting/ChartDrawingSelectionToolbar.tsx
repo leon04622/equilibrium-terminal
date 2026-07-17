@@ -98,8 +98,12 @@ export const ChartDrawingSelectionToolbar = memo(function ChartDrawingSelectionT
     if (!chart || !series || !container) return;
 
     const updatePos = () => {
+      const paintDrawing =
+        primitive?.getPaintState().liveEditDrawing?.id === drawing.id
+          ? primitive.getPaintState().liveEditDrawing
+          : drawing;
       const anchor = drawingToolbarAnchor(
-        drawing,
+        paintDrawing ?? drawing,
         chart,
         series,
         container.clientWidth,

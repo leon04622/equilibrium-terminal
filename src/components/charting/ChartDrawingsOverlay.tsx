@@ -1545,8 +1545,6 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   seriesRef,
   containerRef,
   viewportPrimitiveRef,
-  draft,
-  liveEdit,
   selectedDrawingId,
   editable,
   onEditStart,
@@ -1556,8 +1554,6 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   seriesRef: RefObject<ISeriesApi<"Candlestick"> | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   viewportPrimitiveRef: RefObject<DrawingViewportPrimitive | null>;
-  draft: DrawingDraft | null;
-  liveEdit: DrawingLiveEdit | null;
   selectedDrawingId: string | null;
   editable: boolean;
   onEditStart: (start: DrawingEditStart, e: React.PointerEvent) => void;
@@ -1567,8 +1563,7 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [, bumpFrame] = useReducer((n: number) => n + 1, 0);
 
-  const needsInteractionLayer =
-    draft != null || liveEdit != null || (editable && selectedDrawingId != null);
+  const needsInteractionLayer = editable && selectedDrawingId != null;
   useChartViewportSync(
     viewportPrimitiveRef,
     needsInteractionLayer && !hideDrawings && size.width > 0,
@@ -1593,8 +1588,6 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
   const series = seriesRef.current;
   if (!chart || !series) return null;
 
-  const liveEditId = liveEdit?.drawing?.id ?? null;
-
   return (
     <svg
       className="absolute inset-0 z-[8] pointer-events-none"
@@ -1602,35 +1595,17 @@ export const ChartDrawingsOverlay = memo(function ChartDrawingsOverlay({
       height={size.height}
       aria-hidden
     >
-      {editable
-        ? drawings.map((drawing) => {
-            if (liveEditId === drawing.id) return null;
-            return renderDrawingHits(
-              drawing,
-              chart,
-              series,
-              size.width,
-              size.height,
-              selectedDrawingId === drawing.id,
-              onEditStart,
-            );
-          })
-        : null}
-      {liveEdit?.drawing
-        ? renderDrawing(
-            liveEdit.drawing,
-            chart,
-            series,
-            size.width,
-            size.height,
-            selectedDrawingId === liveEdit.drawing.id,
-            editable && !isDrawingLocked(liveEdit.drawing),
-            onEditStart,
-          )
-        : null}
-      {draft ? (
-        <g className="pointer-events-none">{renderDraftPreview(draft, chart, series, size.width, size.height)}</g>
-      ) : null}
+      {drawings.map((drawing) =>
+        renderDrawingHits(
+          drawing,
+          chart,
+          series,
+          size.width,
+          size.height,
+          selectedDrawingId === drawing.id,
+          onEditStart,
+        ),
+      )}
     </svg>
   );
 });
