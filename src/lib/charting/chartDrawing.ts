@@ -1,4 +1,4 @@
-import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, Logical, Time, UTCTimestamp } from "lightweight-charts";
 import type { MagnetMode } from "@/types/chart-tools";
 import type { NormalizedCandle } from "@/types/terminal-schema";
 
@@ -21,22 +21,83 @@ function timeToUnix(time: Time): number | null {
   return null;
 }
 
+/** Average bar duration from recent candles (seconds). */
+export function candleBarDurationSec(candles: NormalizedCandle[]): number {
+  if (candles.length >= 2) {
+    const dt = candles[candles.length - 1]!.time - candles[candles.length - 2]!.time;
+    if (dt > 0) return dt;
+  }
+  return 60;
+}
+
+function barLogicalAnchor(chart: IChartApi, barTime: number): { logical: number } | null {
+  const x = chart.timeScale().timeToCoordinate(barTime as UTCTimestamp);
+  if (x == null) return null;
+  const logical = chart.timeScale().coordinateToLogical(x);
+  if (logical == null) return null;
+  return { logical };
+}
+
+/** Map x pixel to unix time, including the empty future area past the last candle. */
+export function xToChartTime(
+  chart: IChartApi,
+  x: number,
+  candles: NormalizedCandle[],
+): number | null {
+  const direct = chart.timeScale().coordinateToTime(x);
+  if (direct != null) {
+    const unix = timeToUnix(direct);
+    if (unix != null) return unix;
+  }
+
+  if (!candles.length) return null;
+  const logical = chart.timeScale().coordinateToLogical(x);
+  if (logical == null) return null;
+
+  const last = candles[candles.length - 1]!;
+  const anchor = barLogicalAnchor(chart, last.time);
+  if (!anchor) return null;
+
+  const barSec = candleBarDurationSec(candles);
+  const deltaBars = logical - anchor.logical;
+  return last.time + deltaBars * barSec;
+}
+
+/** Map unix time to x pixel, including future times beyond the last candle. */
+export function chartTimeToX(
+  chart: IChartApi,
+  time: number,
+  candles: NormalizedCandle[],
+): number | null {
+  const direct = chart.timeScale().timeToCoordinate(time as UTCTimestamp);
+  if (direct != null) return direct;
+
+  if (!candles.length) return null;
+  const last = candles[candles.length - 1]!;
+  const anchor = barLogicalAnchor(chart, last.time);
+  if (!anchor) return null;
+
+  const barSec = candleBarDurationSec(candles);
+  const deltaBars = (time - last.time) / barSec;
+  const logical = (anchor.logical + deltaBars) as Logical;
+  return chart.timeScale().logicalToCoordinate(logical);
+}
+
 /** Convert a pixel on the chart surface to time + price. */
 export function pointFromChart(
   chart: IChartApi,
   series: ISeriesApi<"Candlestick">,
   x: number,
   y: number,
+  candles: NormalizedCandle[] = [],
 ): ChartPoint | null {
   const price = series.coordinateToPrice(y);
   if (price == null || !Number.isFinite(price)) return null;
 
-  const rawTime = chart.timeScale().coordinateToTime(x);
-  if (rawTime == null) return null;
-  const unix = timeToUnix(rawTime);
-  if (unix == null) return null;
+  const time = xToChartTime(chart, x, candles);
+  if (time == null) return null;
 
-  return { time: unix, price: price as number };
+  return { time, price: price as number };
 }
 
 export function resolveDrawPoint(
@@ -47,9 +108,13 @@ export function resolveDrawPoint(
   candles: NormalizedCandle[],
   magnetMode: MagnetMode,
 ): ChartPoint | null {
-  const pt = pointFromChart(chart, series, x, y);
+  const pt = pointFromChart(chart, series, x, y, candles);
   if (!pt) return null;
   if (magnetMode === "off") return pt;
+
+  const lastTime = candles[candles.length - 1]?.time;
+  const inFuture = lastTime != null && pt.time > lastTime;
+  if (inFuture) return pt;
 
   const snappedPrice = snapPriceToCandle(candles, pt.time, pt.price);
   const snappedTime = snapTimeToCandle(candles, pt.time);
@@ -57,8 +122,8 @@ export function resolveDrawPoint(
 
   const rawY = series.priceToCoordinate(pt.price);
   const snapY = series.priceToCoordinate(snappedPrice);
-  const rawX = chart.timeScale().timeToCoordinate(pt.time as UTCTimestamp);
-  const snapX = chart.timeScale().timeToCoordinate(snappedTime as UTCTimestamp);
+  const rawX = chartTimeToX(chart, pt.time, candles);
+  const snapX = chartTimeToX(chart, snappedTime, candles);
 
   let time = pt.time;
   let price = pt.price;
@@ -194,8 +259,9 @@ export function chartPointToPixel(
   series: ISeriesApi<"Candlestick">,
   time: number,
   price: number,
+  candles: NormalizedCandle[] = [],
 ): PixelPoint | null {
-  const x = chart.timeScale().timeToCoordinate(time as UTCTimestamp);
+  const x = chartTimeToX(chart, time, candles);
   const y = series.priceToCoordinate(price);
   if (x == null || y == null) return null;
   return { x, y };

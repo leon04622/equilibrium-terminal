@@ -25,7 +25,7 @@ import { IndicatorsModal } from "@/components/charting/IndicatorsModal";
 import { IndicatorSettingsModal } from "@/components/charting/IndicatorSettingsModal";
 import { VolumeProfileOverlay } from "@/components/charting/VolumeProfileOverlay";
 import { indicatorSettingsFingerprint } from "@/lib/charting/indicatorParams";
-import { resolveDrawPoint, type ChartPoint } from "@/lib/charting/chartDrawing";
+import { resolveDrawPoint, chartTimeToX, type ChartPoint } from "@/lib/charting/chartDrawing";
 import {
   createDrawing,
   isActiveDrawCapture,
@@ -157,8 +157,9 @@ function dragDistance(
   a: ChartPoint,
   b: ChartPoint,
 ): number {
-  const x1 = chart.timeScale().timeToCoordinate(a.time as UTCTimestamp);
-  const x2 = chart.timeScale().timeToCoordinate(b.time as UTCTimestamp);
+  const candles = useChartAnalyticsStore.getState().displayCandles;
+  const x1 = chartTimeToX(chart, a.time, candles);
+  const x2 = chartTimeToX(chart, b.time, candles);
   const y1 = series.priceToCoordinate(a.price);
   const y2 = series.priceToCoordinate(b.price);
   if (x1 == null || x2 == null || y1 == null || y2 == null) return 0;
@@ -505,7 +506,7 @@ export function ChartWidget() {
         borderColor: EQ_CHART.border,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 8,
+        rightOffset: 12,
         barSpacing: 7,
         minBarSpacing: 2,
         fixLeftEdge: false,

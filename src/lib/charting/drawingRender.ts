@@ -1,5 +1,6 @@
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 import {
+  chartTimeToX,
   DRAWING_HANDLE_HIT_PX,
   DRAWING_LINE_HIT_PX,
   distanceToInfiniteLine,
@@ -7,6 +8,7 @@ import {
   type ChartPoint,
   type PixelPoint,
 } from "@/lib/charting/chartDrawing";
+import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import type { ChartDrawing, LineExtend } from "@/types/chart-tools";
 
 export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
@@ -16,7 +18,8 @@ export function toPixel(
   series: ISeriesApi<"Candlestick">,
   pt: ChartPoint,
 ): PixelPoint | null {
-  const x = chart.timeScale().timeToCoordinate(pt.time as UTCTimestamp);
+  const candles = useChartAnalyticsStore.getState().displayCandles;
+  const x = chartTimeToX(chart, pt.time, candles);
   const y = series.priceToCoordinate(pt.price);
   if (x == null || y == null) return null;
   return { x, y };
