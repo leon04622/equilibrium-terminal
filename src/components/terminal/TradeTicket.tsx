@@ -219,7 +219,7 @@ export function TradeTicket() {
 
       try {
         if (selectedAsset.market === "perp" && deskMode === "live") {
-          await setAssetLeverage(selectedAsset.assetIndex, leverage, true);
+          await setAssetLeverage(assetIndex, leverage, true);
         }
         await executeOrder(params);
       } catch {
