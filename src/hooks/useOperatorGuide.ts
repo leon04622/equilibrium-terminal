@@ -6,7 +6,7 @@ import { chartReplayEngine } from "@/lib/charting/ReplayEngine";
 import { terminalBus } from "@/store/eventBus";
 import { useOperatorGuideStore } from "@/store/useOperatorGuideStore";
 
-const TICK_MS = 1_500;
+const TICK_MS = 10_000;
 
 export function useOperatorGuide(enabled = true): void {
   useEffect(() => {

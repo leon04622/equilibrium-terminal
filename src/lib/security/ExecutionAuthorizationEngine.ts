@@ -9,6 +9,18 @@ import type { ExecutionAuthDecision, ExecutionAuthInput } from "@/types/security
  */
 export class ExecutionAuthorizationEngine {
   static authorize(input: ExecutionAuthInput): ExecutionAuthDecision {
+    const paper = input.executionMode === "paper";
+    if (paper && (input.operation === "place_order" || input.operation === "close_position")) {
+      if (input.markPx == null || input.markPx <= 0) {
+        return {
+          allowed: false,
+          reason: "Live price unavailable — wait for market data",
+          auditAction: input.operation,
+        };
+      }
+      return { allowed: true, reason: "ok", auditAction: input.operation };
+    }
+
     const guard = evaluateExecutionGuards({
       connectionStatus: input.connectionStatus as import("@/types/terminal-schema").ConnectionStatus,
       lastMessageAt: input.lastMessageAt,
@@ -20,11 +32,6 @@ export class ExecutionAuthorizationEngine {
         reason: guard.reason ?? "execution_blocked",
         auditAction: input.operation,
       };
-    }
-
-    const paper = input.executionMode === "paper";
-    if (paper && (input.operation === "place_order" || input.operation === "close_position")) {
-      return { allowed: true, reason: "ok", auditAction: input.operation };
     }
 
     if (!input.walletAddress) {

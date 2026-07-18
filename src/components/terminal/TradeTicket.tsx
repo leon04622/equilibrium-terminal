@@ -22,6 +22,7 @@ import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { resolveMoneySafety } from "@/lib/beginner/beginnerTranslation";
+import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
 import { builderFeeLabel } from "@/lib/hyperliquid/builder";
 import {
   lookupSpotBalance,
@@ -74,6 +75,7 @@ export function TradeTicket() {
   const spotBalances = useHyperliquidStore((s) => s.spotBalances);
   const connectionStatus = useHyperliquidStore((s) => s.connectionStatus);
   const lastMessageAt = useHyperliquidStore((s) => s.lastMessageAt);
+  const allMids = useHyperliquidStore((s) => s.mids.mids);
   const beginnerMode = useTerminalExperienceStore((s) => s.beginnerMode);
   const deskMode = useDeskExecutionStore((s) => s.mode);
   const paperPositions = useDeskExecutionStore((s) => s.paperPositions);
@@ -91,7 +93,10 @@ export function TradeTicket() {
   const [flashSide, setFlashSide] = useState<"buy" | "sell" | null>(null);
   const [liveConfirm, setLiveConfirm] = useState<"buy" | "sell" | null>(null);
 
-  const markPx = book?.mid ?? null;
+  const markPx =
+    book?.mid ??
+    (selectedAsset?.coin ? allMids[selectedAsset.coin] : undefined) ??
+    null;
   const isSpot = selectedAsset?.market === "spot";
   const paperAccountUsd =
     deskMode === "paper" ? (withdrawable ?? accountValue ?? PAPER_DEFAULT_ACCOUNT_USD) : null;
@@ -100,16 +105,20 @@ export function TradeTicket() {
   const spotHolding =
     isSpot && selectedAsset ? lookupSpotBalance(spotBalances, selectedAsset.coin) : null;
 
-  const executionGuard = useMemo(
-    () =>
-      evaluateExecutionGuards({
-        connectionStatus,
-        lastMessageAt,
-        markPx,
-        bookUpdatedAt: book?.time ?? null,
-      }),
-    [book?.time, connectionStatus, lastMessageAt, markPx],
-  );
+  const executionGuard = useMemo(() => {
+    if (deskMode === "paper") {
+      if (markPx == null || markPx <= 0) {
+        return { blocked: true, reason: "Waiting for live price — chart/book feed loading" };
+      }
+      return { blocked: false, reason: null };
+    }
+    return evaluateExecutionGuards({
+      connectionStatus,
+      lastMessageAt,
+      markPx,
+      bookUpdatedAt: book?.time ?? null,
+    });
+  }, [book?.time, connectionStatus, deskMode, lastMessageAt, markPx]);
 
   useEffect(() => {
     if (markPx && mode === "limit" && !limitPx) {
@@ -178,7 +187,17 @@ export function TradeTicket() {
   const submit = useCallback(
     async (isBuy: boolean) => {
       if (executionGuard.blocked) return;
-      if (selectedAsset?.assetIndex === undefined) return;
+      if (!selectedAsset) return;
+
+      let assetIndex = selectedAsset.assetIndex;
+      if (assetIndex === undefined) {
+        try {
+          assetIndex = await resolveAssetIndex(selectedAsset.coin);
+        } catch {
+          return;
+        }
+      }
+
       const sz = parseFloat(size);
       if (!sz || sz <= 0) return;
 
@@ -188,7 +207,7 @@ export function TradeTicket() {
 
       const params = {
         coin: selectedAsset.coin,
-        asset: selectedAsset.assetIndex,
+        asset: assetIndex,
         isBuy,
         size: sz,
         mode,
@@ -250,19 +269,19 @@ export function TradeTicket() {
   const requestSubmit = (isBuy: boolean) => {
     if (submitBlocked) return;
     void (async () => {
-      if (markPx && selectedAsset && parseFloat(size) > 0) {
-        const order = {
-          coin: selectedAsset.coin,
-          side: isBuy ? ("buy" as const) : ("sell" as const),
-          size: parseFloat(size),
-          markPx,
-          leverage,
-          isPerp: selectedAsset.market === "perp",
-        };
-        const check = await evaluatePreTradeWithServer(order, riskLimits);
-        if (!check.allowed) return;
-      }
       if (deskMode === "live") {
+        if (markPx && selectedAsset && parseFloat(size) > 0) {
+          const order = {
+            coin: selectedAsset.coin,
+            side: isBuy ? ("buy" as const) : ("sell" as const),
+            size: parseFloat(size),
+            markPx,
+            leverage,
+            isPerp: selectedAsset.market === "perp",
+          };
+          const check = await evaluatePreTradeWithServer(order, riskLimits);
+          if (!check.allowed) return;
+        }
         const side = isBuy ? "buy" : "sell";
         const proceed = () => setLiveConfirm(side);
         runWithBuilderFee({

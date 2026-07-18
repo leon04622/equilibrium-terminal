@@ -10,6 +10,10 @@ import type { PositionRow } from "@/types/account";
 import { useBuilderFeeGate } from "@/hooks/useBuilderFeeGate";
 import { BuilderFeeApprovalModal } from "@/components/terminal/BuilderFeeApprovalModal";
 import { spotBaseSymbol } from "@/lib/hyperliquid/spotDesk";
+import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
+import { unrealizedPnl } from "@/lib/execution/paperPnL";
+
+const PAPER_DEFAULT_ACCOUNT_USD = 10_000;
 
 function subscribePositions(callback: () => void) {
   return useHyperliquidStore.subscribe((s) => s.positionsVersion, () => callback());
@@ -123,6 +127,38 @@ export function PositionsTable() {
   useSyncExternalStore(subscribePositions, getPositions, getPositions);
   const positions = useHyperliquidStore((s) => s.positions);
 
+  const paperPerpRows = useMemo((): PositionRow[] => {
+    if (deskMode !== "paper") return [];
+    return paperPositions
+      .filter((p) => {
+        const asset = assets.find((a) => a.coin === p.coin);
+        return !asset || asset.market === "perp";
+      })
+      .filter((p) => Math.abs(p.size) > 1e-9)
+      .map((p) => {
+        const mark = mids[p.coin] ?? p.avgPx;
+        const asset = assets.find((a) => a.coin === p.coin);
+        return {
+          id: `paper-${p.coin}`,
+          coin: p.coin,
+          assetIndex: asset?.assetIndex ?? 0,
+          size: p.size,
+          entryPrice: p.avgPx,
+          markPrice: mark,
+          unrealizedPnl: unrealizedPnl(p, mark),
+          marginType: "Cross" as const,
+          leverage: 10,
+          pnlFlash: null,
+        };
+      });
+  }, [assets, deskMode, mids, paperPositions]);
+
+  const displayPositions = deskMode === "paper" ? paperPerpRows : positions;
+  const displayEquity =
+    deskMode === "paper" ? PAPER_DEFAULT_ACCOUNT_USD : accountValue;
+  const displayWithdrawable =
+    deskMode === "paper" ? PAPER_DEFAULT_ACCOUNT_USD : withdrawable;
+
   const spotHoldings = useMemo(() => {
     if (deskMode === "paper") {
       return paperPositions
@@ -163,7 +199,17 @@ export function PositionsTable() {
 
   const requestClose = (row: PositionRow) => {
     const executeClose = () =>
-      void closePositionMarket(row.coin, row.assetIndex, row.size, row.markPrice);
+      void (async () => {
+        let assetIndex = row.assetIndex;
+        if (assetIndex <= 0) {
+          try {
+            assetIndex = await resolveAssetIndex(row.coin);
+          } catch {
+            return;
+          }
+        }
+        await closePositionMarket(row.coin, assetIndex, row.size, row.markPrice);
+      })();
     if (deskMode !== "live") {
       executeClose();
       return;
@@ -189,7 +235,7 @@ export function PositionsTable() {
     executeSell();
   };
 
-  if (!isConnected || !walletAddress) {
+  if (deskMode !== "paper" && (!isConnected || !walletAddress)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
         <p className="font-mono text-xs text-terminal-muted">
@@ -211,21 +257,25 @@ export function PositionsTable() {
     <div className="flex h-full flex-col overflow-hidden" data-positions-panel="positions">
       <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-terminal-border/50 bg-black/25 px-3 py-2 font-mono text-[10px]">
         <div>
-          <p className="text-terminal-muted uppercase tracking-wider">Equity</p>
+          <p className="text-terminal-muted uppercase tracking-wider">
+            {deskMode === "paper" ? "Paper equity" : "Equity"}
+          </p>
           <p className="text-sm tabular-nums text-white">
-            ${accountValue !== null ? accountValue.toFixed(2) : "—"}
+            ${displayEquity !== null ? displayEquity.toFixed(2) : "—"}
           </p>
         </div>
         <div>
-          <p className="text-terminal-muted uppercase tracking-wider">Withdrawable</p>
+          <p className="text-terminal-muted uppercase tracking-wider">
+            {deskMode === "paper" ? "Paper free" : "Withdrawable"}
+          </p>
           <p className="text-sm tabular-nums text-neon-green">
-            ${withdrawable !== null ? withdrawable.toFixed(2) : "—"}
+            ${displayWithdrawable !== null ? displayWithdrawable.toFixed(2) : "—"}
           </p>
         </div>
         <div className="text-right" data-positions-region="position-count">
           <p className="text-terminal-muted uppercase tracking-wider">Positions</p>
           <p className="text-sm tabular-nums text-white">
-            {positions.length}
+            {displayPositions.length}
             {spotHoldings.length > 0 ? ` + ${spotHoldings.length} spot` : ""}
           </p>
         </div>
@@ -245,17 +295,19 @@ export function PositionsTable() {
             </tr>
           </thead>
           <tbody>
-            {positions.length === 0 ? (
+            {displayPositions.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}
                   className="py-8 text-center text-terminal-muted"
                 >
-                  No open positions
+                  {deskMode === "paper"
+                    ? "No paper positions — use Trade Ticket (DESK → PAPER)"
+                    : "No open positions"}
                 </td>
               </tr>
             ) : (
-              positions.map((row) => (
+              displayPositions.map((row) => (
                 <PositionRowView
                   key={row.id}
                   row={row}

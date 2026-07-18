@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ChartAnalyticsOrchestrator } from "@/lib/charting/ChartAnalyticsOrchestrator";
 import { chartReplayEngine } from "@/lib/charting/ReplayEngine";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useExecutionIntelligenceStore } from "@/store/useExecutionIntelligenceStore";
 import { useTerminalStore } from "@/store/terminalStore";
 
-const TICK_MS = 2_000;
+/** Slow fallback tick — live updates come from candleVersion / coin changes. */
+const TICK_MS = 15_000;
+const MIN_REFRESH_MS = 2_500;
 
 export function useChartAnalytics(enabled = true): void {
   const timeframe = useChartAnalyticsStore((s) => s.timeframe);
   const overlays = useChartAnalyticsStore((s) => s.overlays);
+  const lastRefreshRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -29,6 +32,10 @@ export function useChartAnalytics(enabled = true): void {
     });
 
     const refresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshRef.current < MIN_REFRESH_MS) return;
+      lastRefreshRef.current = now;
+
       const coin = useTerminalStore.getState().selectedCoin;
       const snap = ChartAnalyticsOrchestrator.snapshot(coin, timeframe, overlays);
       const visible = chartReplayEngine.visibleCandles();
@@ -42,14 +49,13 @@ export function useChartAnalytics(enabled = true): void {
     const id = window.setInterval(refresh, TICK_MS);
 
     const unsubCandle = useTerminalStore.subscribe((s) => s.candleVersion, refresh);
-    const unsubTrade = useTerminalStore.subscribe((s) => s.trades.length, refresh);
-    const unsubBook = useTerminalStore.subscribe((s) => s.bookVersion, refresh);
     const unsubIntel = useTerminalStore.subscribe(
       (s) => s.intelligenceVersion,
       refresh,
     );
     const unsubCoin = useTerminalStore.subscribe((s) => s.selectedCoin, () => {
       chartReplayEngine.goLive();
+      lastRefreshRef.current = 0;
       refresh();
     });
     const unsubExec = useExecutionIntelligenceStore.subscribe(
@@ -60,8 +66,6 @@ export function useChartAnalytics(enabled = true): void {
     return () => {
       window.clearInterval(id);
       unsubCandle();
-      unsubTrade();
-      unsubBook();
       unsubIntel();
       unsubCoin();
       unsubExec();

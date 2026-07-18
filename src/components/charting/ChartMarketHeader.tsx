@@ -38,6 +38,7 @@ function StatValue({ children, className }: { children: React.ReactNode; classNa
 
 export function ChartMarketHeader({ coin }: { coin: string }) {
   const selectedAsset = useTerminalStore((s) => s.selectedAsset);
+  const bookMid = useTerminalStore((s) => s.book?.mid);
   const { rows } = useHlMarketContexts(true);
   const row = marketRowForCoin(rows, coin);
 
@@ -55,6 +56,7 @@ export function ChartMarketHeader({ coin }: { coin: string }) {
   const changeAbs = row?.change24hAbs;
   const changePct = row?.change24hPct;
   const changeUp = changeAbs != null && changeAbs >= 0;
+  const markPrice = bookMid ?? row?.markPrice ?? null;
 
   return (
     <div
@@ -71,7 +73,7 @@ export function ChartMarketHeader({ coin }: { coin: string }) {
       <div className="flex min-w-0 flex-1 items-center gap-5">
         <div className="flex shrink-0 flex-col gap-0.5">
           <StatLabel dotted>Mark</StatLabel>
-          <StatValue>{formatPriceHl(row?.markPrice ?? null)}</StatValue>
+          <StatValue>{formatPriceHl(markPrice)}</StatValue>
         </div>
         <div className="flex shrink-0 flex-col gap-0.5">
           <StatLabel dotted>Oracle</StatLabel>

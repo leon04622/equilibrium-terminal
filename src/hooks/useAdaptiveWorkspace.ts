@@ -9,7 +9,7 @@ import { AttentionGovernor } from "@/lib/adaptive/AttentionGovernor";
 import { useTraderTelemetryStore } from "@/store/useTraderTelemetryStore";
 import { useAdaptiveWorkspaceStore } from "@/store/useAdaptiveWorkspaceStore";
 
-const TICK_MS = 8_000;
+const TICK_MS = 30_000;
 
 export interface UseAdaptiveWorkspaceOptions {
   baseLayout: Layout[];
@@ -67,6 +67,7 @@ export function useAdaptiveWorkspace(options: UseAdaptiveWorkspaceOptions): void
   useEffect(() => {
     runOrchestration(false);
     const id = window.setInterval(() => {
+      if (!useAdaptiveWorkspaceStore.getState().autoAdapt) return;
       if (applyingRef.current) return;
       runOrchestration(true);
     }, TICK_MS);

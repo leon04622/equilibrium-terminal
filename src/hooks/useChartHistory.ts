@@ -145,8 +145,30 @@ export function prefetchChartHistory(coin: string, tf: ChartTimeframe): void {
 }
 
 function prefetchAllTimeframes(coin: string, activeTf: ChartTimeframe): void {
-  for (const tf of CHART_TIMEFRAMES) {
-    if (tf !== activeTf) prefetchChartHistory(coin, tf);
+  const targets = CHART_TIMEFRAMES.filter((tf) => tf !== activeTf);
+  const priority = ["5m", "15m", "1h", "4h", "1d", "1w"];
+  const sorted = [...targets].sort((a, b) => {
+    const ai = priority.indexOf(a);
+    const bi = priority.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  let index = 0;
+  const batchSize = 2;
+  const delayMs = 600;
+
+  const runBatch = () => {
+    const batch = sorted.slice(index, index + batchSize);
+    index += batchSize;
+    for (const tf of batch) prefetchChartHistory(coin, tf);
+    if (index < sorted.length) window.setTimeout(runBatch, delayMs);
+  };
+
+  const start = () => runBatch();
+  if (typeof requestIdleCallback !== "undefined") {
+    requestIdleCallback(start, { timeout: 4_000 });
+  } else {
+    window.setTimeout(start, 800);
   }
 }
 

@@ -71,7 +71,7 @@ class AgenticRuntimeLoop {
       ),
     );
 
-    this.timer = setInterval(() => this.tick(), 1_000);
+    this.timer = setInterval(() => this.tick(), 3_000);
     this.tick();
   }
 
@@ -88,6 +88,7 @@ class AgenticRuntimeLoop {
   }
 
   private tick(): void {
+    if (typeof document !== "undefined" && document.hidden) return;
     if (!this.running) return;
     this.tickCount += 1;
     this.lastTickAt = Date.now();

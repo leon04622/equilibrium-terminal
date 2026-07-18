@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { loadHyperliquidAssets, FALLBACK_ASSETS } from "@/lib/assets";
+import { loadLightweightHyperliquidAssets } from "@/lib/market/hlUniverse";
 import {
   HEARTBEAT_MS,
   HL_WS_URL,
@@ -283,13 +284,31 @@ export function useTerminalStreams() {
 
   useEffect(() => {
     let cancelled = false;
-    loadHyperliquidAssets()
+
+    loadLightweightHyperliquidAssets()
       .then((assets) => {
-        if (!cancelled) setAssets(assets);
+        if (!cancelled && assets.length > 0) setAssets(assets);
       })
       .catch(() => {
         if (!cancelled) setAssets(FALLBACK_ASSETS);
       });
+
+    const upgradeAssets = () => {
+      loadHyperliquidAssets()
+        .then((assets) => {
+          if (!cancelled) setAssets(assets);
+        })
+        .catch(() => {
+          /* keep lightweight list */
+        });
+    };
+
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(upgradeAssets, { timeout: 10_000 });
+    } else {
+      window.setTimeout(upgradeAssets, 4_000);
+    }
+
     return () => {
       cancelled = true;
     };
