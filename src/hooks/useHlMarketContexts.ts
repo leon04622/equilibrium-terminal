@@ -8,7 +8,7 @@ const STALE_MS = 55_000;
 
 let sharedSnapshot: MarketContextsSnapshot = { rows: [], updatedAt: 0 };
 let inflight: Promise<void> | null = null;
-let pollTimer: ReturnType<typeof window.setInterval> | null = null;
+let pollTimer: number | null = null;
 let subscriberCount = 0;
 const listeners = new Set<() => void>();
 
