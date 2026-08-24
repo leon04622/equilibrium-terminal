@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Loader2, ChevronDown } from "lucide-react";
 import { cn, formatPrice, formatSize } from "@/lib/utils";
+import { TERMINAL_TYPO } from "@/lib/theme";
 import { useHyperliquidAuthContext } from "@/contexts/HyperliquidAuthContext";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
 import type { HlTimeInForce, TradeOrderMode } from "@/types/exchange";
@@ -567,13 +568,13 @@ export function TradeTicket() {
         : "—";
   const slipMaxPct = (MARKET_SLIPPAGE * 100).toFixed(2);
   const field =
-    "h-10 w-full rounded-md border border-[#1e2329] bg-[#13161c] px-3 text-[13px] text-white outline-none placeholder:text-[#5d656f] focus:border-[#50d2c1]";
-  const chk = "h-3.5 w-3.5 rounded-sm border-[#2b3139] accent-[#50d2c1]";
+    "h-10 w-full border-[0.5px] border-slate-800 bg-slate-950 px-3 font-mono text-[12px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-700/80";
+  const chk = "h-3.5 w-3.5 rounded-none border-slate-700 accent-[#00e5ff]";
 
   if (!isConnected && deskMode !== "paper") {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0b0e11] p-4 text-center">
-        <p className="text-[13px] text-[#8a9199]">Connect a wallet to trade on Hyperliquid</p>
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-slate-950 p-4 text-center">
+        <p className={cn(TERMINAL_TYPO.data, "text-slate-400")}>Connect a wallet to trade on Hyperliquid</p>
         <Button variant="terminal" onClick={connectWallet} disabled={isConnecting} className="w-full max-w-[200px]">
           {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect Wallet"}
         </Button>
@@ -584,13 +585,13 @@ export function TradeTicket() {
   return (
     <div
       data-trade-panel="ticket"
-      className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0e11] font-sans text-[#eee]"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-950 font-mono text-slate-200"
       onWheel={stopPanelWheelBubble}
     >
-      <div className="shrink-0 border-b border-[#1e2329] px-3 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#50d2c1]">
+      <div className="shrink-0 border-b-[0.5px] border-slate-800 px-3 py-2">
+        <p className={cn(TERMINAL_TYPO.label, "text-[#ff9900]")}>
           {deskMode === "paper" ? "Paper order" : "Order"}
-          <span className="ml-2 font-mono font-normal tracking-normal text-[#5d656f]">
+          <span className="ml-2 font-normal tracking-normal text-slate-600">
             {process.env.NEXT_PUBLIC_EQ_GIT_SHA ?? "dev"}
           </span>
         </p>
@@ -601,7 +602,7 @@ export function TradeTicket() {
         <ExecutionLastResultStrip />
 
         {beginnerMode ? (
-          <p className="text-[11px] text-[#8a9199]">
+          <p className="text-[11px] text-slate-500">
             {moneySafety.connection} · {moneySafety.trading}
           </p>
         ) : null}
@@ -619,7 +620,7 @@ export function TradeTicket() {
           <button
             type="button"
             onClick={() => void approveAgent()}
-            className="rounded-md bg-[#50d2c1] py-2 text-[13px] font-semibold text-[#0b0e11]"
+            className="border-[0.5px] border-[#00e5ff]/40 bg-[#00e5ff]/10 py-2 text-[12px] font-semibold text-[#00e5ff]"
           >
             Authorize Agent (One-Click)
           </button>
@@ -630,11 +631,11 @@ export function TradeTicket() {
               type="button"
               disabled={siwePending}
               onClick={() => terminalBus.emit("platform:sign-in", {})}
-              className="w-full rounded-md bg-[#50d2c1] py-2 text-[13px] font-semibold text-[#0b0e11] disabled:opacity-50"
+              className="w-full border-[0.5px] border-[#00e5ff]/40 bg-[#00e5ff]/10 py-2 text-[12px] font-semibold text-[#00e5ff] disabled:opacity-50"
             >
               {siwePending ? "Signing in…" : "Sign Desk Session"}
             </button>
-            {siweLastError ? <p className="text-[11px] text-[#e5484d]">{siweLastError}</p> : null}
+            {siweLastError ? <p className="text-[11px] text-[#ff3366]">{siweLastError}</p> : null}
           </div>
         ) : null}
         {authStatus === "approving" ? (
@@ -643,7 +644,7 @@ export function TradeTicket() {
             Awaiting wallet signature…
           </div>
         ) : null}
-        {authError ? <p className="text-[11px] text-[#e5484d]">{authError}</p> : null}
+        {authError ? <p className="text-[11px] text-[#ff3366]">{authError}</p> : null}
 
         {!isSpot ? (
           <TradeLeverageSlider
@@ -655,10 +656,10 @@ export function TradeTicket() {
             accountLabel={deskMode === "paper" ? "Paper" : "Live"}
           />
         ) : (
-          <p className="text-[11px] text-[#50d2c1]">Spot — no leverage</p>
+          <p className="text-[11px] text-[#00e5ff]">Spot — no leverage</p>
         )}
 
-        <div className="flex border-b border-[#1e2329]" data-trade-region="order-modes">
+        <div className="flex border-b-[0.5px] border-slate-800" data-trade-region="order-modes">
           {(["market", "limit", "stop"] as TradeOrderMode[]).map((m) => (
             <button
               key={m}
@@ -666,10 +667,10 @@ export function TradeTicket() {
               data-trade-region={`mode-${m}`}
               onClick={() => setMode(m)}
               className={cn(
-                "flex-1 py-2 text-[13px] capitalize",
+                "flex-1 py-2 text-[11px] font-semibold uppercase tracking-wide",
                 mode === m
-                  ? "border-b-2 border-[#50d2c1] text-[#eee]"
-                  : "text-[#8a9199] hover:text-[#eee]",
+                  ? "border-b-2 border-[#00e5ff] text-slate-100"
+                  : "text-slate-500 hover:text-slate-200",
               )}
             >
               {m[0].toUpperCase() + m.slice(1)}
@@ -678,17 +679,17 @@ export function TradeTicket() {
         </div>
 
         <div className="space-y-1 text-[12px]">
-          <div className="flex justify-between text-[#8a9199]">
+          <div className="flex justify-between text-slate-500">
             <span>Available to Trade</span>
-            <span className="tabular-nums text-[#eee]">
+            <span className="tabular-nums text-slate-200">
               {displayWithdrawable != null
                 ? `${displayWithdrawable.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
                 : "—"}
             </span>
           </div>
-          <div className="flex justify-between text-[#8a9199]">
+          <div className="flex justify-between text-slate-500">
             <span>Current Position</span>
-            <span className={cn("tabular-nums", posSize !== "—" ? "text-[#50d2c1]" : "text-[#eee]")}>
+            <span className={cn("tabular-nums", posSize !== "—" ? "text-[#00e5ff]" : "text-slate-200")}>
               {posSize}
             </span>
           </div>
@@ -710,7 +711,7 @@ export function TradeTicket() {
                   onClick={() => setTif(t)}
                   className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] uppercase",
-                    tif === t ? "text-[#50d2c1]" : "text-[#5d656f]",
+                    tif === t ? "text-[#00e5ff]" : "text-slate-600",
                   )}
                 >
                   {t}
@@ -732,7 +733,7 @@ export function TradeTicket() {
 
         <div data-trade-region="size">
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#5d656f]">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-600">
               Size
             </span>
             <input
@@ -747,7 +748,7 @@ export function TradeTicket() {
                 setUsdDraft(null);
                 setSizeUnit((u) => (u === "usd" ? "coin" : "usd"));
               }}
-              className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-[12px] text-[#8a9199] hover:text-[#eee]"
+              className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-[12px] text-slate-500 hover:text-slate-200"
             >
               {sizeUnit === "usd" ? "USDC" : symbol || "Coin"}
               <ChevronDown className="h-3 w-3" />
@@ -762,12 +763,12 @@ export function TradeTicket() {
           disabled={maxNotional <= 0}
         />
         {!sizeOk ? (
-          <p className="text-[11px] text-[#5d656f]">
+          <p className="text-[11px] text-slate-600">
             Type a size in USDC or drag the slider, then tap Buy or Sell
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#8a9199]">
+        <div className="flex flex-wrap items-center gap-4 text-[12px] text-slate-500">
           <label className="flex cursor-pointer items-center gap-1.5">
             <input
               type="checkbox"
@@ -830,7 +831,7 @@ export function TradeTicket() {
           />
         ) : null}
 
-        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]" data-trade-region="risk-display">
+        <div className="space-y-1.5 border-t border-slate-800 pt-3 text-[12px]" data-trade-region="risk-display">
           <Detail
             label="Liquidation Price"
             value={!isSpot && estLiq != null ? formatPrice(estLiq) : "—"}
@@ -854,7 +855,7 @@ export function TradeTicket() {
           <Detail
             label="Slippage"
             value={
-              <span className="text-[#50d2c1]">
+              <span className="text-[#00e5ff]">
                 Est: 0.02% / Max: {slipMaxPct}%
               </span>
             }
@@ -862,8 +863,8 @@ export function TradeTicket() {
           <Detail label="Fees" value={isSpot ? "Spot · no builder" : `Taker 0.0450% · builder ${builderFeeLabel()}`} />
         </div>
 
-        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d656f]">
+        <div className="space-y-1.5 border-t border-slate-800 pt-3 text-[12px]">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-600">
             {deskMode === "paper" ? "Paper account" : "Account"}
           </p>
           <Detail
@@ -878,7 +879,7 @@ export function TradeTicket() {
             label="Unrealized PNL"
             value={
               paperSnap ? (
-                <span className={paperSnap.unrealized >= 0 ? "text-[#3ed598]" : "text-[#e5484d]"}>
+                <span className={paperSnap.unrealized >= 0 ? "text-[#00ff88]" : "text-[#ff3366]"}>
                   {paperSnap.unrealized >= 0 ? "+" : ""}
                   {paperSnap.unrealized.toFixed(2)}
                 </span>
@@ -897,18 +898,18 @@ export function TradeTicket() {
           />
         </div>
 
-        <details className="pb-2 text-[11px] text-[#5d656f]">
-          <summary className="cursor-pointer hover:text-[#8a9199]">Desk intel</summary>
+        <details className="pb-2 text-[11px] text-slate-600">
+          <summary className="cursor-pointer hover:text-slate-500">Desk intel</summary>
           <div className="mt-2">
             <ExecutionContextStrip />
           </div>
         </details>
       </div>
 
-      <div className="mx-auto w-full max-w-[380px] shrink-0 space-y-1.5 border-t border-[#1e2329] bg-[#0b0e11] px-3 py-2">
+      <div className="mx-auto w-full max-w-[380px] shrink-0 space-y-1.5 border-t-[0.5px] border-slate-800 bg-slate-950 px-3 py-2">
         {liveConfirm ? (
-          <div className="space-y-2 rounded-md border border-[#e5484d]/40 bg-[#2a0f12] p-3">
-            <p className="text-[12px] font-semibold uppercase text-[#e5484d]">
+          <div className="space-y-2 border-[0.5px] border-[#ff3366]/40 bg-[#ff3366]/10 p-3">
+            <p className="text-[12px] font-semibold uppercase text-[#ff3366]">
               Confirm live {liveConfirm.side} · {symbol}
             </p>
             <p className="text-[12px] text-[#c9cdd3]">
@@ -918,7 +919,7 @@ export function TradeTicket() {
                 : ""}
               {!isSpot ? ` · ${leverage}x ${isCross ? "Cross" : "Iso"}` : ""}
             </p>
-            <p className="text-[11px] text-[#8a9199]">
+            <p className="text-[11px] text-slate-500">
               Real mainnet order.
               {!isSpot ? ` Builder fee ${builderFeeLabel()} on fill.` : " No builder fee on spot."}
             </p>
@@ -926,7 +927,7 @@ export function TradeTicket() {
               <button
                 type="button"
                 onClick={() => setLiveConfirm(null)}
-                className="rounded-md border border-[#1e2329] py-2 text-[12px] text-[#8a9199]"
+                className="rounded-md border border-slate-800 py-2 text-[12px] text-slate-500"
               >
                 Cancel
               </button>
@@ -935,7 +936,7 @@ export function TradeTicket() {
                 onClick={() => void submit(liveConfirm.side === "buy", liveConfirm.size)}
                 className={cn(
                   "rounded-md py-2 text-[12px] font-semibold",
-                  liveConfirm.side === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
+                  liveConfirm.side === "buy" ? "bg-[#00ff88] text-slate-950" : "bg-[#ff3366] text-white",
                 )}
               >
                 Confirm {liveConfirm.side}
@@ -950,9 +951,9 @@ export function TradeTicket() {
               onMouseEnter={() => setSide("buy")}
               onClick={() => requestSubmit(true)}
               className={cn(
-                "rounded-md py-3 text-[13px] font-semibold",
-                "bg-[#50d2c1] text-[#0b0e11]",
-                flashSide === "buy" && "ring-1 ring-[#50d2c1]",
+                "py-3 text-[12px] font-semibold uppercase tracking-wide",
+                "bg-[#00ff88] text-slate-950",
+                flashSide === "buy" && "ring-1 ring-[#00ff88]",
                 actionBlocked && "cursor-not-allowed opacity-40",
               )}
             >
@@ -968,9 +969,9 @@ export function TradeTicket() {
               onMouseEnter={() => setSide("sell")}
               onClick={() => requestSubmit(false)}
               className={cn(
-                "rounded-md py-3 text-[13px] font-semibold",
-                "bg-[#e5484d] text-white",
-                flashSide === "sell" && "ring-1 ring-[#e5484d]",
+                "py-3 text-[12px] font-semibold uppercase tracking-wide",
+                "bg-[#ff3366] text-white",
+                flashSide === "sell" && "ring-1 ring-[#ff3366]",
                 actionBlocked && "cursor-not-allowed opacity-40",
               )}
             >
@@ -985,7 +986,7 @@ export function TradeTicket() {
         {executionGuard.reason ? (
           <p className="text-center text-[11px] text-amber-400">{executionGuard.reason}</p>
         ) : null}
-        {orderError ? <p className="text-center text-[11px] text-[#e5484d]">{orderError}</p> : null}
+        {orderError ? <p className="text-center text-[11px] text-[#ff3366]">{orderError}</p> : null}
       </div>
 
       <BuilderFeeApprovalModal
@@ -1003,8 +1004,8 @@ export function TradeTicket() {
 function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[#8a9199]">{label}</span>
-      <span className="tabular-nums text-[#eee]">{value}</span>
+      <span className="text-slate-500">{label}</span>
+      <span className="tabular-nums text-slate-200">{value}</span>
     </div>
   );
 }

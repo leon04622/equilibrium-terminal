@@ -3,19 +3,22 @@
 import { cn } from "@/lib/utils";
 
 const MARKS = [0, 25, 50, 75, 100] as const;
-export const HL_TEAL = "#50d2c1";
+const FILL = "#00e5ff";
+const TRACK = "#1e293b";
 
 const RANGE =
-  "h-8 w-full cursor-pointer appearance-none bg-transparent " +
-  "[&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full " +
-  "[&::-webkit-slider-runnable-track]:bg-[#2b3139] " +
+  "h-10 w-full cursor-pointer appearance-none rounded-sm " +
+  "[&::-webkit-slider-runnable-track]:h-3 [&::-webkit-slider-runnable-track]:rounded-sm " +
+  "[&::-webkit-slider-runnable-track]:bg-transparent " +
   "[&::-webkit-slider-thumb]:mt-[-6px] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 " +
-  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full " +
-  "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#50d2c1] " +
-  "[&::-webkit-slider-thumb]:bg-[#0b0e11] " +
-  "[&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[#2b3139] " +
-  "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full " +
-  "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[#50d2c1] [&::-moz-range-thumb]:bg-[#0b0e11]";
+  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-sm " +
+  "[&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-cyan-200 " +
+  "[&::-webkit-slider-thumb]:bg-[#00e5ff] " +
+  "[&::-webkit-slider-thumb]:shadow-[0_0_10px_rgb(0_229_255/0.65)] " +
+  "[&::-moz-range-track]:h-3 [&::-moz-range-track]:rounded-sm [&::-moz-range-track]:bg-transparent " +
+  "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-sm " +
+  "[&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-cyan-200 " +
+  "[&::-moz-range-thumb]:bg-[#00e5ff]";
 
 export function sizeFromCapitalPct(
   pct: number,
@@ -58,6 +61,7 @@ export function TradeCapitalSlider({
         value={pct}
         disabled={blocked}
         onChange={(e) => onPctChange(Number.parseInt(e.target.value, 10))}
+        style={{ background: `linear-gradient(to right, ${FILL} ${pct}%, ${TRACK} ${pct}%)` }}
         className={cn(RANGE, "disabled:cursor-not-allowed disabled:opacity-40")}
         aria-label="Trade size as percent of available capital"
       />
@@ -69,8 +73,8 @@ export function TradeCapitalSlider({
             disabled={blocked}
             onClick={() => onPctChange(mark)}
             className={cn(
-              "text-[11px] tabular-nums",
-              pct >= mark ? "text-[#50d2c1]" : "text-[#5d656f]",
+              "font-mono text-[10px] uppercase tabular-nums",
+              pct >= mark ? "text-[#00e5ff]" : "text-slate-600",
               "disabled:opacity-40",
             )}
           >

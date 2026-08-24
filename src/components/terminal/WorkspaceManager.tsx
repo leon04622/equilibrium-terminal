@@ -878,7 +878,7 @@ export function WorkspaceManager() {
       <aside
         data-panel-id="ticket"
         data-trade-panel="ticket-rail"
-        className="flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l border-[#1e2329] bg-[#0b0e11]"
+        className="flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l-[0.5px] border-slate-800 bg-slate-950"
       >
         <TradeTicket />
       </aside>
