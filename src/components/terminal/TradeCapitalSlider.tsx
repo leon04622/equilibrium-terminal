@@ -3,22 +3,6 @@
 import { cn } from "@/lib/utils";
 
 const MARKS = [0, 25, 50, 75, 100] as const;
-const FILL = "#00e5ff";
-const TRACK = "#1e293b";
-
-const RANGE =
-  "h-10 w-full cursor-pointer appearance-none rounded-sm " +
-  "[&::-webkit-slider-runnable-track]:h-3 [&::-webkit-slider-runnable-track]:rounded-sm " +
-  "[&::-webkit-slider-runnable-track]:bg-transparent " +
-  "[&::-webkit-slider-thumb]:mt-[-6px] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 " +
-  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-sm " +
-  "[&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-cyan-200 " +
-  "[&::-webkit-slider-thumb]:bg-[#00e5ff] " +
-  "[&::-webkit-slider-thumb]:shadow-[0_0_10px_rgb(0_229_255/0.65)] " +
-  "[&::-moz-range-track]:h-3 [&::-moz-range-track]:rounded-sm [&::-moz-range-track]:bg-transparent " +
-  "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-sm " +
-  "[&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-cyan-200 " +
-  "[&::-moz-range-thumb]:bg-[#00e5ff]";
 
 export function sizeFromCapitalPct(
   pct: number,
@@ -52,35 +36,58 @@ export function TradeCapitalSlider({
   const blocked = disabled || maxSize <= 0;
 
   return (
-    <div className="flex flex-col gap-1" data-trade-region="capital-slider">
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={pct}
-        disabled={blocked}
-        onChange={(e) => onPctChange(Number.parseInt(e.target.value, 10))}
-        style={{ background: `linear-gradient(to right, ${FILL} ${pct}%, ${TRACK} ${pct}%)` }}
-        className={cn(RANGE, "disabled:cursor-not-allowed disabled:opacity-40")}
-        aria-label="Trade size as percent of available capital"
-      />
-      <div className="flex items-center justify-between px-0.5">
+    <div className="flex items-center gap-2" data-trade-region="capital-slider">
+      <div className="relative h-6 min-w-0 flex-1">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-slate-800" />
+        <div
+          className="pointer-events-none absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[#00e5ff]"
+          style={{ width: `${pct}%` }}
+        />
         {MARKS.map((mark) => (
           <button
             key={mark}
             type="button"
             disabled={blocked}
+            aria-label={`${mark} percent`}
             onClick={() => onPctChange(mark)}
             className={cn(
-              "font-mono text-[10px] uppercase tabular-nums",
-              pct >= mark ? "text-[#00e5ff]" : "text-slate-600",
+              "absolute top-1/2 z-[1] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#00e5ff]",
+              pct >= mark ? "bg-[#00e5ff]" : "bg-slate-950",
               "disabled:opacity-40",
             )}
-          >
-            {mark}%
-          </button>
+            style={{ left: `${mark}%` }}
+          />
         ))}
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={pct}
+          disabled={blocked}
+          onChange={(e) => onPctChange(Number.parseInt(e.target.value, 10))}
+          className={cn(
+            "absolute inset-0 z-[2] w-full cursor-pointer appearance-none bg-transparent",
+            "[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5",
+            "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full",
+            "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#00e5ff]",
+            "[&::-webkit-slider-thumb]:bg-slate-950",
+            "[&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5",
+            "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2",
+            "[&::-moz-range-thumb]:border-[#00e5ff] [&::-moz-range-thumb]:bg-slate-950",
+            "disabled:cursor-not-allowed disabled:opacity-40",
+          )}
+          aria-label="Trade size as percent of available capital"
+        />
+      </div>
+      <div
+        className={cn(
+          "flex h-10 w-[52px] shrink-0 items-center justify-center",
+          "border-[0.5px] border-slate-800 bg-slate-950",
+          "font-mono text-[12px] tabular-nums text-slate-200",
+        )}
+      >
+        {pct} %
       </div>
     </div>
   );
