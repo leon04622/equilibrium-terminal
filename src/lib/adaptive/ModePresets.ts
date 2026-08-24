@@ -21,7 +21,7 @@ export function applyModePreset(layout: Layout[], mode: TerminalMode): Layout[] 
       next = patch(next, "domladder", { x: 0, y: 3, w: 4, h: 14 });
       next = patch(next, "slippageradar", { x: 4, y: 3, w: 4, h: 10 });
       next = patch(next, "hyperbook", { x: 8, y: 3, w: 4, h: 14 });
-      next = patch(next, "ticket", { x: 0, y: 17, w: 4, h: 10 });
+      next = patch(next, "ticket", { x: 0, y: 17, w: 4, h: 16, minH: 12 });
       next = patch(next, "macro", { h: 2, w: 12 });
       break;
     case "macro":
@@ -51,7 +51,7 @@ export function applyModePreset(layout: Layout[], mode: TerminalMode): Layout[] 
       break;
     case "portfolio":
       next = patch(next, "positions", { x: 0, y: 3, w: 8, h: 14 });
-      next = patch(next, "ticket", { x: 8, y: 3, w: 4, h: 10 });
+      next = patch(next, "ticket", { x: 8, y: 3, w: 4, h: 16, minH: 12 });
       break;
     default:
       break;

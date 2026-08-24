@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, ShieldCheck, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Loader2, ChevronDown } from "lucide-react";
 import { cn, formatPrice, formatSize } from "@/lib/utils";
 import { useHyperliquidAuthContext } from "@/contexts/HyperliquidAuthContext";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
@@ -17,12 +17,12 @@ import { evaluatePreTradeWithServer } from "@/lib/institutional/preTradeClient";
 import { useInstitutionalRiskStore } from "@/store/useInstitutionalRiskStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { evaluateExecutionGuards } from "@/lib/wedge/executionGuards";
-import { INSTITUTIONAL_INTERACTION, TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { useTerminalExperienceStore } from "@/store/useTerminalExperienceStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { resolveMoneySafety } from "@/lib/beginner/beginnerTranslation";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
+import { MARKET_SLIPPAGE } from "@/lib/hyperliquid/constants";
 import { builderFeeLabel } from "@/lib/hyperliquid/builder";
 import {
   lookupSpotBalance,
@@ -102,17 +102,19 @@ export function TradeTicket() {
   const [mode, setMode] = useState<TradeOrderMode>("market");
   const [size, setSize] = useState("");
   const [sizePct, setSizePct] = useState(0);
-  const [sizeUnit, setSizeUnit] = useState<"coin" | "usd">("coin");
+  const [sizeUnit, setSizeUnit] = useState<"coin" | "usd">("usd");
   const [limitPx, setLimitPx] = useState("");
   const [stopPx, setStopPx] = useState("");
   const [leverage, setLeverage] = useState(10);
   const [isCross, setIsCross] = useState(true);
   const [reduceOnly, setReduceOnly] = useState(false);
   const [tif, setTif] = useState<HlTimeInForce>("Gtc");
-  const [tpEnabled, setTpEnabled] = useState(false);
-  const [slEnabled, setSlEnabled] = useState(false);
+  const [tpslOn, setTpslOn] = useState(false);
   const [takeProfitPx, setTakeProfitPx] = useState("");
   const [stopLossPx, setStopLossPx] = useState("");
+  const [tpGain, setTpGain] = useState("");
+  const [slLoss, setSlLoss] = useState("");
+  const [side, setSide] = useState<"buy" | "sell">("buy");
   const [flashSide, setFlashSide] = useState<"buy" | "sell" | null>(null);
   const [liveConfirm, setLiveConfirm] = useState<"buy" | "sell" | null>(null);
 
@@ -229,12 +231,15 @@ export function TradeTicket() {
     spotBalances,
   ]);
 
-  const maxNotional = Math.max(maxBuy, isSpot ? 0 : maxSell);
+  const maxNotional = side === "buy" ? maxBuy : maxSell;
   const szDecimals = selectedAsset?.szDecimals ?? 4;
 
   useEffect(() => {
     if (!tradeTicketDraft) return;
-    if (tradeTicketDraft.side) setFlashSide(tradeTicketDraft.side);
+    if (tradeTicketDraft.side) {
+      setSide(tradeTicketDraft.side);
+      setFlashSide(tradeTicketDraft.side);
+    }
     if (tradeTicketDraft.size) {
       setSize(tradeTicketDraft.size);
       const n = Number.parseFloat(tradeTicketDraft.size);
@@ -249,18 +254,19 @@ export function TradeTicket() {
     setSizePct(0);
     setSize("");
     setReduceOnly(false);
-    setTpEnabled(false);
-    setSlEnabled(false);
+    setTpslOn(false);
     setTakeProfitPx("");
     setStopLossPx("");
+    setTpGain("");
+    setSlLoss("");
   }, [selectedAsset?.coin]);
 
   useEffect(() => {
     if (sizePct <= 0 || maxNotional <= 0) return;
     setSize(sizeFromCapitalPct(sizePct, maxNotional, szDecimals));
     // Recalc coin size when the slider or leverage changes — not on every mark tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- maxNotional read at lev/pct change
-  }, [leverage, sizePct, szDecimals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- maxNotional read at lev/pct/side change
+  }, [leverage, sizePct, szDecimals, side]);
 
   const onCapitalPctChange = useCallback(
     (pct: number) => {
@@ -312,17 +318,17 @@ export function TradeTicket() {
         ? Number.parseFloat(stopPx)
         : undefined;
     const tp =
-      tpEnabled && takeProfitPx && Number.isFinite(Number.parseFloat(takeProfitPx))
+      tpslOn && takeProfitPx && Number.isFinite(Number.parseFloat(takeProfitPx))
         ? Number.parseFloat(takeProfitPx)
         : undefined;
     const sl =
-      slEnabled && stopLossPx && Number.isFinite(Number.parseFloat(stopLossPx))
+      tpslOn && stopLossPx && Number.isFinite(Number.parseFloat(stopLossPx))
         ? Number.parseFloat(stopLossPx)
         : undefined;
     useChartToolsStore.getState().setTicketPreview(
       limit || stop || tp || sl ? { limit, stop, tp, sl } : null,
     );
-  }, [limitPx, mode, slEnabled, stopLossPx, stopPx, takeProfitPx, tpEnabled]);
+  }, [limitPx, mode, stopLossPx, stopPx, takeProfitPx, tpslOn]);
 
   const submit = useCallback(
     async (isBuy: boolean) => {
@@ -347,8 +353,24 @@ export function TradeTicket() {
       setFlashSide(isBuy ? "buy" : "sell");
       window.setTimeout(() => setFlashSide(null), 400);
 
-      const tp = tpEnabled ? Number.parseFloat(takeProfitPx) : undefined;
-      const sl = slEnabled ? Number.parseFloat(stopLossPx) : undefined;
+      const tpRaw = tpslOn ? Number.parseFloat(takeProfitPx) : undefined;
+      const slRaw = tpslOn ? Number.parseFloat(stopLossPx) : undefined;
+      const gain = Number.parseFloat(tpGain);
+      const loss = Number.parseFloat(slLoss);
+      const tpFromGain =
+        tpslOn && markPx && Number.isFinite(gain) && gain > 0
+          ? side === "buy"
+            ? markPx * (1 + gain / 100)
+            : markPx * (1 - gain / 100)
+          : undefined;
+      const slFromLoss =
+        tpslOn && markPx && Number.isFinite(loss) && loss > 0
+          ? side === "buy"
+            ? markPx * (1 - loss / 100)
+            : markPx * (1 + loss / 100)
+          : undefined;
+      const tp = tpRaw && Number.isFinite(tpRaw) && tpRaw > 0 ? tpRaw : tpFromGain;
+      const sl = slRaw && Number.isFinite(slRaw) && slRaw > 0 ? slRaw : slFromLoss;
 
       const params = {
         coin: selectedAsset.coin,
@@ -362,8 +384,8 @@ export function TradeTicket() {
         szDecimals: selectedAsset.szDecimals,
         reduceOnly,
         tif: mode === "limit" ? tif : undefined,
-        takeProfitPx: tp && Number.isFinite(tp) && tp > 0 ? tp : undefined,
-        stopLossPx: sl && Number.isFinite(sl) && sl > 0 ? sl : undefined,
+        takeProfitPx: tp,
+        stopLossPx: sl,
         leverage: isSpot ? 1 : leverage,
         isCross,
         isSpot,
@@ -394,13 +416,15 @@ export function TradeTicket() {
       selectedAsset,
       setAssetLeverage,
       size,
-      slEnabled,
+      slLoss,
       stopLossPx,
       stopPx,
       szDecimals,
       takeProfitPx,
       tif,
-      tpEnabled,
+      tpGain,
+      tpslOn,
+      side,
     ],
   );
 
@@ -487,23 +511,33 @@ export function TradeTicket() {
         : ""
       : size;
 
+  const estLiq = side === "buy" ? estLiqLong : estLiqShort;
+  const notEnough = sizeOk && (maxNotional <= 0 || sizeNum > maxNotional + 1e-12);
+  const symbol = selectedAsset?.symbol ?? "";
+  const ctaDisabled =
+    submitBlocked || Boolean(liveConfirm) || !sizeOk || notEnough || maxNotional <= 0;
+  const ctaLabel = orderPending
+    ? "Submitting…"
+    : notEnough || (sizeOk && maxNotional <= 0)
+      ? "Not enough margin"
+      : `${side === "buy" ? "Buy" : "Sell"} ${symbol || (isSpot ? "spot" : "perp")}`;
+  const posSize =
+    existingPaper && Math.abs(existingPaper.size) > 1e-9
+      ? `${formatSize(Math.abs(existingPaper.size))} ${symbol}`
+      : isSpot && (spotHolding || maxSell > 0)
+        ? `${formatSize(spotHolding?.available ?? maxSell)} ${spotBaseSymbol(selectedAsset?.coin ?? "")}`
+        : "—";
+  const slipMaxPct = (MARKET_SLIPPAGE * 100).toFixed(2);
+  const field =
+    "h-10 w-full rounded-md border border-[#1e2329] bg-[#13161c] px-3 text-[13px] text-white outline-none placeholder:text-[#5d656f] focus:border-[#50d2c1]";
+  const chk = "h-3.5 w-3.5 rounded-sm border-[#2b3139] accent-[#50d2c1]";
+
   if (!isConnected && deskMode !== "paper") {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
-        <p className="font-mono text-xs text-terminal-muted">
-          Connect an EVM wallet to trade on Hyperliquid L1
-        </p>
-        <Button
-          variant="terminal"
-          onClick={connectWallet}
-          disabled={isConnecting}
-          className="w-full max-w-[200px]"
-        >
-          {isConnecting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Connect Wallet"
-          )}
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0b0e11] p-4 text-center">
+        <p className="text-[13px] text-[#8a9199]">Connect a wallet to trade on Hyperliquid</p>
+        <Button variant="terminal" onClick={connectWallet} disabled={isConnecting} className="w-full max-w-[200px]">
+          {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect Wallet"}
         </Button>
       </div>
     );
@@ -512,440 +546,395 @@ export function TradeTicket() {
   return (
     <div
       data-trade-panel="ticket"
-      className={cn(
-        "eq-panel-scroll flex h-full min-h-0 flex-col gap-1 overflow-y-auto overscroll-y-contain p-1 font-mono",
-        TERMINAL_TYPO.data,
-      )}
+      className="eq-panel-scroll flex h-full min-h-0 flex-col overflow-y-auto overscroll-y-contain bg-[#0b0e11] font-sans text-[#eee]"
       onWheel={stopPanelWheelBubble}
     >
-      <ExecutionContextStrip />
-      {deskMode === "live" ? <LiveExecutionReadinessStrip /> : null}
-      <ExecutionWarningBanner />
-      {selectedAsset && markPx && parseFloat(size) > 0 ? (
-        <PreTradeRiskStrip
-          coin={selectedAsset.coin}
-          side={flashSide ?? "buy"}
-          size={parseFloat(size)}
-          markPx={markPx}
-          leverage={leverage}
-          isPerp={selectedAsset.market === "perp"}
-        />
-      ) : null}
-      <ExecutionLastResultStrip />
-      {beginnerMode ? (
-        <div
-          className={cn(
-            "border px-1.5 py-1",
-            moneySafety.trading === "LIVE"
-              ? "border-rose-800/50 bg-rose-950/25"
-              : "border-cyan-800/50 bg-cyan-950/20",
-            TERMINAL_TYPO.micro,
-          )}
-        >
-          <p className={moneySafety.trading === "LIVE" ? "text-rose-300" : "text-cyan-300"}>
+      <div className="mx-auto flex w-full max-w-[380px] flex-col gap-3 px-3 py-3">
+        {deskMode === "live" ? <LiveExecutionReadinessStrip /> : null}
+        <ExecutionWarningBanner />
+        <ExecutionLastResultStrip />
+
+        {beginnerMode ? (
+          <p className="text-[11px] text-[#8a9199]">
             {moneySafety.connection} · {moneySafety.trading}
           </p>
-          <p className="mt-0.5 text-slate-500">{moneySafety.hint}</p>
-        </div>
-      ) : null}
-      <div className={cn(terminalSkin.border, "flex items-center justify-between bg-slate-950 px-1 py-0.5")}>
-        <div>
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-            {deskMode === "paper" ? "Paper equity" : "Account"}
-          </p>
-          <p className={cn(TERMINAL_TYPO.dataLg, "text-slate-200")}>
-            ${displayAccountValue !== null ? displayAccountValue.toFixed(2) : "—"}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Free</p>
-          <p className={cn(TERMINAL_TYPO.data, terminalSkin.textUp)}>
-            ${displayWithdrawable !== null ? displayWithdrawable.toFixed(2) : "—"}
-          </p>
-        </div>
-        {deskMode === "live" ? (
-          <div
-            className={cn(
-              TERMINAL_TYPO.micro,
-              "flex items-center gap-1 border-[0.5px] px-1 py-0.5",
-              isAuthorized
-                ? "border-[#00ff88]/30 text-[#00ff88]"
-                : "border-amber-900/50 text-amber-400",
-            )}
-          >
-            {isAuthorized ? <ShieldCheck className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-            {isAuthorized ? "1CT" : "NO 1CT"}
-          </div>
-        ) : (
-          <div className={cn(TERMINAL_TYPO.micro, "border-[0.5px] border-cyan-800/50 px-1 py-0.5 text-cyan-300")}>
-            PAPER
-          </div>
-        )}
-      </div>
+        ) : null}
 
-      {deskMode === "live" && needsArbitrumForAuth && authStatus !== "approving" ? (
-        <div className="space-y-1.5">
-          <p className="text-[10px] text-amber-400/90">
-            Your wallet is not on Arbitrum One (required for Hyperliquid authorization).
-          </p>
-          <Button
+        {deskMode === "live" && needsArbitrumForAuth && authStatus !== "approving" ? (
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full font-mono text-[10px]"
             onClick={() => void switchToArbitrum()}
+            className="rounded-md border border-amber-700/50 py-2 text-[12px] text-amber-300"
           >
             Switch wallet to Arbitrum One
-          </Button>
-        </div>
-      ) : null}
-      {!oneClickEnabled && deskMode === "live" && authStatus !== "approving" ? (
-        <Button variant="terminal" className="w-full" onClick={() => void approveAgent()}>
-          Authorize Agent (One-Click)
-        </Button>
-      ) : null}
-      {deskMode === "paper" ? (
-        <p className={cn(TERMINAL_TYPO.micro, "text-cyan-400/90")}>
-          Paper · ${paperStartingEquity.toLocaleString()} sim account at live Hyperliquid prices. DESK → LIVE for mainnet.
-        </p>
-      ) : null}
-      {deskMode === "live" && !claims ? (
-        <div className="space-y-1">
-          <p className={cn(TERMINAL_TYPO.micro, "text-amber-400/90")}>
-            Sign desk session to submit live Hyperliquid orders.
-          </p>
-          <Button
-            variant="terminal"
-            className="w-full"
-            disabled={siwePending}
-            onClick={() => terminalBus.emit("platform:sign-in", {})}
-          >
-            {siwePending ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Signing in…
-              </>
-            ) : (
-              "Sign Desk Session"
-            )}
-          </Button>
-          {siweLastError ? (
-            <p className={cn(TERMINAL_TYPO.micro, "text-rose-400")}>{siweLastError}</p>
-          ) : null}
-        </div>
-      ) : null}
-      {authStatus === "approving" ? (
-        <div className="flex items-center justify-center gap-2 text-amber-400">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Awaiting wallet signature…
-        </div>
-      ) : null}
-      {authError ? <p className="text-[10px] text-neon-ruby">{authError}</p> : null}
-
-      {deskMode === "paper" && existingPaper && Math.abs(existingPaper.size) > 1e-9 ? (
-        <div className={cn(terminalSkin.border, "bg-slate-950 px-1 py-0.5")}>
-          <p className={cn(TERMINAL_TYPO.dataSm, "text-slate-300")}>
-            {existingPaper.coin} {existingPaper.size > 0 ? "LONG" : "SHORT"}{" "}
-            {Math.abs(existingPaper.size).toFixed(4)} @ {existingPaper.avgPx.toFixed(2)} · {existingPaper.leverage}x{" "}
-            {existingPaper.isCross ? "Cross" : "Iso"}
-          </p>
-        </div>
-      ) : null}
-
-      {isSpot ? (
-        <div className={cn(terminalSkin.border, "grid grid-cols-2 gap-px bg-slate-900")} data-trade-region="spot-balance">
-          <div className="bg-slate-950 px-1 py-0.5">
-            <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Spot hold</p>
-            <p className={cn(TERMINAL_TYPO.dataSm, "text-slate-300")}>
-              {spotHolding
-                ? `${formatSize(spotHolding.available)} ${spotBaseSymbol(selectedAsset?.coin ?? "")}`
-                : deskMode === "paper" && maxSell > 0
-                  ? `${formatSize(maxSell)} ${spotBaseSymbol(selectedAsset?.coin ?? "")}`
-                  : "—"}
-            </p>
-          </div>
-          <div className="bg-slate-950 px-1 py-0.5 text-right">
-            <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Max buy</p>
-            <p className={cn(TERMINAL_TYPO.dataSm, terminalSkin.textUp)}>
-              {maxBuy > 0 ? formatSize(maxBuy) : "—"}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-3 gap-px bg-slate-900" data-trade-region="order-modes">
-        {(["market", "limit", "stop"] as TradeOrderMode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            data-trade-region={`mode-${m}`}
-            onClick={() => setMode(m)}
-            className={cn(
-              TERMINAL_TYPO.micro,
-              "bg-slate-950 py-1 uppercase",
-              mode === m ? "text-cyan-300" : "text-slate-600 hover:text-slate-400",
-            )}
-          >
-            {m}
           </button>
-        ))}
-      </div>
-
-      {!isSpot ? (
-        <TradeLeverageSlider
-          leverage={leverage}
-          maxLeverage={maxLeverage}
-          onLeverageChange={setLeverage}
-          isCross={isCross}
-          onCrossChange={setIsCross}
-        />
-      ) : (
-        <p className={cn(TERMINAL_TYPO.micro, "px-0.5 text-cyan-400/80")}>
-          Spot desk — no leverage · builder fee not applied on spot fills
-        </p>
-      )}
-
-      {mode === "limit" ? (
-        <label className="flex flex-col gap-0.5" data-trade-region="limit-price">
-          <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Limit price</span>
-          <input
-            value={limitPx}
-            onChange={(e) => setLimitPx(e.target.value)}
-            className={cn(INSTITUTIONAL_INTERACTION.input, TERMINAL_TYPO.data)}
-          />
-        </label>
-      ) : null}
-
-      {mode === "stop" ? (
-        <label className="flex flex-col gap-0.5" data-trade-region="stop-trigger">
-          <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Stop trigger</span>
-          <input
-            value={stopPx}
-            onChange={(e) => setStopPx(e.target.value)}
-            className={cn(INSTITUTIONAL_INTERACTION.input, TERMINAL_TYPO.data)}
-          />
-        </label>
-      ) : null}
-
-      <label className="flex flex-col gap-0.5" data-trade-region="size">
-        <span className="flex items-center justify-between">
-          <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>Size</span>
-          <span className="flex gap-px bg-slate-900">
-            {(["coin", "usd"] as const).map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => setSizeUnit(u)}
-                className={cn(
-                  TERMINAL_TYPO.micro,
-                  "bg-slate-950 px-1.5 py-0.5 uppercase",
-                  sizeUnit === u ? "text-cyan-300" : "text-slate-600 hover:text-slate-400",
-                )}
-              >
-                {u === "coin" ? selectedAsset?.symbol ?? "Coin" : "USD"}
-              </button>
-            ))}
-          </span>
-        </span>
-        <input
-          value={sizeFieldValue}
-          onChange={(e) => onSizeInput(e.target.value)}
-          className={cn(INSTITUTIONAL_INTERACTION.input, TERMINAL_TYPO.data)}
-          placeholder={sizeUnit === "usd" ? "0.00" : "0.00"}
-        />
-      </label>
-
-      <TradeCapitalSlider
-        pct={sizePct}
-        onPctChange={onCapitalPctChange}
-        maxSize={maxNotional}
-        markPx={markPx}
-        symbol={selectedAsset?.symbol ?? ""}
-        szDecimals={szDecimals}
-        disabled={maxNotional <= 0}
-        capLabel={isSpot ? "balance" : "available"}
-        marginUsd={!isSpot ? estMargin : null}
-        availableUsd={displayWithdrawable}
-      />
-
-      {isSpot && maxSell > 0 ? (
-        <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-          Max sell · {formatSize(maxSell)} {spotBaseSymbol(selectedAsset?.coin ?? "")}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-2 px-0.5">
-        <label className={cn(TERMINAL_TYPO.micro, "flex items-center gap-1 text-slate-400")}>
-          <input
-            type="checkbox"
-            checked={reduceOnly}
-            onChange={(e) => setReduceOnly(e.target.checked)}
-            className="accent-[#26a69a]"
-          />
-          Reduce only
-        </label>
-        {mode === "limit" ? (
-          <span className="ml-auto flex gap-px bg-slate-900">
-            {TIF_OPTIONS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTif(t)}
-                className={cn(
-                  TERMINAL_TYPO.micro,
-                  "bg-slate-950 px-1.5 py-0.5 uppercase",
-                  tif === t ? "text-cyan-300" : "text-slate-600 hover:text-slate-400",
-                )}
-              >
-                {t}
-              </button>
-            ))}
-          </span>
         ) : null}
-      </div>
-
-      {!isSpot ? (
-        <div className="grid grid-cols-2 gap-1">
-          <label className="flex flex-col gap-0.5">
-            <span className={cn(TERMINAL_TYPO.micro, "flex items-center gap-1 text-slate-500")}>
-              <input
-                type="checkbox"
-                checked={tpEnabled}
-                onChange={(e) => setTpEnabled(e.target.checked)}
-                className="accent-[#26a69a]"
-              />
-              Take profit
-            </span>
-            <input
-              value={takeProfitPx}
-              disabled={!tpEnabled}
-              onChange={(e) => setTakeProfitPx(e.target.value)}
-              className={cn(INSTITUTIONAL_INTERACTION.input, TERMINAL_TYPO.data, !tpEnabled && "opacity-40")}
-              placeholder="TP trigger"
-            />
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className={cn(TERMINAL_TYPO.micro, "flex items-center gap-1 text-slate-500")}>
-              <input
-                type="checkbox"
-                checked={slEnabled}
-                onChange={(e) => setSlEnabled(e.target.checked)}
-                className="accent-[#26a69a]"
-              />
-              Stop loss
-            </span>
-            <input
-              value={stopLossPx}
-              disabled={!slEnabled}
-              onChange={(e) => setStopLossPx(e.target.value)}
-              className={cn(INSTITUTIONAL_INTERACTION.input, TERMINAL_TYPO.data, !slEnabled && "opacity-40")}
-              placeholder="SL trigger"
-            />
-          </label>
-        </div>
-      ) : null}
-
-      <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")} data-trade-region="risk-display">
-        {estNotional != null ? (
-          <>
-            Value ${estNotional.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-            {!isSpot && estMargin != null ? ` · Margin $${estMargin.toFixed(2)}` : ""}
-            {!isSpot && (estLiqLong != null || estLiqShort != null)
-              ? ` · Liq L ${estLiqLong != null ? formatPrice(estLiqLong) : "—"} / S ${estLiqShort != null ? formatPrice(estLiqShort) : "—"}`
-              : ""}
-          </>
-        ) : (
-          <>Mark {markPx !== null ? formatPrice(markPx) : "—"}</>
-        )}
-      </p>
-
-      <div className="grid grid-cols-2 gap-1" data-trade-region="exec-buttons">
-        <button
-          type="button"
-          disabled={submitBlocked || Boolean(liveConfirm) || maxBuy <= 0}
-          onClick={() => requestSubmit(true)}
-          className={cn(
-            TERMINAL_TYPO.label,
-            "py-2.5 uppercase",
-            terminalSkin.execBuy,
-            flashSide === "buy" && terminalSkin.flashUp,
-            (submitBlocked || maxBuy <= 0) && "opacity-50",
-          )}
-        >
-          {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Buy / Long"}
-        </button>
-        <button
-          type="button"
-          disabled={submitBlocked || Boolean(liveConfirm) || maxSell <= 0}
-          onClick={() => requestSubmit(false)}
-          className={cn(
-            TERMINAL_TYPO.label,
-            "py-2.5 uppercase",
-            terminalSkin.execSell,
-            flashSide === "sell" && terminalSkin.flashDown,
-            (submitBlocked || maxSell <= 0) && "opacity-50",
-          )}
-        >
-          {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sell / Short"}
-        </button>
-      </div>
-
-      {executionGuard.reason ? (
-        <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textWarn, "text-center")}>
-          {executionGuard.reason}
-        </p>
-      ) : null}
-
-      {orderPending ? (
-        <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textWarn, "text-center")}>
-          ORDER SUBMITTING — awaiting confirmation
-        </p>
-      ) : null}
-
-      {liveConfirm ? (
-        <div className={cn(terminalSkin.border, "space-y-1 border-rose-800/50 bg-rose-950/25 p-2")}>
-          <p className={cn(TERMINAL_TYPO.micro, "font-semibold uppercase text-rose-300")}>
-            Confirm live {liveConfirm} · {selectedAsset?.symbol}
-          </p>
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-300")}>
-            {mode.toUpperCase()} {size} @ {markPx !== null ? formatPrice(markPx) : "—"}
-            {estNotional ? ` · ≈ $${estNotional.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : ""}
-            {selectedAsset?.market === "perp" ? ` · ${leverage}x ${isCross ? "Cross" : "Iso"}` : ""}
-          </p>
-          <p className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
-            Real mainnet order — submits to Hyperliquid.
-            {selectedAsset?.market === "perp"
-              ? ` Equilibrium builder fee ${builderFeeLabel()} on fill.`
-              : " Spot fills do not attach a builder fee."}
-          </p>
-          <div className="grid grid-cols-2 gap-1">
+        {!oneClickEnabled && deskMode === "live" && authStatus !== "approving" ? (
+          <button
+            type="button"
+            onClick={() => void approveAgent()}
+            className="rounded-md bg-[#50d2c1] py-2 text-[13px] font-semibold text-[#0b0e11]"
+          >
+            Authorize Agent (One-Click)
+          </button>
+        ) : null}
+        {deskMode === "live" && !claims ? (
+          <div className="space-y-1">
             <button
               type="button"
-              onClick={() => setLiveConfirm(null)}
-              className={cn(TERMINAL_TYPO.micro, "border border-slate-700 py-1 text-slate-400")}
+              disabled={siwePending}
+              onClick={() => terminalBus.emit("platform:sign-in", {})}
+              className="w-full rounded-md bg-[#50d2c1] py-2 text-[13px] font-semibold text-[#0b0e11] disabled:opacity-50"
             >
-              Cancel
+              {siwePending ? "Signing in…" : "Sign Desk Session"}
             </button>
+            {siweLastError ? <p className="text-[11px] text-[#e5484d]">{siweLastError}</p> : null}
+          </div>
+        ) : null}
+        {authStatus === "approving" ? (
+          <div className="flex items-center justify-center gap-2 text-[12px] text-amber-300">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Awaiting wallet signature…
+          </div>
+        ) : null}
+        {authError ? <p className="text-[11px] text-[#e5484d]">{authError}</p> : null}
+
+        {!isSpot ? (
+          <TradeLeverageSlider
+            leverage={leverage}
+            maxLeverage={maxLeverage}
+            onLeverageChange={setLeverage}
+            isCross={isCross}
+            onCrossChange={setIsCross}
+            accountLabel={deskMode === "paper" ? "Paper" : "Live"}
+          />
+        ) : (
+          <p className="text-[11px] text-[#50d2c1]">Spot — no leverage</p>
+        )}
+
+        <div className="flex border-b border-[#1e2329]" data-trade-region="order-modes">
+          {(["market", "limit", "stop"] as TradeOrderMode[]).map((m) => (
             <button
+              key={m}
               type="button"
-              onClick={() => void submit(liveConfirm === "buy")}
+              data-trade-region={`mode-${m}`}
+              onClick={() => setMode(m)}
               className={cn(
-                TERMINAL_TYPO.micro,
-                "border py-1 font-semibold uppercase",
-                liveConfirm === "buy"
-                  ? "border-emerald-700/50 text-emerald-300"
-                  : "border-rose-700/50 text-rose-300",
+                "flex-1 py-2 text-[13px] capitalize",
+                mode === m
+                  ? "border-b-2 border-[#50d2c1] text-[#eee]"
+                  : "text-[#8a9199] hover:text-[#eee]",
               )}
             >
-              Confirm {liveConfirm}
+              {m[0].toUpperCase() + m.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-1" data-trade-region="exec-buttons">
+          <button
+            type="button"
+            onClick={() => setSide("buy")}
+            className={cn(
+              "rounded-md py-2.5 text-[13px] font-semibold",
+              side === "buy"
+                ? "bg-[#50d2c1] text-[#0b0e11]"
+                : "border border-[#1e2329] bg-transparent text-[#eee]",
+              flashSide === "buy" && "ring-1 ring-[#50d2c1]",
+            )}
+          >
+            Buy / Long
+          </button>
+          <button
+            type="button"
+            onClick={() => setSide("sell")}
+            className={cn(
+              "rounded-md py-2.5 text-[13px] font-semibold",
+              side === "sell"
+                ? "bg-[#e5484d] text-white"
+                : "border border-[#1e2329] bg-transparent text-[#eee]",
+              flashSide === "sell" && "ring-1 ring-[#e5484d]",
+            )}
+          >
+            Sell / Short
+          </button>
+        </div>
+
+        <div className="space-y-1 text-[12px]">
+          <div className="flex justify-between text-[#8a9199]">
+            <span>Available to Trade</span>
+            <span className="tabular-nums text-[#eee]">
+              {displayWithdrawable != null
+                ? `${displayWithdrawable.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+                : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[#8a9199]">
+            <span>Current Position</span>
+            <span className={cn("tabular-nums", posSize !== "—" ? "text-[#50d2c1]" : "text-[#eee]")}>
+              {posSize}
+            </span>
+          </div>
+        </div>
+
+        {mode === "limit" ? (
+          <div data-trade-region="limit-price">
+            <input
+              value={limitPx}
+              onChange={(e) => setLimitPx(e.target.value)}
+              className={field}
+              placeholder="Price"
+            />
+            <div className="mt-1 flex justify-end gap-1">
+              {TIF_OPTIONS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTif(t)}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] uppercase",
+                    tif === t ? "text-[#50d2c1]" : "text-[#5d656f]",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {mode === "stop" ? (
+          <input
+            data-trade-region="stop-trigger"
+            value={stopPx}
+            onChange={(e) => setStopPx(e.target.value)}
+            className={field}
+            placeholder="Stop trigger"
+          />
+        ) : null}
+
+        <div data-trade-region="size">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#5d656f]">
+              Size
+            </span>
+            <input
+              value={sizeFieldValue}
+              onChange={(e) => onSizeInput(e.target.value)}
+              className={cn(field, "px-14 text-right")}
+              placeholder="0.00"
+            />
+            <button
+              type="button"
+              onClick={() => setSizeUnit((u) => (u === "usd" ? "coin" : "usd"))}
+              className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-[12px] text-[#8a9199] hover:text-[#eee]"
+            >
+              {sizeUnit === "usd" ? "USDC" : symbol || "Coin"}
+              <ChevronDown className="h-3 w-3" />
             </button>
           </div>
         </div>
-      ) : null}
 
-      {orderError ? (
-        <p className={cn(TERMINAL_TYPO.micro, terminalSkin.textDown, "text-center")}>{orderError}</p>
-      ) : null}
+        <TradeCapitalSlider
+          pct={sizePct}
+          onPctChange={onCapitalPctChange}
+          maxSize={maxNotional}
+          disabled={maxNotional <= 0}
+        />
+
+        <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#8a9199]">
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={reduceOnly}
+              onChange={(e) => setReduceOnly(e.target.checked)}
+              className={chk}
+            />
+            Reduce Only
+          </label>
+          {!isSpot ? (
+            <label className="flex cursor-pointer items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={tpslOn}
+                onChange={(e) => setTpslOn(e.target.checked)}
+                className={chk}
+              />
+              Take Profit / Stop Loss
+            </label>
+          ) : null}
+        </div>
+
+        {tpslOn && !isSpot ? (
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={takeProfitPx}
+              onChange={(e) => setTakeProfitPx(e.target.value)}
+              className={field}
+              placeholder="TP Price"
+            />
+            <input
+              value={tpGain}
+              onChange={(e) => setTpGain(e.target.value)}
+              className={field}
+              placeholder="Gain %"
+            />
+            <input
+              value={stopLossPx}
+              onChange={(e) => setStopLossPx(e.target.value)}
+              className={field}
+              placeholder="SL Price"
+            />
+            <input
+              value={slLoss}
+              onChange={(e) => setSlLoss(e.target.value)}
+              className={field}
+              placeholder="Loss %"
+            />
+          </div>
+        ) : null}
+
+        {selectedAsset && markPx && sizeOk ? (
+          <PreTradeRiskStrip
+            coin={selectedAsset.coin}
+            side={side}
+            size={sizeNum}
+            markPx={markPx}
+            leverage={leverage}
+            isPerp={selectedAsset.market === "perp"}
+          />
+        ) : null}
+
+        {liveConfirm ? (
+          <div className="space-y-2 rounded-md border border-[#e5484d]/40 bg-[#2a0f12] p-3">
+            <p className="text-[12px] font-semibold uppercase text-[#e5484d]">
+              Confirm live {liveConfirm} · {symbol}
+            </p>
+            <p className="text-[12px] text-[#c9cdd3]">
+              {mode.toUpperCase()} {size} @ {markPx !== null ? formatPrice(markPx) : "—"}
+              {estNotional
+                ? ` · ≈ $${estNotional.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                : ""}
+              {!isSpot ? ` · ${leverage}x ${isCross ? "Cross" : "Iso"}` : ""}
+            </p>
+            <p className="text-[11px] text-[#8a9199]">
+              Real mainnet order.
+              {!isSpot ? ` Builder fee ${builderFeeLabel()} on fill.` : " No builder fee on spot."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLiveConfirm(null)}
+                className="rounded-md border border-[#1e2329] py-2 text-[12px] text-[#8a9199]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submit(liveConfirm === "buy")}
+                className={cn(
+                  "rounded-md py-2 text-[12px] font-semibold",
+                  liveConfirm === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
+                )}
+              >
+                Confirm {liveConfirm}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={ctaDisabled}
+            onClick={() => requestSubmit(side === "buy")}
+            className={cn(
+              "w-full rounded-md py-3 text-[14px] font-semibold",
+              side === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
+              ctaDisabled && "cursor-not-allowed opacity-40",
+            )}
+          >
+            {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : ctaLabel}
+          </button>
+        )}
+
+        {executionGuard.reason ? (
+          <p className="text-center text-[11px] text-amber-400">{executionGuard.reason}</p>
+        ) : null}
+        {orderError ? <p className="text-center text-[11px] text-[#e5484d]">{orderError}</p> : null}
+
+        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]" data-trade-region="risk-display">
+          <Detail
+            label="Liquidation Price"
+            value={!isSpot && estLiq != null ? formatPrice(estLiq) : "—"}
+          />
+          <Detail
+            label="Order Value"
+            value={
+              estNotional != null
+                ? `${estNotional.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+                : "—"
+            }
+          />
+          <Detail
+            label="Margin Required"
+            value={
+              estMargin != null
+                ? `${estMargin.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+                : "—"
+            }
+          />
+          <Detail
+            label="Slippage"
+            value={
+              <span className="text-[#50d2c1]">
+                Est: 0.02% / Max: {slipMaxPct}%
+              </span>
+            }
+          />
+          <Detail label="Fees" value={isSpot ? "Spot · no builder" : `Taker 0.0450% · builder ${builderFeeLabel()}`} />
+        </div>
+
+        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d656f]">
+            {deskMode === "paper" ? "Paper account" : "Account"}
+          </p>
+          <Detail
+            label="Portfolio Value"
+            value={
+              displayAccountValue != null
+                ? `$${displayAccountValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                : "—"
+            }
+          />
+          <Detail
+            label="Unrealized PNL"
+            value={
+              paperSnap ? (
+                <span className={paperSnap.unrealized >= 0 ? "text-[#3ed598]" : "text-[#e5484d]"}>
+                  {paperSnap.unrealized >= 0 ? "+" : ""}
+                  {paperSnap.unrealized.toFixed(2)}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Detail
+            label="Available"
+            value={
+              displayWithdrawable != null
+                ? `$${displayWithdrawable.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                : "—"
+            }
+          />
+        </div>
+
+        <details className="text-[11px] text-[#5d656f]">
+          <summary className="cursor-pointer hover:text-[#8a9199]">Desk intel</summary>
+          <div className="mt-2">
+            <ExecutionContextStrip />
+          </div>
+        </details>
+      </div>
 
       <BuilderFeeApprovalModal
         open={builderModalOpen}
@@ -955,6 +944,15 @@ export function TradeTicket() {
         onApprove={() => void confirmBuilderApproval()}
         onCancel={cancelBuilderModal}
       />
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[#8a9199]">{label}</span>
+      <span className="tabular-nums text-[#eee]">{value}</span>
     </div>
   );
 }
