@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { loadMaximizedPanelId, saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
+import { saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Layout } from "react-grid-layout";
 import { OmniBar } from "@/components/terminal/OmniBar";
@@ -343,7 +343,7 @@ export function WorkspaceManager() {
   const activeDeskId = useDeskStore((s) => s.activeDeskId);
   const deskTransitioning = useDeskStore((s) => s.transitioning);
   const [layout, setLayout] = useState<Layout[]>(initialWorkspaceLayout);
-  const [maximizedId, setMaximizedId] = useState<string | null>(() => loadMaximizedPanelId());
+  const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [width, setWidth] = useState(1400);
   const widthMeasureRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -356,6 +356,10 @@ export function WorkspaceManager() {
   const academyMaximizedRef = useRef(false);
 
   const highlightPanelId = useOperatorGuideStore((s) => s.highlightPanelId);
+
+  useEffect(() => {
+    saveMaximizedPanelId(null);
+  }, []);
 
   const extraPanels: WorkspaceWidget[] = useMemo(
     () => [
@@ -732,15 +736,13 @@ export function WorkspaceManager() {
   }, [gridRowHeight, width]);
 
   const activeLayout = useMemo(() => {
-    const dockTicket = deskFocusMode;
     let next = layout;
     if (maximizedId && maximizedId !== "ticket") {
       const item = layout.find((l) => l.i === maximizedId);
       next = item ? [{ ...item, x: 0, y: 0, w: 12, h: maxPanelRows }] : layout;
     }
-    if (dockTicket) next = next.filter((l) => l.i !== "ticket");
-    return next;
-  }, [layout, maximizedId, maxPanelRows, deskFocusMode]);
+    return next.filter((l) => l.i !== "ticket");
+  }, [layout, maximizedId, maxPanelRows]);
 
   const visible = useMemo(() => {
     const ids = new Set(activeLayout.map((l) => l.i));
@@ -749,10 +751,10 @@ export function WorkspaceManager() {
     return allPanels.filter(
       (p) =>
         ids.has(p.id) &&
-        p.id !== (deskFocusMode ? "ticket" : "") &&
+        p.id !== "ticket" &&
         (CORE_WORKSPACE_PANELS.has(p.id) || !hidden.has(p.id) || p.id === pinned),
     );
-  }, [allPanels, activeLayout, hiddenPanelIds, highlightPanelId, deskFocusMode]);
+  }, [allPanels, activeLayout, hiddenPanelIds, highlightPanelId]);
 
   return (
     <div className={cn("flex h-screen flex-col overflow-hidden", terminalSkin.canvas)}>
@@ -872,15 +874,13 @@ export function WorkspaceManager() {
         />
         </div>
       </div>
-      {deskFocusMode ? (
-        <aside
-          data-panel-id="ticket"
-          data-trade-panel="ticket-rail"
-          className="flex h-full w-[340px] min-w-[300px] max-w-[380px] shrink-0 flex-col border-l border-[#1e2329] bg-[#0b0e11]"
-        >
-          <TradeTicket />
-        </aside>
-      ) : null}
+      <aside
+        data-panel-id="ticket"
+        data-trade-panel="ticket-rail"
+        className="z-50 flex min-h-0 w-[340px] shrink-0 flex-col self-stretch border-l border-[#1e2329] bg-[#0b0e11]"
+      >
+        <TradeTicket />
+      </aside>
       </div>
     </div>
   );
