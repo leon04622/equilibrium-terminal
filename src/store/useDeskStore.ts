@@ -6,7 +6,12 @@ import {
   isDeskId,
   type DeskId,
 } from "@/lib/desks/DeskRegistry";
-import { mergeMissingCorePanels } from "@/lib/wedge/layoutMerge";
+import {
+  DESK_LAYOUT_EPOCH,
+  DESK_LAYOUT_EPOCH_KEY,
+  ensureTicketRail,
+  mergeMissingCorePanels,
+} from "@/lib/wedge/layoutMerge";
 
 const STORAGE_KEY = "eq-desks-v1";
 const BOOT_KEY = "eq-boot-operator-os-v1";
@@ -22,6 +27,23 @@ const EMPTY: DeskPersist = { activeDeskId: "execution", layouts: {} };
 function loadPersist(): DeskPersist {
   if (typeof window === "undefined") return EMPTY;
   try {
+    const epoch = localStorage.getItem(DESK_LAYOUT_EPOCH_KEY);
+    if (epoch !== DESK_LAYOUT_EPOCH) {
+      localStorage.setItem(DESK_LAYOUT_EPOCH_KEY, DESK_LAYOUT_EPOCH);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      let activeDeskId: DeskId | null = "execution";
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<DeskPersist>;
+        if (isDeskId(parsed.activeDeskId ?? undefined)) {
+          activeDeskId = parsed.activeDeskId as DeskId;
+        }
+      }
+      const next = { activeDeskId, layouts: {} as DeskPersist["layouts"] };
+      savePersist(next);
+      localStorage.setItem(BOOT_KEY, "1");
+      return next;
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       localStorage.setItem(BOOT_KEY, "1");
@@ -111,7 +133,7 @@ export const useDeskStore = create<DeskState>()(
         const canonical = cloneDeskLayout(id);
         const saved = get().layouts[id];
         if (saved && saved.length) {
-          return mergeMissingCorePanels(saved, canonical);
+          return ensureTicketRail(mergeMissingCorePanels(saved, canonical), canonical);
         }
         return canonical;
       },

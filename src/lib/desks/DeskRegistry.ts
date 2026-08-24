@@ -47,8 +47,8 @@ function gi(
 }
 
 /**
- * PHASE 1 — EXECUTION DESK (Bloomberg-style default)
- * Book · chart · ladder dominate; ticket/positions; morning context below.
+ * PHASE 1 — EXECUTION DESK (Hyperliquid-style default)
+ * Book + chart on the left; full-height order ticket on the right; positions under the chart.
  */
 const EXECUTION_DESK: Layout[] = WEDGE_V1_LAYOUT.map((l) => ({ ...l }));
 

@@ -76,25 +76,25 @@ export const WEDGE_ADVANCED_PANEL_IDS = new Set<string>([
   "livementor",
 ]);
 
-/** Default grid — Bloomberg-style: book/chart/ladder dominate, execution row, context below. */
+/** Default grid — Hyperliquid-style: chart + book, full-height order ticket on the right. */
 export const WEDGE_V1_LAYOUT: Layout[] = [
   { i: "operatormode", x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 },
   { i: "hyperbook", x: 0, y: 2, w: 3, h: 14, minW: 3, minH: 8 },
   { i: "chart", x: 3, y: 2, w: 6, h: 14, minW: 4, minH: 8 },
-  { i: "domladder", x: 9, y: 2, w: 3, h: 7, minW: 2, minH: 4 },
-  { i: "newswire", x: 9, y: 9, w: 3, h: 7, minW: 3, minH: 5 },
-  { i: "ticket", x: 0, y: 16, w: 3, h: 16, minW: 2, minH: 12 },
-  { i: "positions", x: 3, y: 16, w: 5, h: 16, minW: 3, minH: 6 },
-  { i: "operatorjournal", x: 8, y: 16, w: 4, h: 16, minW: 3, minH: 6 },
-  { i: "paperblotter", x: 0, y: 32, w: 3, h: 6, minW: 2, minH: 5 },
-  { i: "liveblotter", x: 3, y: 32, w: 3, h: 6, minW: 2, minH: 5 },
-  { i: "dailybriefing", x: 6, y: 32, w: 3, h: 6, minW: 3, minH: 4 },
-  { i: "marketstate", x: 9, y: 32, w: 3, h: 6, minW: 3, minH: 4 },
-  { i: "intelligence", x: 0, y: 38, w: 6, h: 5, minW: 2, minH: 4 },
-  { i: "dailyops", x: 6, y: 38, w: 6, h: 5, minW: 3, minH: 4 },
-  { i: "slippageradar", x: 0, y: 43, w: 4, h: 6, minW: 3, minH: 4 },
-  { i: "alerts", x: 4, y: 43, w: 4, h: 6, minW: 2, minH: 4 },
-  { i: "surveillance", x: 8, y: 43, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "ticket", x: 9, y: 2, w: 3, h: 24, minW: 3, minH: 20 },
+  { i: "positions", x: 0, y: 16, w: 9, h: 10, minW: 4, minH: 6 },
+  { i: "paperblotter", x: 0, y: 26, w: 3, h: 6, minW: 2, minH: 5 },
+  { i: "liveblotter", x: 3, y: 26, w: 3, h: 6, minW: 2, minH: 5 },
+  { i: "domladder", x: 6, y: 26, w: 3, h: 6, minW: 2, minH: 4 },
+  { i: "newswire", x: 9, y: 26, w: 3, h: 6, minW: 3, minH: 5 },
+  { i: "operatorjournal", x: 0, y: 32, w: 4, h: 8, minW: 3, minH: 6 },
+  { i: "dailybriefing", x: 4, y: 32, w: 4, h: 8, minW: 3, minH: 4 },
+  { i: "marketstate", x: 8, y: 32, w: 4, h: 8, minW: 3, minH: 4 },
+  { i: "intelligence", x: 0, y: 40, w: 6, h: 5, minW: 2, minH: 4 },
+  { i: "dailyops", x: 6, y: 40, w: 6, h: 5, minW: 3, minH: 4 },
+  { i: "slippageradar", x: 0, y: 45, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "alerts", x: 4, y: 45, w: 4, h: 6, minW: 2, minH: 4 },
+  { i: "surveillance", x: 8, y: 45, w: 4, h: 6, minW: 3, minH: 4 },
 ];
 
 /** Optional layout rows appended when Advanced panels are enabled. */
@@ -203,7 +203,7 @@ export const FULL_WORKSPACE_LAYOUT: Layout[] = [
   { i: "intelligence", x: 9, y: 3, w: 3, h: 8, minW: 2, minH: 6 },
   { i: "copilot", x: 9, y: 11, w: 3, h: 3, minW: 2, minH: 4 },
   { i: "proactive", x: 9, y: 14, w: 3, h: 3, minW: 2, minH: 4 },
-  { i: "ticket", x: 0, y: 14, w: 3, h: 10, minW: 2, minH: 8 },
+  { i: "ticket", x: 0, y: 14, w: 3, h: 16, minW: 2, minH: 12 },
   { i: "positions", x: 3, y: 14, w: 6, h: 10, minW: 4, minH: 6 },
   { i: "teamdesk", x: 0, y: 24, w: 6, h: 8, minW: 3, minH: 5 },
   { i: "alerts", x: 6, y: 24, w: 6, h: 8, minW: 2, minH: 5 },

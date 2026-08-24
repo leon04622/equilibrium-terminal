@@ -18,10 +18,7 @@ export function applyModePreset(layout: Layout[], mode: TerminalMode): Layout[] 
   let next = clone(layout);
   switch (mode) {
     case "execution":
-      next = patch(next, "domladder", { x: 0, y: 3, w: 4, h: 14 });
-      next = patch(next, "slippageradar", { x: 4, y: 3, w: 4, h: 10 });
-      next = patch(next, "hyperbook", { x: 8, y: 3, w: 4, h: 14 });
-      next = patch(next, "ticket", { x: 0, y: 17, w: 4, h: 16, minH: 12 });
+      next = patch(next, "ticket", { x: 9, y: 2, w: 3, h: 24, minH: 20, minW: 3 });
       next = patch(next, "macro", { h: 2, w: 12 });
       break;
     case "macro":

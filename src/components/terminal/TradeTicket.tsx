@@ -584,10 +584,10 @@ export function TradeTicket() {
   return (
     <div
       data-trade-panel="ticket"
-      className="eq-panel-scroll flex h-full min-h-0 flex-col overflow-y-auto overscroll-y-contain bg-[#0b0e11] font-sans text-[#eee]"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0e11] font-sans text-[#eee]"
       onWheel={stopPanelWheelBubble}
     >
-      <div className="mx-auto flex w-full max-w-[380px] flex-col gap-3 px-3 py-3">
+      <div className="eq-panel-scroll mx-auto flex min-h-0 w-full max-w-[380px] flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain px-3 pt-2">
         {deskMode === "live" ? <LiveExecutionReadinessStrip /> : null}
         <ExecutionWarningBanner />
         <ExecutionLastResultStrip />
@@ -822,6 +822,82 @@ export function TradeTicket() {
           />
         ) : null}
 
+        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]" data-trade-region="risk-display">
+          <Detail
+            label="Liquidation Price"
+            value={!isSpot && estLiq != null ? formatPrice(estLiq) : "—"}
+          />
+          <Detail
+            label="Order Value"
+            value={
+              estNotional != null
+                ? `${estNotional.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+                : "—"
+            }
+          />
+          <Detail
+            label="Margin Required"
+            value={
+              estMargin != null
+                ? `${estMargin.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+                : "—"
+            }
+          />
+          <Detail
+            label="Slippage"
+            value={
+              <span className="text-[#50d2c1]">
+                Est: 0.02% / Max: {slipMaxPct}%
+              </span>
+            }
+          />
+          <Detail label="Fees" value={isSpot ? "Spot · no builder" : `Taker 0.0450% · builder ${builderFeeLabel()}`} />
+        </div>
+
+        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d656f]">
+            {deskMode === "paper" ? "Paper account" : "Account"}
+          </p>
+          <Detail
+            label="Portfolio Value"
+            value={
+              displayAccountValue != null
+                ? `$${displayAccountValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                : "—"
+            }
+          />
+          <Detail
+            label="Unrealized PNL"
+            value={
+              paperSnap ? (
+                <span className={paperSnap.unrealized >= 0 ? "text-[#3ed598]" : "text-[#e5484d]"}>
+                  {paperSnap.unrealized >= 0 ? "+" : ""}
+                  {paperSnap.unrealized.toFixed(2)}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Detail
+            label="Available"
+            value={
+              displayWithdrawable != null
+                ? `$${displayWithdrawable.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                : "—"
+            }
+          />
+        </div>
+
+        <details className="pb-2 text-[11px] text-[#5d656f]">
+          <summary className="cursor-pointer hover:text-[#8a9199]">Desk intel</summary>
+          <div className="mt-2">
+            <ExecutionContextStrip />
+          </div>
+        </details>
+      </div>
+
+      <div className="mx-auto w-full max-w-[380px] shrink-0 space-y-1.5 border-t border-[#1e2329] bg-[#0b0e11] px-3 py-2">
         {liveConfirm ? (
           <div className="space-y-2 rounded-md border border-[#e5484d]/40 bg-[#2a0f12] p-3">
             <p className="text-[12px] font-semibold uppercase text-[#e5484d]">
@@ -898,85 +974,10 @@ export function TradeTicket() {
             </button>
           </div>
         )}
-
         {executionGuard.reason ? (
           <p className="text-center text-[11px] text-amber-400">{executionGuard.reason}</p>
         ) : null}
         {orderError ? <p className="text-center text-[11px] text-[#e5484d]">{orderError}</p> : null}
-
-        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]" data-trade-region="risk-display">
-          <Detail
-            label="Liquidation Price"
-            value={!isSpot && estLiq != null ? formatPrice(estLiq) : "—"}
-          />
-          <Detail
-            label="Order Value"
-            value={
-              estNotional != null
-                ? `${estNotional.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-                : "—"
-            }
-          />
-          <Detail
-            label="Margin Required"
-            value={
-              estMargin != null
-                ? `${estMargin.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-                : "—"
-            }
-          />
-          <Detail
-            label="Slippage"
-            value={
-              <span className="text-[#50d2c1]">
-                Est: 0.02% / Max: {slipMaxPct}%
-              </span>
-            }
-          />
-          <Detail label="Fees" value={isSpot ? "Spot · no builder" : `Taker 0.0450% · builder ${builderFeeLabel()}`} />
-        </div>
-
-        <div className="space-y-1.5 border-t border-[#1e2329] pt-3 text-[12px]">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d656f]">
-            {deskMode === "paper" ? "Paper account" : "Account"}
-          </p>
-          <Detail
-            label="Portfolio Value"
-            value={
-              displayAccountValue != null
-                ? `$${displayAccountValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                : "—"
-            }
-          />
-          <Detail
-            label="Unrealized PNL"
-            value={
-              paperSnap ? (
-                <span className={paperSnap.unrealized >= 0 ? "text-[#3ed598]" : "text-[#e5484d]"}>
-                  {paperSnap.unrealized >= 0 ? "+" : ""}
-                  {paperSnap.unrealized.toFixed(2)}
-                </span>
-              ) : (
-                "—"
-              )
-            }
-          />
-          <Detail
-            label="Available"
-            value={
-              displayWithdrawable != null
-                ? `$${displayWithdrawable.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                : "—"
-            }
-          />
-        </div>
-
-        <details className="text-[11px] text-[#5d656f]">
-          <summary className="cursor-pointer hover:text-[#8a9199]">Desk intel</summary>
-          <div className="mt-2">
-            <ExecutionContextStrip />
-          </div>
-        </details>
       </div>
 
       <BuilderFeeApprovalModal
