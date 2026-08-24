@@ -24,8 +24,12 @@ Profiles: `src/config/environments.ts`
 
 ## CI/CD
 
-- **`.github/workflows/ci.yml`** — lint + build on PR/push
-- **`.github/workflows/deploy-production.yml`** — manual production deploy + smoke check
+- **`.github/workflows/ci.yml`** — lint, typecheck, and production build on every push/PR
+- **`.github/workflows/deploy-production.yml`** — deploys `main` to Vercel production and checks `/api/ops/health` returns that commit’s `gitSha`
+
+GitHub secrets required on the **production** environment: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Token: https://vercel.com/account/tokens. Org/project IDs: Vercel → Project → Settings → General.
+
+The live site is only current when `GET /api/ops/health` `gitSha` matches `git rev-parse --short HEAD` on `main`.
 
 Local:
 

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
+import { loadMaximizedPanelId, saveMaximizedPanelId } from "@/lib/workspace/workspaceUiPrefs";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Layout } from "react-grid-layout";
 import { OmniBar } from "@/components/terminal/OmniBar";
@@ -358,7 +358,8 @@ export function WorkspaceManager() {
   const highlightPanelId = useOperatorGuideStore((s) => s.highlightPanelId);
 
   useEffect(() => {
-    saveMaximizedPanelId(null);
+    const restored = loadMaximizedPanelId();
+    if (restored && restored !== "ticket") setMaximizedId(restored);
   }, []);
 
   const extraPanels: WorkspaceWidget[] = useMemo(
@@ -823,7 +824,7 @@ export function WorkspaceManager() {
 
       <WedgeMissionStrip />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden pr-[360px]">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       <div ref={widthMeasureRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <WorkspaceSystems layout={layout} deskFocusMode={deskFocusMode} onAdaptiveLayout={applyAdaptiveLayout} />
         <div
@@ -877,7 +878,7 @@ export function WorkspaceManager() {
       <aside
         data-panel-id="ticket"
         data-trade-panel="ticket-rail"
-        className="fixed bottom-0 right-0 top-0 z-[200] flex w-[360px] flex-col border-l-2 border-[#50d2c1] bg-[#0b0e11]"
+        className="flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l border-[#1e2329] bg-[#0b0e11]"
       >
         <TradeTicket />
       </aside>

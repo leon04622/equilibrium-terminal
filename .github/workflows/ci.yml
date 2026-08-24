@@ -17,18 +17,17 @@ jobs:
           node-version: "20"
           cache: npm
 
+      # Match vercel.json installCommand so CI and production resolve the same tree.
       - run: npm install
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Build
         run: npm run build
         env:
           EQUILIBRIUM_JWT_SECRET: ci-jwt-secret-minimum-32-characters-long
           NEXT_PUBLIC_EQ_ENV: qa
-
-      - name: Health check script
-        run: node scripts/ops/health-check.mjs
-        env:
-          EQ_HEALTH_URL: http://localhost:3000/api/ops/health

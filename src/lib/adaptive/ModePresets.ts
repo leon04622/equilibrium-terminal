@@ -47,7 +47,6 @@ export function applyModePreset(layout: Layout[], mode: TerminalMode): Layout[] 
       break;
     case "portfolio":
       next = patch(next, "positions", { x: 0, y: 3, w: 8, h: 14 });
-      next = patch(next, "ticket", { x: 8, y: 3, w: 4, h: 16, minH: 12 });
       break;
     default:
       break;
@@ -63,7 +62,6 @@ export function applyFocusPreset(layout: Layout[], focus: FocusMode): Layout[] {
     case "execution_deep":
       next = patch(next, "domladder", { x: 0, y: 0, w: 6, h: 22 });
       next = patch(next, "slippageradar", { x: 6, y: 0, w: 6, h: 10 });
-      next = patch(next, "ticket", { x: 6, y: 10, w: 6, h: 12 });
       break;
     case "chart_isolated":
       next = patch(next, "chart", { x: 0, y: 0, w: 12, h: 24 });

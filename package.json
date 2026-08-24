@@ -10,7 +10,6 @@
     "restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-terminal.ps1",
     "build": "next build",
     "build:only": "next build",
-    "postbuild": "node scripts/postbuild-deploy.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -18,7 +17,7 @@
     "ops:health": "node scripts/ops/health-check.mjs",
     "ops:readiness": "node scripts/ops/readiness-check.mjs",
     "ops:alpha": "node scripts/ops/alpha-check.mjs",
-    "publish:vercel": "npm run build",
+    "publish:vercel": "npx vercel deploy --prod --yes",
     "docs:platform-pdf": "python scripts/generate-platform-guide-pdf.py",
     "screenshot": "powershell -ExecutionPolicy Bypass -File ./scripts/save-chat-screenshot.ps1",
     "cursor:fix-images": "powershell -ExecutionPolicy Bypass -File ./scripts/repair-cursor-image-paste.ps1"

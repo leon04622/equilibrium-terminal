@@ -10,10 +10,16 @@ export async function GET() {
   const env = resolveDeploymentEnvironment();
   const ready = vitals.operationalScore >= 70;
 
+  const gitSha =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+    process.env.NEXT_PUBLIC_EQ_GIT_SHA ??
+    null;
+
   return NextResponse.json(
     {
       status: ready ? "ok" : "degraded",
       environment: env,
+      gitSha,
       uptimeSec: vitals.processUptimeSec,
       operationalScore: vitals.operationalScore,
       timestamp: Date.now(),
@@ -23,6 +29,7 @@ export async function GET() {
       headers: {
         "cache-control": "no-store",
         "x-eq-env": env,
+        "x-eq-git": gitSha ?? "unknown",
       },
     },
   );

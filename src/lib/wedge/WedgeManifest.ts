@@ -202,7 +202,6 @@ export const FULL_WORKSPACE_LAYOUT: Layout[] = [
   { i: "intelligence", x: 9, y: 3, w: 3, h: 8, minW: 2, minH: 6 },
   { i: "copilot", x: 9, y: 11, w: 3, h: 3, minW: 2, minH: 4 },
   { i: "proactive", x: 9, y: 14, w: 3, h: 3, minW: 2, minH: 4 },
-  { i: "ticket", x: 0, y: 14, w: 3, h: 16, minW: 2, minH: 12 },
   { i: "positions", x: 3, y: 14, w: 6, h: 10, minW: 4, minH: 6 },
   { i: "teamdesk", x: 0, y: 24, w: 6, h: 8, minW: 3, minH: 5 },
   { i: "alerts", x: 6, y: 24, w: 6, h: 8, minW: 2, minH: 5 },

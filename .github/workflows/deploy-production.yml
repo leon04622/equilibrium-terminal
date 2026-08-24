@@ -21,13 +21,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Vercel
-        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Require Vercel credentials
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Post-deploy smoke
         run: |
-          curl -sf "https://equilibrium-terminal-three.vercel.app/api/ops/health" | head -c 500
-        continue-on-error: true
+          missing=0
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is empty. Create one at https://vercel.com/account/tokens and set the GitHub secret (and the production environment secret)."
+            missing=1
+          fi
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::VERCEL_ORG_ID is empty. Copy it from the Vercel project settings."
+            missing=1
+          fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::VERCEL_PROJECT_ID is empty. Copy it from the Vercel project settings."
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Link Vercel project
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' \
+            "${{ secrets.VERCEL_ORG_ID }}" \
+            "${{ secrets.VERCEL_PROJECT_ID }}" > .vercel/project.json
+
+      - name: Deploy to Vercel production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: npx vercel deploy --prod --yes --token="$VERCEL_TOKEN" --build-env "GITHUB_SHA=$GITHUB_SHA"
+
+      - name: Confirm production git SHA
+        env:
+          EXPECTED: ${{ github.sha }}
+        run: |
+          expected="$(printf '%s' "$EXPECTED" | cut -c1-7)"
+          for i in 1 2 3 4 5 6; do
+            body="$(curl -sf "https://equilibrium-terminal-three.vercel.app/api/ops/health" || true)"
+            echo "$body"
+            got="$(node -e "const d=JSON.parse(process.argv[1]||'{}'); process.stdout.write(String(d.gitSha||''))" "$body")"
+            if [ "$got" = "$expected" ]; then
+              echo "Production gitSha=$got"
+              exit 0
+            fi
+            echo "Attempt $i: production gitSha='$got' expected '$expected'"
+            sleep 10
+          done
+          echo "::error::Production is still serving gitSha='$got', expected '$expected'. Vercel did not promote this commit."
+          exit 1
