@@ -823,7 +823,7 @@ export function WorkspaceManager() {
 
       <WedgeMissionStrip />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden pr-[360px]">
       <div ref={widthMeasureRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <WorkspaceSystems layout={layout} deskFocusMode={deskFocusMode} onAdaptiveLayout={applyAdaptiveLayout} />
         <div
@@ -877,7 +877,7 @@ export function WorkspaceManager() {
       <aside
         data-panel-id="ticket"
         data-trade-panel="ticket-rail"
-        className="z-50 flex min-h-0 w-[340px] shrink-0 flex-col self-stretch border-l border-[#1e2329] bg-[#0b0e11]"
+        className="fixed bottom-0 right-0 top-0 z-[200] flex w-[360px] flex-col border-l-2 border-[#50d2c1] bg-[#0b0e11]"
       >
         <TradeTicket />
       </aside>

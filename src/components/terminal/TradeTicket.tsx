@@ -587,6 +587,11 @@ export function TradeTicket() {
       className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0e11] font-sans text-[#eee]"
       onWheel={stopPanelWheelBubble}
     >
+      <div className="shrink-0 border-b border-[#1e2329] px-3 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#50d2c1]">
+          {deskMode === "paper" ? "Paper order" : "Order"}
+        </p>
+      </div>
       <div className="eq-panel-scroll mx-auto flex min-h-0 w-full max-w-[380px] flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain px-3 pt-2">
         {deskMode === "live" ? <LiveExecutionReadinessStrip /> : null}
         <ExecutionWarningBanner />
