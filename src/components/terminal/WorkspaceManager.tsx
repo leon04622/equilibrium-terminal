@@ -679,6 +679,7 @@ export function WorkspaceManager() {
   );
 
   const toggleMaximize = useCallback((id: string) => {
+    if (id === "ticket" && useWedgeStore.getState().deskFocusMode) return;
     setMaximizedId((m) => {
       const next = m === id ? null : id;
       saveMaximizedPanelId(next);
@@ -711,11 +712,16 @@ export function WorkspaceManager() {
 
   useEffect(() => {
     if (!maximizedId) return;
+    if (maximizedId === "ticket" && deskFocusMode) {
+      setMaximizedId(null);
+      saveMaximizedPanelId(null);
+      return;
+    }
     if (!layout.some((item) => item.i === maximizedId)) {
       setMaximizedId(null);
       saveMaximizedPanelId(null);
     }
-  }, [layout, maximizedId]);
+  }, [layout, maximizedId, deskFocusMode]);
 
   const maxPanelRows = useMemo(() => {
     const marginY = TERMINAL_LAYOUT.gridMargin[1];
@@ -726,10 +732,15 @@ export function WorkspaceManager() {
   }, [gridRowHeight, width]);
 
   const activeLayout = useMemo(() => {
-    if (!maximizedId) return layout;
-    const item = layout.find((l) => l.i === maximizedId);
-    return item ? [{ ...item, x: 0, y: 0, w: 12, h: maxPanelRows }] : layout;
-  }, [layout, maximizedId, maxPanelRows]);
+    const dockTicket = deskFocusMode;
+    let next = layout;
+    if (maximizedId && maximizedId !== "ticket") {
+      const item = layout.find((l) => l.i === maximizedId);
+      next = item ? [{ ...item, x: 0, y: 0, w: 12, h: maxPanelRows }] : layout;
+    }
+    if (dockTicket) next = next.filter((l) => l.i !== "ticket");
+    return next;
+  }, [layout, maximizedId, maxPanelRows, deskFocusMode]);
 
   const visible = useMemo(() => {
     const ids = new Set(activeLayout.map((l) => l.i));
@@ -738,9 +749,10 @@ export function WorkspaceManager() {
     return allPanels.filter(
       (p) =>
         ids.has(p.id) &&
+        p.id !== (deskFocusMode ? "ticket" : "") &&
         (CORE_WORKSPACE_PANELS.has(p.id) || !hidden.has(p.id) || p.id === pinned),
     );
-  }, [allPanels, activeLayout, hiddenPanelIds, highlightPanelId]);
+  }, [allPanels, activeLayout, hiddenPanelIds, highlightPanelId, deskFocusMode]);
 
   return (
     <div className={cn("flex h-screen flex-col overflow-hidden", terminalSkin.canvas)}>
@@ -809,7 +821,8 @@ export function WorkspaceManager() {
 
       <WedgeMissionStrip />
 
-      <div ref={widthMeasureRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div ref={widthMeasureRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <WorkspaceSystems layout={layout} deskFocusMode={deskFocusMode} onAdaptiveLayout={applyAdaptiveLayout} />
         <div
           ref={scrollRef}
@@ -858,6 +871,16 @@ export function WorkspaceManager() {
           onToggleMaximize={toggleMaximize}
         />
         </div>
+      </div>
+      {deskFocusMode ? (
+        <aside
+          data-panel-id="ticket"
+          data-trade-panel="ticket-rail"
+          className="flex h-full w-[340px] min-w-[300px] max-w-[380px] shrink-0 flex-col border-l border-[#1e2329] bg-[#0b0e11]"
+        >
+          <TradeTicket />
+        </aside>
+      ) : null}
       </div>
     </div>
   );

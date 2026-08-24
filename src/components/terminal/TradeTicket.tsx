@@ -811,7 +811,7 @@ export function TradeTicket() {
           </div>
         ) : null}
 
-        {selectedAsset && markPx && sizeOk ? (
+        {deskMode === "live" && selectedAsset && markPx && sizeOk ? (
           <PreTradeRiskStrip
             coin={selectedAsset.coin}
             side={side}

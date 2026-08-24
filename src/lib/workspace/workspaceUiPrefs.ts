@@ -7,7 +7,6 @@ const RESTORABLE_PANELS = new Set([
   "copilot",
   "proactive",
   "macro",
-  "ticket",
   "positions",
   "alerts",
 ]);

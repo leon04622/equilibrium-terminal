@@ -76,25 +76,24 @@ export const WEDGE_ADVANCED_PANEL_IDS = new Set<string>([
   "livementor",
 ]);
 
-/** Default grid — Hyperliquid-style: chart + book, full-height order ticket on the right. */
+/** Default grid — chart + book fill the floor; order ticket is a docked right rail (not a grid panel). */
 export const WEDGE_V1_LAYOUT: Layout[] = [
   { i: "operatormode", x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 },
-  { i: "hyperbook", x: 0, y: 2, w: 3, h: 14, minW: 3, minH: 8 },
-  { i: "chart", x: 3, y: 2, w: 6, h: 14, minW: 4, minH: 8 },
-  { i: "ticket", x: 9, y: 2, w: 3, h: 24, minW: 3, minH: 20 },
-  { i: "positions", x: 0, y: 16, w: 9, h: 10, minW: 4, minH: 6 },
-  { i: "paperblotter", x: 0, y: 26, w: 3, h: 6, minW: 2, minH: 5 },
-  { i: "liveblotter", x: 3, y: 26, w: 3, h: 6, minW: 2, minH: 5 },
-  { i: "domladder", x: 6, y: 26, w: 3, h: 6, minW: 2, minH: 4 },
-  { i: "newswire", x: 9, y: 26, w: 3, h: 6, minW: 3, minH: 5 },
-  { i: "operatorjournal", x: 0, y: 32, w: 4, h: 8, minW: 3, minH: 6 },
-  { i: "dailybriefing", x: 4, y: 32, w: 4, h: 8, minW: 3, minH: 4 },
-  { i: "marketstate", x: 8, y: 32, w: 4, h: 8, minW: 3, minH: 4 },
-  { i: "intelligence", x: 0, y: 40, w: 6, h: 5, minW: 2, minH: 4 },
-  { i: "dailyops", x: 6, y: 40, w: 6, h: 5, minW: 3, minH: 4 },
-  { i: "slippageradar", x: 0, y: 45, w: 4, h: 6, minW: 3, minH: 4 },
-  { i: "alerts", x: 4, y: 45, w: 4, h: 6, minW: 2, minH: 4 },
-  { i: "surveillance", x: 8, y: 45, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "hyperbook", x: 0, y: 2, w: 3, h: 16, minW: 3, minH: 8 },
+  { i: "chart", x: 3, y: 2, w: 9, h: 16, minW: 4, minH: 8 },
+  { i: "positions", x: 0, y: 18, w: 12, h: 10, minW: 4, minH: 6 },
+  { i: "paperblotter", x: 0, y: 28, w: 3, h: 6, minW: 2, minH: 5 },
+  { i: "liveblotter", x: 3, y: 28, w: 3, h: 6, minW: 2, minH: 5 },
+  { i: "domladder", x: 6, y: 28, w: 3, h: 6, minW: 2, minH: 4 },
+  { i: "newswire", x: 9, y: 28, w: 3, h: 6, minW: 3, minH: 5 },
+  { i: "operatorjournal", x: 0, y: 34, w: 4, h: 8, minW: 3, minH: 6 },
+  { i: "dailybriefing", x: 4, y: 34, w: 4, h: 8, minW: 3, minH: 4 },
+  { i: "marketstate", x: 8, y: 34, w: 4, h: 8, minW: 3, minH: 4 },
+  { i: "intelligence", x: 0, y: 42, w: 6, h: 5, minW: 2, minH: 4 },
+  { i: "dailyops", x: 6, y: 42, w: 6, h: 5, minW: 3, minH: 4 },
+  { i: "slippageradar", x: 0, y: 47, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "alerts", x: 4, y: 47, w: 4, h: 6, minW: 2, minH: 4 },
+  { i: "surveillance", x: 8, y: 47, w: 4, h: 6, minW: 3, minH: 4 },
 ];
 
 /** Optional layout rows appended when Advanced panels are enabled. */

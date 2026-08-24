@@ -2,7 +2,7 @@ import type { Layout } from "react-grid-layout";
 import { WEDGE_CORE_PANEL_IDS } from "@/lib/wedge/WedgeManifest";
 
 /** Bump when the execution ticket slot must replace persisted tiny Bloomberg strips. */
-export const DESK_LAYOUT_EPOCH = "hl-ticket-rail-v1";
+export const DESK_LAYOUT_EPOCH = "hl-ticket-dock-v1";
 export const DESK_LAYOUT_EPOCH_KEY = "eq-layout-epoch";
 
 /** Add wedge-core panels (e.g. newswire) that were added after a layout was saved. */
@@ -14,12 +14,12 @@ export function mergeMissingCorePanels(saved: Layout[], canonical: Layout[]): La
 }
 
 /**
- * Saved desks still carry the old 6-row ticket strip. If the ticket is too
- * short or not in the Hyperliquid right-rail slot, snap it to canonical.
+ * Execution desk docks the ticket outside the grid. Drop stale ticket cells
+ * from saved layouts so they cannot stretch into a Bloomberg strip.
  */
 export function ensureTicketRail(saved: Layout[], canonical: Layout[]): Layout[] {
   const want = canonical.find((l) => l.i === "ticket");
-  if (!want) return saved.map((l) => ({ ...l }));
+  if (!want) return saved.filter((l) => l.i !== "ticket").map((l) => ({ ...l }));
   const minH = want.minH ?? want.h;
   const minW = want.minW ?? want.w;
   let found = false;
