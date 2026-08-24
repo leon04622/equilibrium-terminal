@@ -24,6 +24,8 @@ export function DeskSessionBar({ onSignIn }: DeskSessionBarProps = {}) {
   const mode = useDeskExecutionStore((s) => s.mode);
   const setMode = useDeskExecutionStore((s) => s.setMode);
   const paperFills = useDeskExecutionStore((s) => s.paperFills.length);
+  const paperEquity = useDeskExecutionStore((s) => s.paperStartingEquity + s.paperRealizedPnl);
+
 
   const trySetMode = (next: DeskExecutionMode) => {
     if (next === "live") {
@@ -87,7 +89,9 @@ export function DeskSessionBar({ onSignIn }: DeskSessionBarProps = {}) {
         LIVE
       </button>
       {mode === "paper" && paperFills > 0 ? (
-        <span className={cn("text-slate-600", TERMINAL_TYPO.micro)}>{paperFills} sim</span>
+        <span className={cn("text-slate-600", TERMINAL_TYPO.micro)}>
+          {paperFills} sim · ${paperEquity.toFixed(0)}
+        </span>
       ) : null}
       <span className="mx-0.5 h-3 w-px bg-slate-800" />
       {siwePending ? (

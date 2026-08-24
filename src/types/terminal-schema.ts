@@ -91,6 +91,7 @@ export interface NormalizedPosition {
   unrealizedPnl: number;
   marginType: "Cross" | "Isolated";
   leverage: number;
+  liquidationPx?: number | null;
   pnlFlash?: "up" | "down" | null;
 }
 

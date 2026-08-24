@@ -20,6 +20,7 @@ import { OperatorModeGuidanceStrip } from "@/components/terminal/OperatorModeGui
 import { MorningTradingPathStrip } from "@/components/terminal/MorningTradingPathStrip";
 import { OperatorModeController } from "@/components/terminal/OperatorModeController";
 import { DeskSessionBar } from "@/components/terminal/DeskSessionBar";
+import { usePaperTriggerMonitor } from "@/hooks/usePaperTriggerMonitor";
 import { beginnerPanelSubtitle, beginnerPanelTitle } from "@/lib/beginner/beginnerTranslation";
 import { DailyStateStrip } from "@/components/terminal/DailyStateStrip";
 import { MarginCallStrip } from "@/components/terminal/MarginCallStrip";
@@ -334,6 +335,7 @@ const WorkspaceGrid = memo(function WorkspaceGrid({
 }, workspaceGridPropsEqual);
 
 export function WorkspaceManager() {
+  usePaperTriggerMonitor();
   const widgets = useTerminalStore((s) => s.widgets);
   const removeWidget = useTerminalStore((s) => s.removeWidget);
   const deskFocusMode = useWedgeStore((s) => s.deskFocusMode);

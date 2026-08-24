@@ -4,7 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { cn, formatPrice, formatSize } from "@/lib/utils";
 import { TERMINAL_TYPO, terminalSkin } from "@/lib/theme";
 import { stopPanelWheelBubble } from "@/lib/runtime/panelScroll";
-import { paperBookSummary, unrealizedPnl } from "@/lib/execution/paperPnL";
+import { isolatedLiqPx, paperAccountSnapshot, unrealizedPnl } from "@/lib/execution/paperPnL";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
 import { formatTapeTime } from "@/lib/theme";
@@ -13,17 +13,17 @@ export function PaperBlotterConsole() {
   const mode = useDeskExecutionStore((s) => s.mode);
   const positions = useDeskExecutionStore((s) => s.paperPositions);
   const fills = useDeskExecutionStore((s) => s.paperFills);
+  const realized = useDeskExecutionStore((s) => s.paperRealizedPnl);
+  const starting = useDeskExecutionStore((s) => s.paperStartingEquity);
   const resetPaperBook = useDeskExecutionStore((s) => s.resetPaperBook);
   const book = useHyperliquidStore((s) => s.book);
+  const mids = useHyperliquidStore((s) => s.mids.mids);
   const selectedCoin = useHyperliquidStore((s) => s.selectedCoin);
 
-  const marks: Record<string, number> = {};
+  const marks: Record<string, number> = { ...mids };
   if (book?.coin && book.mid) marks[book.coin] = book.mid;
-  for (const p of positions) {
-    if (p.coin === book?.coin && book?.mid) marks[p.coin] = book.mid;
-  }
 
-  const { unrealized, openCount } = paperBookSummary(positions, marks);
+  const snap = paperAccountSnapshot(positions, realized, starting, marks);
 
   return (
     <div
@@ -33,13 +33,13 @@ export function PaperBlotterConsole() {
       <header className={cn(terminalSkin.borderB, "flex shrink-0 items-center gap-2 px-1 py-0.5")}>
         <span className={cn(TERMINAL_TYPO.label, "text-cyan-300")}>PAPER BLOTTER</span>
         <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-          {mode.toUpperCase()} · {fills.length} fills · {openCount} open
+          {mode.toUpperCase()} · {fills.length} fills · {snap.openCount} open
         </span>
         <button
           type="button"
           onClick={resetPaperBook}
           className={cn(TERMINAL_TYPO.micro, "ml-auto flex items-center gap-0.5 text-slate-500 hover:text-slate-300")}
-          title="Clear paper session"
+          title="Reset paper account to $10,000"
         >
           <RotateCcw className="h-2.5 w-2.5" />
           RESET
@@ -56,14 +56,24 @@ export function PaperBlotterConsole() {
           data-paperblotter-region="summary"
         >
           <div className="bg-slate-950 px-1 py-0.5">
+            <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>EQUITY</span>
+            <p className={cn(TERMINAL_TYPO.dataSm, "text-slate-200")}>${snap.equity.toFixed(2)}</p>
+          </div>
+          <div className="bg-slate-950 px-1 py-0.5">
+            <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>FREE</span>
+            <p className={cn(TERMINAL_TYPO.dataSm, terminalSkin.textUp)}>
+              ${Math.max(0, snap.available).toFixed(2)}
+            </p>
+          </div>
+          <div className="bg-slate-950 px-1 py-0.5">
             <span className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>UNREAL P&amp;L</span>
             <p
               className={cn(
                 TERMINAL_TYPO.dataSm,
-                unrealized >= 0 ? terminalSkin.textUp : terminalSkin.textDown,
+                snap.unrealized >= 0 ? terminalSkin.textUp : terminalSkin.textDown,
               )}
             >
-              {openCount ? `${unrealized >= 0 ? "+" : ""}${unrealized.toFixed(2)}` : "—"}
+              {snap.openCount ? `${snap.unrealized >= 0 ? "+" : ""}${snap.unrealized.toFixed(2)}` : "—"}
             </p>
           </div>
           <div className="bg-slate-950 px-1 py-0.5">
@@ -74,7 +84,7 @@ export function PaperBlotterConsole() {
 
         {positions.length === 0 && fills.length === 0 ? (
           <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
-            No paper fills yet. DESK → PAPER, then place an order on Trade Ticket.
+            No paper fills yet. DESK → PAPER, then size with the slider on Trade Ticket.
           </p>
         ) : null}
 
@@ -82,8 +92,9 @@ export function PaperBlotterConsole() {
           <section className="mb-2">
             <p className={cn(TERMINAL_TYPO.micro, "mb-0.5 text-slate-600")}>OPEN POSITIONS</p>
             {positions.map((p) => {
-              const mark = marks[p.coin];
-              const pnl = mark ? unrealizedPnl(p, mark) : null;
+              const mark = marks[p.coin] ?? p.avgPx;
+              const pnl = unrealizedPnl(p, mark);
+              const liq = isolatedLiqPx(p);
               return (
                 <div key={p.coin} className="border-b border-slate-800/80 py-1">
                   <div className="flex items-center gap-1">
@@ -91,24 +102,30 @@ export function PaperBlotterConsole() {
                       {p.coin}
                     </span>
                     <span className={cn(TERMINAL_TYPO.micro, "text-slate-500")}>
-                      {p.size > 0 ? "LONG" : "SHORT"} {formatSize(Math.abs(p.size))}
+                      {p.size > 0 ? "LONG" : "SHORT"} {formatSize(Math.abs(p.size))} · {p.leverage}x{" "}
+                      {p.isCross ? "X" : "I"}
                     </span>
                     <span className={cn(TERMINAL_TYPO.micro, "ml-auto text-slate-500")}>
                       @ {formatPrice(p.avgPx)}
                     </span>
-                    {pnl != null ? (
-                      <span
-                        className={cn(
-                          TERMINAL_TYPO.micro,
-                          "w-14 text-right tabular-nums",
-                          pnl >= 0 ? terminalSkin.textUp : terminalSkin.textDown,
-                        )}
-                      >
-                        {pnl >= 0 ? "+" : ""}
-                        {pnl.toFixed(2)}
-                      </span>
-                    ) : null}
+                    <span
+                      className={cn(
+                        TERMINAL_TYPO.micro,
+                        "w-14 text-right tabular-nums",
+                        pnl >= 0 ? terminalSkin.textUp : terminalSkin.textDown,
+                      )}
+                    >
+                      {pnl >= 0 ? "+" : ""}
+                      {pnl.toFixed(2)}
+                    </span>
                   </div>
+                  {liq != null ? (
+                    <p className={cn(TERMINAL_TYPO.micro, "text-slate-600")}>
+                      Liq {formatPrice(liq)}
+                      {p.takeProfitPx ? ` · TP ${formatPrice(p.takeProfitPx)}` : ""}
+                      {p.stopLossPx ? ` · SL ${formatPrice(p.stopLossPx)}` : ""}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
@@ -130,7 +147,7 @@ export function PaperBlotterConsole() {
                     f.isBuy ? terminalSkin.textUp : terminalSkin.textDown,
                   )}
                 >
-                  {f.isBuy ? "BUY" : "SELL"}
+                  {f.reason === "liq" ? "LIQ" : f.reason === "tp" ? "TP" : f.reason === "sl" ? "SL" : f.isBuy ? "BUY" : "SELL"}
                 </span>
                 <span className={cn(TERMINAL_TYPO.dataSm, "text-slate-400")}>
                   {formatSize(f.size)} @ {formatPrice(f.px)}

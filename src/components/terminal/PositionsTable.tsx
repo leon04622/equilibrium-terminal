@@ -11,9 +11,7 @@ import { useBuilderFeeGate } from "@/hooks/useBuilderFeeGate";
 import { BuilderFeeApprovalModal } from "@/components/terminal/BuilderFeeApprovalModal";
 import { spotBaseSymbol } from "@/lib/hyperliquid/spotDesk";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
-import { unrealizedPnl } from "@/lib/execution/paperPnL";
-
-const PAPER_DEFAULT_ACCOUNT_USD = 10_000;
+import { paperAccountSnapshot, isolatedLiqPx, unrealizedPnl } from "@/lib/execution/paperPnL";
 
 function subscribePositions(callback: () => void) {
   return useHyperliquidStore.subscribe((s) => s.positionsVersion, () => callback());
@@ -67,6 +65,11 @@ function PositionRowView({
       <td className="px-2 py-1.5 text-center text-[10px] text-terminal-muted">
         {row.marginType}
         <span className="ml-1 text-white/60">{row.leverage}x</span>
+        {row.liquidationPx != null && row.liquidationPx > 0 ? (
+          <span className="mt-0.5 block text-[9px] text-slate-600">
+            Liq {formatPrice(row.liquidationPx)}
+          </span>
+        ) : null}
       </td>
       <td
         className={cn(
@@ -107,6 +110,8 @@ export function PositionsTable() {
   } = useHyperliquidAuthContext();
   const deskMode = useDeskExecutionStore((s) => s.mode);
   const paperPositions = useDeskExecutionStore((s) => s.paperPositions);
+  const paperRealizedPnl = useDeskExecutionStore((s) => s.paperRealizedPnl);
+  const paperStartingEquity = useDeskExecutionStore((s) => s.paperStartingEquity);
   const {
     modalOpen: builderModalOpen,
     modalContext: builderModalContext,
@@ -146,18 +151,22 @@ export function PositionsTable() {
           entryPrice: p.avgPx,
           markPrice: mark,
           unrealizedPnl: unrealizedPnl(p, mark),
-          marginType: "Cross" as const,
-          leverage: 10,
+          marginType: p.isCross ? "Cross" : "Isolated",
+          leverage: p.leverage,
+          liquidationPx: isolatedLiqPx(p),
           pnlFlash: null,
         };
       });
   }, [assets, deskMode, mids, paperPositions]);
 
+  const paperSnap = useMemo(() => {
+    if (deskMode !== "paper") return null;
+    return paperAccountSnapshot(paperPositions, paperRealizedPnl, paperStartingEquity, mids);
+  }, [deskMode, mids, paperPositions, paperRealizedPnl, paperStartingEquity]);
+
   const displayPositions = deskMode === "paper" ? paperPerpRows : positions;
-  const displayEquity =
-    deskMode === "paper" ? PAPER_DEFAULT_ACCOUNT_USD : accountValue;
-  const displayWithdrawable =
-    deskMode === "paper" ? PAPER_DEFAULT_ACCOUNT_USD : withdrawable;
+  const displayEquity = paperSnap?.equity ?? accountValue;
+  const displayWithdrawable = paperSnap != null ? Math.max(0, paperSnap.available) : withdrawable;
 
   const spotHoldings = useMemo(() => {
     if (deskMode === "paper") {

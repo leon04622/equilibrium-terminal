@@ -114,4 +114,10 @@ export interface ExecuteOrderParams {
   reduceOnly?: boolean;
   szDecimals?: number;
   markPx?: number;
+  tif?: HlTimeInForce;
+  takeProfitPx?: number;
+  stopLossPx?: number;
+  leverage?: number;
+  isCross?: boolean;
+  isSpot?: boolean;
 }

@@ -53,6 +53,7 @@ import type { DrawingDraftState } from "@/lib/charting/drawingCanvasPaint";
 import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import { useChartToolsStore } from "@/store/useChartToolsStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
+import { isolatedLiqPx } from "@/lib/execution/paperLedger";
 import { useTerminalStore } from "@/store/terminalStore";
 import type { ChartDrawTool, ChartDrawing, MagnetMode } from "@/types/chart-tools";
 import type { NormalizedCandle } from "@/types/terminal-schema";
@@ -301,6 +302,8 @@ export function ChartWidget() {
   const hideDrawings = useChartToolsStore((s) => s.drawingPrefs.hideDrawings);
   const ticketLimit = useChartToolsStore((s) => s.ticketPreview?.limit);
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
+  const ticketTp = useChartToolsStore((s) => s.ticketPreview?.tp);
+  const ticketSl = useChartToolsStore((s) => s.ticketPreview?.sl);
   const paperCount = useDeskExecutionStore((s) => s.paperPositions.length);
   const deskMode = useDeskExecutionStore((s) => s.mode);
 
@@ -498,6 +501,10 @@ export function ChartWidget() {
         if (paper && paper.size !== 0) {
           const long = paper.size > 0;
           addLine(paper.avgPx, long ? EQ_CHART.up : EQ_CHART.down, "PAPER ENTRY");
+          const liq = isolatedLiqPx(paper);
+          if (liq) addLine(liq, "#f23645", "PAPER LIQ", LineStyle.Dashed);
+          if (paper.takeProfitPx) addLine(paper.takeProfitPx, "#26a69a", "PAPER TP", LineStyle.Dotted);
+          if (paper.stopLossPx) addLine(paper.stopLossPx, "#f23645", "PAPER SL", LineStyle.Dotted);
         }
       }
     }
@@ -508,6 +515,12 @@ export function ChartWidget() {
     }
     if (preview?.stop && Number.isFinite(preview.stop)) {
       addLine(preview.stop, "#f23645", "STOP", LineStyle.Dotted);
+    }
+    if (preview?.tp && Number.isFinite(preview.tp)) {
+      addLine(preview.tp, "#26a69a", "TP", LineStyle.Dotted);
+    }
+    if (preview?.sl && Number.isFinite(preview.sl)) {
+      addLine(preview.sl, "#f23645", "SL", LineStyle.Dotted);
     }
   }, []);
 
@@ -834,6 +847,8 @@ export function ChartWidget() {
     hideDrawings,
     ticketLimit,
     ticketStop,
+    ticketTp,
+    ticketSl,
     paperCount,
     deskMode,
     selectedCoin,

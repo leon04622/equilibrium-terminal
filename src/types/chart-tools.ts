@@ -281,6 +281,9 @@ export const DEFAULT_DRAWING_PREFS: ChartDrawingPrefs = {
 export interface ChartTicketPreview {
   limit?: number;
   stop?: number;
+  tp?: number;
+  sl?: number;
+  liq?: number;
 }
 
 export type ChartIndicatorId = string;

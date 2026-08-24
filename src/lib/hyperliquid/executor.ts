@@ -37,6 +37,7 @@ import type {
   HlExchangeResponse,
   HlL1Action,
   HlOrderAction,
+  HlOrderGrouping,
   HlOrderWire,
   HlSignature,
   OrderRequest,
@@ -114,12 +115,12 @@ export function orderRequestToWire(order: OrderRequest): HlOrderWire {
 
 export function buildOrderAction(
   orders: OrderRequest[],
-  options?: { attachBuilder?: boolean },
+  options?: { attachBuilder?: boolean; grouping?: HlOrderGrouping },
 ): HlOrderAction {
   const action: HlOrderAction = {
     type: "order",
     orders: orders.map(orderRequestToWire),
-    grouping: "na",
+    grouping: options?.grouping ?? (orders.length > 1 ? "normalTpsl" : "na"),
   };
   if (options?.attachBuilder) {
     const asset = orders[0]?.asset;
@@ -159,15 +160,8 @@ export async function postApproveBuilderFee(
   return postExchange({ action, nonce, signature });
 }
 
-export interface ExecuteOrderOptions extends ExecuteOrderParams {
-  /** Attach TP trigger (reduce-only). */
-  takeProfitPx?: number;
-  /** Attach SL trigger (reduce-only). */
-  stopLossPx?: number;
-}
-
 export async function executeOrder(
-  params: ExecuteOrderOptions,
+  params: ExecuteOrderParams,
   agentKey?: Hex,
   options?: { attachBuilder?: boolean },
 ): Promise<HlExchangeResponse> {
@@ -189,7 +183,7 @@ export async function executeOrder(
   } else if (params.mode === "limit") {
     if (!params.limitPx || params.limitPx <= 0) throw new Error("Limit price required");
     limitPx = params.limitPx;
-    orderType = { limit: { tif: "Gtc" } };
+    orderType = { limit: { tif: params.tif ?? "Gtc" } };
   } else {
     if (!params.stopPx || params.stopPx <= 0) throw new Error("Stop trigger required");
     limitPx = slippagePrice(mark, params.isBuy, MARKET_SLIPPAGE, szDecimals, isSpot);

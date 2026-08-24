@@ -495,7 +495,10 @@ export const useChartToolsStore = create<ChartToolsState>()(
         cur &&
         ticketPreview &&
         cur.limit === ticketPreview.limit &&
-        cur.stop === ticketPreview.stop
+        cur.stop === ticketPreview.stop &&
+        cur.tp === ticketPreview.tp &&
+        cur.sl === ticketPreview.sl &&
+        cur.liq === ticketPreview.liq
       ) {
         return;
       }
