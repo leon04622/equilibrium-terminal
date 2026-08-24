@@ -27,7 +27,7 @@ Profiles: `src/config/environments.ts`
 - **`.github/workflows/ci.yml`** — lint, typecheck, and production build on every push/PR
 - **`.github/workflows/deploy-production.yml`** — deploys `main` to Vercel production and checks `/api/ops/health` returns that commit’s `gitSha`
 
-GitHub secrets required on the **production** environment: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Token: https://vercel.com/account/tokens. Org/project IDs: Vercel → Project → Settings → General.
+GitHub **repository** secrets required: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Token: https://vercel.com/account/tokens. Org/project IDs: Vercel → Project → Settings → General. Do not put these only on a GitHub Environment named `production` — that environment’s slots were empty and blocked every deploy.
 
 The live site is only current when `GET /api/ops/health` `gitSha` matches `git rev-parse --short HEAD` on `main`.
 
