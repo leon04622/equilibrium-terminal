@@ -34,8 +34,9 @@ import { executionAuthorizationEngine } from "@/lib/security/ExecutionAuthorizat
 import { AlphaFeatureFlags } from "@/lib/alpha/AlphaFeatureFlags";
 import { useProductionConfigStore } from "@/store/useProductionConfigStore";
 import { useDeskExecutionStore } from "@/store/useDeskExecutionStore";
-import { paperFillPrice } from "@/lib/execution/PaperExecutionEngine";
+import { paperFillPrice, resolvePaperMarkPx } from "@/lib/execution/PaperExecutionEngine";
 import { useHyperliquidStore } from "@/store/hyperliquidStore";
+import { useChartAnalyticsStore } from "@/store/useChartAnalyticsStore";
 import {
   assertExchangeOk,
   ExchangeRejectError,
@@ -45,6 +46,22 @@ import {
   beginLiveExecutionAudit,
   logLiveExecutionOutcome,
 } from "@/lib/hyperliquid/executionAudit";
+
+function livePaperMark(coin: string, fallback?: number | null): number | null {
+  const terminal = useHyperliquidStore.getState();
+  const lastBar = useChartAnalyticsStore.getState().displayCandles.at(-1);
+  const lastTrade = terminal.trades.find((t) => t.coin === coin);
+  return resolvePaperMarkPx({
+    coin,
+    selectedCoin: terminal.selectedCoin,
+    lastTradePx: lastTrade?.price ?? null,
+    bookCoin: terminal.book?.coin ?? null,
+    bookMid: terminal.book?.mid ?? null,
+    candleClose: lastBar?.close ?? null,
+    midPx: terminal.mids.mids[coin] ?? null,
+    fallbackPx: fallback ?? null,
+  });
+}
 
 function formatAuthError(err: unknown): string {
   if (!(err instanceof Error)) return "Approval failed";
@@ -325,7 +342,10 @@ export function useHyperliquidAuth() {
         throw new Error(auth.reason);
       }
 
-      const mark = params.markPx ?? terminal.book?.mid ?? null;
+      const mark =
+        executionMode === "paper"
+          ? livePaperMark(params.coin, params.markPx ?? terminal.book?.mid ?? null)
+          : (params.markPx ?? terminal.book?.mid ?? null);
       if (executionMode === "paper") {
         if (mark == null || mark <= 0) throw new Error("Live price unavailable for paper fill");
         const audit = beginLiveExecutionAudit({
@@ -521,6 +541,10 @@ export function useHyperliquidAuth() {
         setOrderPending(true);
         setOrderError(null);
         try {
+          const closeMark = livePaperMark(coin, markPx);
+          if (closeMark == null || closeMark <= 0) {
+            throw new Error("Live price unavailable for paper fill");
+          }
           const fillPx = paperFillPrice(
             {
               coin,
@@ -528,9 +552,9 @@ export function useHyperliquidAuth() {
               isBuy,
               size: closeSize,
               mode: "market",
-              markPx,
+              markPx: closeMark,
             },
-            markPx,
+            closeMark,
           );
           useDeskExecutionStore.getState().recordPaperFill(
             {

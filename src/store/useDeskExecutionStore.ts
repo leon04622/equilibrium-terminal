@@ -80,6 +80,10 @@ interface DeskExecutionState extends DeskExecutionPersist {
   lastPaperFillAt: number | null;
   setMode: (mode: DeskExecutionMode) => void;
   recordPaperFill: (params: ExecuteOrderParams, fillPx: number) => void;
+  setPaperTpsl: (
+    coin: string,
+    tpsl: { takeProfitPx?: number | null; stopLossPx?: number | null },
+  ) => void;
   forcePaperClose: (coin: string, px: number, reason: PaperFillReason) => void;
   tickPaperTriggers: (marks: Record<string, number>) => void;
   resetPaperBook: () => void;
@@ -167,6 +171,20 @@ export const useDeskExecutionStore = create<DeskExecutionState>()(
 
     recordPaperFill: (params, fillPx) => {
       commitFill(get, set, params, fillPx, "order", { [params.coin]: fillPx });
+    },
+
+    setPaperTpsl: (coin, tpsl) => {
+      const paperPositions = get().paperPositions.map((p) => {
+        if (p.coin !== coin || Math.abs(p.size) < 1e-12) return p;
+        return {
+          ...p,
+          takeProfitPx: tpsl.takeProfitPx !== undefined ? tpsl.takeProfitPx : p.takeProfitPx,
+          stopLossPx: tpsl.stopLossPx !== undefined ? tpsl.stopLossPx : p.stopLossPx,
+          updatedAt: Date.now(),
+        };
+      });
+      set({ paperPositions });
+      persistNow({ ...get(), paperPositions });
     },
 
     forcePaperClose: (coin, px, reason) => {

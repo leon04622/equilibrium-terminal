@@ -122,11 +122,14 @@ export function TradeTicket() {
   const [liveConfirm, setLiveConfirm] = useState<{ side: "buy" | "sell"; size: number } | null>(
     null,
   );
+  const [openTp, setOpenTp] = useState("");
+  const [openSl, setOpenSl] = useState("");
 
   const markPx =
-    book?.mid ??
+    (book?.coin === selectedAsset?.coin ? book?.mid : undefined) ??
     (selectedAsset?.coin ? allMids[selectedAsset.coin] : undefined) ??
     null;
+  const setPaperTpsl = useDeskExecutionStore((s) => s.setPaperTpsl);
   const isSpot = selectedAsset?.market === "spot";
   const maxLeverage = useMemo(() => {
     if (isSpot) return 1;
@@ -148,6 +151,13 @@ export function TradeTicket() {
   const existingPaper = selectedAsset
     ? paperPositions.find((p) => p.coin === selectedAsset.coin) ?? null
     : null;
+  const openPaper =
+    existingPaper && !isSpot && Math.abs(existingPaper.size) > 1e-9 ? existingPaper : null;
+
+  useEffect(() => {
+    setOpenTp(openPaper?.takeProfitPx != null ? String(openPaper.takeProfitPx) : "");
+    setOpenSl(openPaper?.stopLossPx != null ? String(openPaper.stopLossPx) : "");
+  }, [openPaper?.coin, openPaper?.takeProfitPx, openPaper?.stopLossPx]);
 
   const executionGuard = useMemo(() => {
     if (deskMode === "paper") {
@@ -562,11 +572,30 @@ export function TradeTicket() {
   const actionBlocked = submitBlocked || Boolean(liveConfirm);
   const posSize =
     existingPaper && Math.abs(existingPaper.size) > 1e-9
-      ? `${formatSize(Math.abs(existingPaper.size))} ${symbol}`
+      ? `${existingPaper.size > 0 ? "LONG" : "SHORT"} ${formatSize(Math.abs(existingPaper.size))} ${symbol} @ ${formatPrice(existingPaper.avgPx)}`
       : isSpot && (spotHolding || maxSell > 0)
         ? `${formatSize(spotHolding?.available ?? maxSell)} ${spotBaseSymbol(selectedAsset?.coin ?? "")}`
         : "—";
   const slipMaxPct = (MARKET_SLIPPAGE * 100).toFixed(2);
+
+  const applyOpenTpsl = useCallback(() => {
+    if (!openPaper) return;
+    const tpRaw = Number.parseFloat(openTp);
+    const slRaw = Number.parseFloat(openSl);
+    const tp = Number.isFinite(tpRaw) && tpRaw > 0 ? tpRaw : null;
+    const sl = Number.isFinite(slRaw) && slRaw > 0 ? slRaw : null;
+    const long = openPaper.size > 0;
+    if (tp != null && ((long && tp <= openPaper.avgPx) || (!long && tp >= openPaper.avgPx))) {
+      setOrderError(long ? "TP must be above entry for a long" : "TP must be below entry for a short");
+      return;
+    }
+    if (sl != null && ((long && sl >= openPaper.avgPx) || (!long && sl <= openPaper.avgPx))) {
+      setOrderError(long ? "SL must be below entry for a long" : "SL must be above entry for a short");
+      return;
+    }
+    setOrderError(null);
+    setPaperTpsl(openPaper.coin, { takeProfitPx: tp, stopLossPx: sl });
+  }, [openPaper, openSl, openTp, setOrderError, setPaperTpsl]);
   const field =
     "h-10 w-full border-[0.5px] border-slate-800 bg-slate-950 px-3 font-mono text-[12px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-700/80";
   const chk = "h-3.5 w-3.5 rounded-none border-slate-700 accent-[#00e5ff]";
@@ -694,6 +723,35 @@ export function TradeTicket() {
             </span>
           </div>
         </div>
+
+        {deskMode === "paper" && openPaper ? (
+          <div className="space-y-2 border-[0.5px] border-slate-800 bg-slate-950 p-2" data-trade-region="open-tpsl">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500">
+              Open trade · set TP / SL
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={openTp}
+                onChange={(e) => setOpenTp(e.target.value)}
+                className={field}
+                placeholder="TP price"
+              />
+              <input
+                value={openSl}
+                onChange={(e) => setOpenSl(e.target.value)}
+                className={field}
+                placeholder="SL price"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={applyOpenTpsl}
+              className="h-8 w-full border-[0.5px] border-[#00e5ff]/50 font-mono text-[11px] font-semibold uppercase tracking-wide text-[#00e5ff] hover:bg-[#00e5ff]/10"
+            >
+              Save TP / SL
+            </button>
+          </div>
+        ) : null}
 
         {mode === "limit" ? (
           <div data-trade-region="limit-price">

@@ -304,8 +304,15 @@ export function ChartWidget() {
   const ticketStop = useChartToolsStore((s) => s.ticketPreview?.stop);
   const ticketTp = useChartToolsStore((s) => s.ticketPreview?.tp);
   const ticketSl = useChartToolsStore((s) => s.ticketPreview?.sl);
-  const paperCount = useDeskExecutionStore((s) => s.paperPositions.length);
   const deskMode = useDeskExecutionStore((s) => s.mode);
+  const paperLinesKey = useDeskExecutionStore((s) =>
+    s.paperPositions
+      .map(
+        (p) =>
+          `${p.coin}:${p.size}:${p.avgPx}:${p.leverage}:${p.takeProfitPx ?? ""}:${p.stopLossPx ?? ""}`,
+      )
+      .join("|"),
+  );
 
   const [legend, setLegend] = useState<ChartLegendValues | null>(null);
 
@@ -487,24 +494,27 @@ export function ChartWidget() {
     };
 
     if (tools.showPositionLines) {
-      const livePos = useTerminalStore.getState().positions.find((p) => p.coin === coin);
-      if (livePos && livePos.size !== 0) {
-        const long = livePos.size > 0;
-        addLine(livePos.entryPrice, long ? EQ_CHART.up : EQ_CHART.down, "ENTRY");
-        if (livePos.markPrice > 0) {
-          addLine(livePos.markPrice, "#787b86", "MARK", LineStyle.Dashed);
-        }
-      }
-
-      if (useDeskExecutionStore.getState().mode === "paper") {
+      const paperMode = useDeskExecutionStore.getState().mode === "paper";
+      if (paperMode) {
         const paper = useDeskExecutionStore.getState().paperPositions.find((p) => p.coin === coin);
         if (paper && paper.size !== 0) {
           const long = paper.size > 0;
-          addLine(paper.avgPx, long ? EQ_CHART.up : EQ_CHART.down, "PAPER ENTRY");
+          addLine(paper.avgPx, long ? EQ_CHART.up : EQ_CHART.down, "ENTRY");
           const liq = isolatedLiqPx(paper);
-          if (liq) addLine(liq, "#f23645", "PAPER LIQ", LineStyle.Dashed);
-          if (paper.takeProfitPx) addLine(paper.takeProfitPx, "#26a69a", "PAPER TP", LineStyle.Dotted);
-          if (paper.stopLossPx) addLine(paper.stopLossPx, "#f23645", "PAPER SL", LineStyle.Dotted);
+          if (liq && liq > 0 && Number.isFinite(liq)) {
+            addLine(liq, "#f23645", "LIQ", LineStyle.Dashed);
+          }
+          if (paper.takeProfitPx) addLine(paper.takeProfitPx, "#26a69a", "TP", LineStyle.Dotted);
+          if (paper.stopLossPx) addLine(paper.stopLossPx, "#f23645", "SL", LineStyle.Dotted);
+        }
+      } else {
+        const livePos = useTerminalStore.getState().positions.find((p) => p.coin === coin);
+        if (livePos && livePos.size !== 0) {
+          const long = livePos.size > 0;
+          addLine(livePos.entryPrice, long ? EQ_CHART.up : EQ_CHART.down, "ENTRY");
+          if (livePos.markPrice > 0) {
+            addLine(livePos.markPrice, "#787b86", "MARK", LineStyle.Dashed);
+          }
         }
       }
     }
@@ -849,7 +859,7 @@ export function ChartWidget() {
     ticketStop,
     ticketTp,
     ticketSl,
-    paperCount,
+    paperLinesKey,
     deskMode,
     selectedCoin,
     syncPriceLines,

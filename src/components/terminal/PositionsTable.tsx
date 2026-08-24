@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, Fragment } from "react";
 import { X, Loader2 } from "lucide-react";
 import { cn, formatPrice, formatSize } from "@/lib/utils";
 import { useHyperliquidAuthContext } from "@/contexts/HyperliquidAuthContext";
@@ -12,6 +12,71 @@ import { BuilderFeeApprovalModal } from "@/components/terminal/BuilderFeeApprova
 import { spotBaseSymbol } from "@/lib/hyperliquid/spotDesk";
 import { resolveAssetIndex } from "@/lib/hyperliquid/asset-index";
 import { paperAccountSnapshot, isolatedLiqPx, unrealizedPnl } from "@/lib/execution/paperPnL";
+
+function PaperTpslEditor({
+  coin,
+  entry,
+  size,
+  takeProfitPx,
+  stopLossPx,
+}: {
+  coin: string;
+  entry: number;
+  size: number;
+  takeProfitPx: number | null;
+  stopLossPx: number | null;
+}) {
+  const setPaperTpsl = useDeskExecutionStore((s) => s.setPaperTpsl);
+  const [tp, setTp] = useState(takeProfitPx != null ? String(takeProfitPx) : "");
+  const [sl, setSl] = useState(stopLossPx != null ? String(stopLossPx) : "");
+
+  useEffect(() => {
+    setTp(takeProfitPx != null ? String(takeProfitPx) : "");
+    setSl(stopLossPx != null ? String(stopLossPx) : "");
+  }, [takeProfitPx, stopLossPx]);
+
+  const save = () => {
+    const tpN = Number.parseFloat(tp);
+    const slN = Number.parseFloat(sl);
+    const nextTp = Number.isFinite(tpN) && tpN > 0 ? tpN : null;
+    const nextSl = Number.isFinite(slN) && slN > 0 ? slN : null;
+    const long = size > 0;
+    if (nextTp != null && ((long && nextTp <= entry) || (!long && nextTp >= entry))) return;
+    if (nextSl != null && ((long && nextSl >= entry) || (!long && nextSl <= entry))) return;
+    setPaperTpsl(coin, { takeProfitPx: nextTp, stopLossPx: nextSl });
+  };
+
+  return (
+    <tr className="border-b border-white/5 bg-white/[0.015]">
+      <td colSpan={7} className="px-2 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0 text-[9px] uppercase tracking-wide text-slate-600">TP / SL</span>
+          <input
+            value={tp}
+            onChange={(e) => setTp(e.target.value)}
+            onBlur={save}
+            placeholder="TP"
+            className="h-6 w-24 border-[0.5px] border-slate-800 bg-slate-950 px-1.5 font-mono text-[11px] text-[#00e5ff] outline-none placeholder:text-slate-600"
+          />
+          <input
+            value={sl}
+            onChange={(e) => setSl(e.target.value)}
+            onBlur={save}
+            placeholder="SL"
+            className="h-6 w-24 border-[0.5px] border-slate-800 bg-slate-950 px-1.5 font-mono text-[11px] text-[#ff3366] outline-none placeholder:text-slate-600"
+          />
+          <button
+            type="button"
+            onClick={save}
+            className="h-6 px-2 font-mono text-[9px] uppercase tracking-wide text-[#00e5ff] hover:text-cyan-100"
+          >
+            Set
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function subscribePositions(callback: () => void) {
   return useHyperliquidStore.subscribe((s) => s.positionsVersion, () => callback());
@@ -317,12 +382,26 @@ export function PositionsTable() {
               </tr>
             ) : (
               displayPositions.map((row) => (
-                <PositionRowView
-                  key={row.id}
-                  row={row}
-                  closing={orderPending}
-                  onClose={() => requestClose(row)}
-                />
+                <Fragment key={row.id}>
+                  <PositionRowView
+                    row={row}
+                    closing={orderPending}
+                    onClose={() => requestClose(row)}
+                  />
+                  {deskMode === "paper" ? (
+                    <PaperTpslEditor
+                      coin={row.coin}
+                      entry={row.entryPrice}
+                      size={row.size}
+                      takeProfitPx={
+                        paperPositions.find((p) => p.coin === row.coin)?.takeProfitPx ?? null
+                      }
+                      stopLossPx={
+                        paperPositions.find((p) => p.coin === row.coin)?.stopLossPx ?? null
+                      }
+                    />
+                  ) : null}
+                </Fragment>
               ))
             )}
           </tbody>
