@@ -308,7 +308,7 @@ export function useHyperliquidAuth() {
         oneClickEnabled,
         connectionStatus: terminal.connectionStatus,
         lastMessageAt: terminal.lastMessageAt,
-        markPx: terminal.book?.mid ?? null,
+        markPx: params.markPx ?? terminal.book?.mid ?? null,
         operation: "place_order",
         executionMode,
         builderFeeApproved,

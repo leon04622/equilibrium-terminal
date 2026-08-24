@@ -82,6 +82,7 @@ export function TradeTicket() {
   const withdrawable = useHyperliquidStore((s) => s.withdrawable);
   const orderPending = useHyperliquidStore((s) => s.orderPending);
   const orderError = useHyperliquidStore((s) => s.orderError);
+  const setOrderError = useHyperliquidStore((s) => s.setOrderError);
   const tradeTicketDraft = useHyperliquidStore((s) => s.tradeTicketDraft);
   const spotBalances = useHyperliquidStore((s) => s.spotBalances);
   const connectionStatus = useHyperliquidStore((s) => s.connectionStatus);
@@ -114,9 +115,12 @@ export function TradeTicket() {
   const [stopLossPx, setStopLossPx] = useState("");
   const [tpGain, setTpGain] = useState("");
   const [slLoss, setSlLoss] = useState("");
+  const [usdDraft, setUsdDraft] = useState<string | null>(null);
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [flashSide, setFlashSide] = useState<"buy" | "sell" | null>(null);
-  const [liveConfirm, setLiveConfirm] = useState<"buy" | "sell" | null>(null);
+  const [liveConfirm, setLiveConfirm] = useState<{ side: "buy" | "sell"; size: number } | null>(
+    null,
+  );
 
   const markPx =
     book?.mid ??
@@ -231,7 +235,7 @@ export function TradeTicket() {
     spotBalances,
   ]);
 
-  const maxNotional = side === "buy" ? maxBuy : maxSell;
+  const maxNotional = isSpot ? maxBuy : Math.max(maxBuy, maxSell);
   const szDecimals = selectedAsset?.szDecimals ?? 4;
 
   useEffect(() => {
@@ -253,6 +257,7 @@ export function TradeTicket() {
   useEffect(() => {
     setSizePct(0);
     setSize("");
+    setUsdDraft(null);
     setReduceOnly(false);
     setTpslOn(false);
     setTakeProfitPx("");
@@ -263,13 +268,15 @@ export function TradeTicket() {
 
   useEffect(() => {
     if (sizePct <= 0 || maxNotional <= 0) return;
+    setUsdDraft(null);
     setSize(sizeFromCapitalPct(sizePct, maxNotional, szDecimals));
     // Recalc coin size when the slider or leverage changes — not on every mark tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- maxNotional read at lev/pct/side change
-  }, [leverage, sizePct, szDecimals, side]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- maxNotional read at lev/pct change
+  }, [leverage, sizePct, szDecimals]);
 
   const onCapitalPctChange = useCallback(
     (pct: number) => {
+      setUsdDraft(null);
       setSizePct(pct);
       setSize(sizeFromCapitalPct(pct, maxNotional, szDecimals));
     },
@@ -331,23 +338,37 @@ export function TradeTicket() {
   }, [limitPx, mode, stopLossPx, stopPx, takeProfitPx, tpslOn]);
 
   const submit = useCallback(
-    async (isBuy: boolean) => {
-      if (executionGuard.blocked) return;
-      if (!selectedAsset) return;
+    async (isBuy: boolean, sizeOverride?: number) => {
+      if (executionGuard.blocked) {
+        if (executionGuard.reason) setOrderError(executionGuard.reason);
+        return;
+      }
+      if (!selectedAsset) {
+        setOrderError("Select a market first");
+        return;
+      }
 
       let assetIndex = selectedAsset.assetIndex;
       if (assetIndex === undefined) {
-        try {
-          assetIndex = await resolveAssetIndex(selectedAsset.coin);
-        } catch {
-          return;
+        if (deskMode === "paper") {
+          assetIndex = isSpot ? 10_000 : 0;
+        } else {
+          try {
+            assetIndex = await resolveAssetIndex(selectedAsset.coin);
+          } catch {
+            setOrderError("Unknown asset — cannot route order");
+            return;
+          }
         }
       }
 
-      let sz = parseFloat(size);
+      let sz = sizeOverride ?? parseFloat(size);
       const cap = isBuy ? maxBuy : maxSell;
       if (cap > 0 && sz > cap) sz = Number(cap.toFixed(szDecimals));
-      if (!sz || sz <= 0) return;
+      if (!sz || sz <= 0) {
+        setOrderError("Enter a size or drag the slider, then Buy or Sell");
+        return;
+      }
 
       setLiveConfirm(null);
       setFlashSide(isBuy ? "buy" : "sell");
@@ -359,13 +380,13 @@ export function TradeTicket() {
       const loss = Number.parseFloat(slLoss);
       const tpFromGain =
         tpslOn && markPx && Number.isFinite(gain) && gain > 0
-          ? side === "buy"
+          ? isBuy
             ? markPx * (1 + gain / 100)
             : markPx * (1 - gain / 100)
           : undefined;
       const slFromLoss =
         tpslOn && markPx && Number.isFinite(loss) && loss > 0
-          ? side === "buy"
+          ? isBuy
             ? markPx * (1 - loss / 100)
             : markPx * (1 + loss / 100)
           : undefined;
@@ -404,6 +425,7 @@ export function TradeTicket() {
       deskMode,
       executeOrder,
       executionGuard.blocked,
+      executionGuard.reason,
       isCross,
       isSpot,
       leverage,
@@ -424,7 +446,7 @@ export function TradeTicket() {
       tif,
       tpGain,
       tpslOn,
-      side,
+      setOrderError,
     ],
   );
 
@@ -451,16 +473,37 @@ export function TradeTicket() {
     (deskMode === "live" && preTradeBlock?.severity === "block" && !preTradeBlock.allowed);
 
   const requestSubmit = (isBuy: boolean) => {
-    if (submitBlocked) return;
-    const sz = Number.parseFloat(size);
-    if (!Number.isFinite(sz) || sz <= 0) return;
+    setSide(isBuy ? "buy" : "sell");
+    if (submitBlocked) {
+      if (executionGuard.reason) setOrderError(executionGuard.reason);
+      else if (!orderPending) setOrderError("Cannot submit this order yet");
+      return;
+    }
+    let sz = Number.parseFloat(size);
+    if (!Number.isFinite(sz) || sz <= 0) {
+      if (sizePct > 0 && maxNotional > 0) {
+        sz = maxNotional * (sizePct / 100);
+      } else {
+        setOrderError("Enter a size or drag the slider, then Buy or Sell");
+        return;
+      }
+    }
+    const cap = isBuy ? maxBuy : maxSell;
+    if (cap > 0 && sz > cap) sz = Number(cap.toFixed(szDecimals));
+    if (!sz || sz <= 0) {
+      setOrderError(isBuy ? "Not enough margin to buy" : "Not enough size to sell");
+      return;
+    }
+    setUsdDraft(null);
+    setSize(sz.toFixed(szDecimals));
+    setOrderError(null);
     void (async () => {
       if (deskMode === "live") {
-        if (markPx && selectedAsset && parseFloat(size) > 0) {
+        if (markPx && selectedAsset && sz > 0) {
           const order = {
             coin: selectedAsset.coin,
             side: isBuy ? ("buy" as const) : ("sell" as const),
-            size: parseFloat(size),
+            size: sz,
             markPx,
             leverage,
             isPerp: selectedAsset.market === "perp",
@@ -468,21 +511,20 @@ export function TradeTicket() {
           const check = await evaluatePreTradeWithServer(order, riskLimits);
           if (!check.allowed) return;
         }
-        const side = isBuy ? "buy" : "sell";
-        const proceed = () => setLiveConfirm(side);
         runWithBuilderFee({
           isPerp: selectedAsset?.market === "perp",
           context: "trade",
-          action: proceed,
+          action: () => setLiveConfirm({ side: isBuy ? "buy" : "sell", size: sz }),
         });
         return;
       }
-      void submit(isBuy);
+      void submit(isBuy, sz);
     })();
   };
 
   const onSizeInput = (raw: string) => {
     if (sizeUnit === "usd") {
+      setUsdDraft(raw);
       if (!raw.trim()) {
         setSize("");
         setSizePct(0);
@@ -495,6 +537,7 @@ export function TradeTicket() {
       if (maxNotional > 0) setSizePct(capitalPctFromSize(coin, maxNotional));
       return;
     }
+    setUsdDraft(null);
     setSize(raw);
     const n = Number.parseFloat(raw);
     if (Number.isFinite(n) && n > 0 && maxNotional > 0) {
@@ -506,21 +549,16 @@ export function TradeTicket() {
 
   const sizeFieldValue =
     sizeUnit === "usd"
-      ? sizeOk && markPx
-        ? (sizeNum * markPx).toFixed(2)
-        : ""
+      ? usdDraft != null
+        ? usdDraft
+        : sizeOk && markPx
+          ? (sizeNum * markPx).toFixed(2)
+          : ""
       : size;
 
   const estLiq = side === "buy" ? estLiqLong : estLiqShort;
-  const notEnough = sizeOk && (maxNotional <= 0 || sizeNum > maxNotional + 1e-12);
   const symbol = selectedAsset?.symbol ?? "";
-  const ctaDisabled =
-    submitBlocked || Boolean(liveConfirm) || !sizeOk || notEnough || maxNotional <= 0;
-  const ctaLabel = orderPending
-    ? "Submitting…"
-    : notEnough || (sizeOk && maxNotional <= 0)
-      ? "Not enough margin"
-      : `${side === "buy" ? "Buy" : "Sell"} ${symbol || (isSpot ? "spot" : "perp")}`;
+  const actionBlocked = submitBlocked || Boolean(liveConfirm);
   const posSize =
     existingPaper && Math.abs(existingPaper.size) > 1e-9
       ? `${formatSize(Math.abs(existingPaper.size))} ${symbol}`
@@ -631,35 +669,6 @@ export function TradeTicket() {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-1" data-trade-region="exec-buttons">
-          <button
-            type="button"
-            onClick={() => setSide("buy")}
-            className={cn(
-              "rounded-md py-2.5 text-[13px] font-semibold",
-              side === "buy"
-                ? "bg-[#50d2c1] text-[#0b0e11]"
-                : "border border-[#1e2329] bg-transparent text-[#eee]",
-              flashSide === "buy" && "ring-1 ring-[#50d2c1]",
-            )}
-          >
-            Buy / Long
-          </button>
-          <button
-            type="button"
-            onClick={() => setSide("sell")}
-            className={cn(
-              "rounded-md py-2.5 text-[13px] font-semibold",
-              side === "sell"
-                ? "bg-[#e5484d] text-white"
-                : "border border-[#1e2329] bg-transparent text-[#eee]",
-              flashSide === "sell" && "ring-1 ring-[#e5484d]",
-            )}
-          >
-            Sell / Short
-          </button>
-        </div>
-
         <div className="space-y-1 text-[12px]">
           <div className="flex justify-between text-[#8a9199]">
             <span>Available to Trade</span>
@@ -726,7 +735,10 @@ export function TradeTicket() {
             />
             <button
               type="button"
-              onClick={() => setSizeUnit((u) => (u === "usd" ? "coin" : "usd"))}
+              onClick={() => {
+                setUsdDraft(null);
+                setSizeUnit((u) => (u === "usd" ? "coin" : "usd"));
+              }}
               className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-[12px] text-[#8a9199] hover:text-[#eee]"
             >
               {sizeUnit === "usd" ? "USDC" : symbol || "Coin"}
@@ -741,6 +753,11 @@ export function TradeTicket() {
           maxSize={maxNotional}
           disabled={maxNotional <= 0}
         />
+        {!sizeOk ? (
+          <p className="text-[11px] text-[#5d656f]">
+            Type a size in USDC or drag the slider, then tap Buy or Sell
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#8a9199]">
           <label className="flex cursor-pointer items-center gap-1.5">
@@ -808,10 +825,10 @@ export function TradeTicket() {
         {liveConfirm ? (
           <div className="space-y-2 rounded-md border border-[#e5484d]/40 bg-[#2a0f12] p-3">
             <p className="text-[12px] font-semibold uppercase text-[#e5484d]">
-              Confirm live {liveConfirm} · {symbol}
+              Confirm live {liveConfirm.side} · {symbol}
             </p>
             <p className="text-[12px] text-[#c9cdd3]">
-              {mode.toUpperCase()} {size} @ {markPx !== null ? formatPrice(markPx) : "—"}
+              {mode.toUpperCase()} {liveConfirm.size} @ {markPx !== null ? formatPrice(markPx) : "—"}
               {estNotional
                 ? ` · ≈ $${estNotional.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
                 : ""}
@@ -831,29 +848,55 @@ export function TradeTicket() {
               </button>
               <button
                 type="button"
-                onClick={() => void submit(liveConfirm === "buy")}
+                onClick={() => void submit(liveConfirm.side === "buy", liveConfirm.size)}
                 className={cn(
                   "rounded-md py-2 text-[12px] font-semibold",
-                  liveConfirm === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
+                  liveConfirm.side === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
                 )}
               >
-                Confirm {liveConfirm}
+                Confirm {liveConfirm.side}
               </button>
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            disabled={ctaDisabled}
-            onClick={() => requestSubmit(side === "buy")}
-            className={cn(
-              "w-full rounded-md py-3 text-[14px] font-semibold",
-              side === "buy" ? "bg-[#50d2c1] text-[#0b0e11]" : "bg-[#e5484d] text-white",
-              ctaDisabled && "cursor-not-allowed opacity-40",
-            )}
-          >
-            {orderPending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : ctaLabel}
-          </button>
+          <div className="grid grid-cols-2 gap-1.5" data-trade-region="exec-buttons">
+            <button
+              type="button"
+              disabled={actionBlocked}
+              onMouseEnter={() => setSide("buy")}
+              onClick={() => requestSubmit(true)}
+              className={cn(
+                "rounded-md py-3 text-[13px] font-semibold",
+                "bg-[#50d2c1] text-[#0b0e11]",
+                flashSide === "buy" && "ring-1 ring-[#50d2c1]",
+                actionBlocked && "cursor-not-allowed opacity-40",
+              )}
+            >
+              {orderPending && flashSide === "buy" ? (
+                <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+              ) : (
+                "Buy / Long"
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={actionBlocked}
+              onMouseEnter={() => setSide("sell")}
+              onClick={() => requestSubmit(false)}
+              className={cn(
+                "rounded-md py-3 text-[13px] font-semibold",
+                "bg-[#e5484d] text-white",
+                flashSide === "sell" && "ring-1 ring-[#e5484d]",
+                actionBlocked && "cursor-not-allowed opacity-40",
+              )}
+            >
+              {orderPending && flashSide === "sell" ? (
+                <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+              ) : (
+                "Sell / Short"
+              )}
+            </button>
+          </div>
         )}
 
         {executionGuard.reason ? (
